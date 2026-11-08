@@ -10,11 +10,18 @@ import {
   isAttachmentOnlyBootstrapPrompt,
   replaceComposerContextReferences,
 } from "@t3tools/shared/composerContextReferences";
+<<<<<<< HEAD
 import { composerFileLinksToPlainText } from "@t3tools/shared/composerInlineTokens";
 import {
   parseGoalCommand,
   type ChatAttachment as ContractChatAttachment,
   type EnvironmentId,
+=======
+import {
+  type ChatAttachment as ContractChatAttachment,
+  type EnvironmentId,
+  isCompactionCommandMessage,
+>>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
   type MessageId,
   type RunId,
   type ThreadId,
@@ -322,6 +329,7 @@ export function QueuedRunsControl({
                         </Button>
                       </TooltipTrigger>
                       <TooltipPopup>
+<<<<<<< HEAD
                         {item.serverIndex === 0 && props.steerShortcutLabel
                           ? workflow?.canSendNow
                             ? gt("Start a turn with this message ({shortcut})", {
@@ -342,9 +350,16 @@ export function QueuedRunsControl({
                             ? gt("Start a turn with this message")
                             : workflow?.promoteSkipsCompaction
                               ? gt("Skip compaction and send this message")
+<<<<<<< HEAD
                               : movesCommandFirst
                                 ? gt("Move this command to the front of the queue")
                                 : gt("Send into the current turn")}
+=======
+                              : gt("Send into the current turn")}
+=======
+                        {`${workflow?.canSendNow ? "Start a turn with this message" : workflow?.promoteSkipsCompaction ? "Skip compaction and send this message" : item.message && isCompactionCommandMessage(item.message) ? "Stop the current turn and compact" : "Send into the current turn"}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
+>>>>>>> e101407a5a (feat: queue and steer /compact while a turn runs)
+>>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
                       </TooltipPopup>
                     </Tooltip>
                   </>
