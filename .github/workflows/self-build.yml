@@ -108,7 +108,6 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Apply self-build commits onto the upstream release
         env:
@@ -149,7 +148,7 @@ jobs:
             files="$(printf '%s' "$conflicted" | sort -u | sed '/^$/d')"
             base_branch="upstream/$TAG" head_branch="resolve/$GITHUB_REF_NAME/$TAG"
             git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
-            git push --force origin "upstream-$TAG^{commit}:refs/heads/$base_branch" "HEAD:refs/heads/$head_branch"
+            git -c http.https://github.com/.extraheader= push --force origin "upstream-$TAG^{commit}:refs/heads/$base_branch" "HEAD:refs/heads/$head_branch"
             list="$(printf '%s\n' "$files" | sed 's/^/- `/; s/$/`/')"
             pr="$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$base_branch" --head "$head_branch" \
               --title "Resolve self-build conflicts with $TAG" \
@@ -222,7 +221,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Move the source branch to the resolved result and release it
         env:
@@ -241,5 +239,5 @@ jobs:
             exit 1
           fi
           git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
-          git push --force-with-lease="refs/heads/$source:$source_sha" origin "HEAD:refs/heads/$source"
+          git -c http.https://github.com/.extraheader= push --force-with-lease="refs/heads/$source:$source_sha" origin "HEAD:refs/heads/$source"
           gh workflow run self-build.yml --repo "$GITHUB_REPOSITORY" --ref "$source" -f tag="$tag"
