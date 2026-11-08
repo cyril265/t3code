@@ -11,6 +11,7 @@ import {
   getFallbackThreadIdAfterDelete,
   hasUnseenCompletion,
   selectSidebarInboxThreads,
+  isSidebarThreadUnseen,
   resolveSidebarRowThreadId,
   belongsInSidebarWorkingShelf,
   isSidebarEnvironmentDisconnected,
@@ -916,24 +917,25 @@ describe("selectSidebarInboxThreads", () => {
   const newer = shell("newer", "2026-06-20T02:00:00.000Z", "2026-06-20T00:00:00.000Z");
   const read = shell("read", "2026-06-20T03:00:00.000Z", "2026-06-20T04:00:00.000Z");
 
+  const select = (routeKey: string | null, keepKey: string | null) =>
+    selectSidebarInboxThreads([older, read, newer], {
+      keyOf,
+      unseenKeys: new Set(
+        [older, read, newer]
+          .filter((thread) => isSidebarThreadUnseen(thread, undefined))
+          .map(keyOf),
+      ),
+      routeKey,
+      keepKey,
+    }).map((thread) => thread.id);
+
   it("lists unread finished threads, newest completion first", () => {
-    expect(
-      selectSidebarInboxThreads([older, read, newer], {
-        keyOf,
-        localLastVisitedAtByKey: {},
-        keepKey: null,
-      }).map((thread) => thread.id),
-    ).toEqual(["newer", "older"]);
+    expect(select(null, null)).toEqual(["newer", "older"]);
   });
 
-  it("keeps the opened thread listed until the user moves on", () => {
-    expect(
-      selectSidebarInboxThreads([older, read], {
-        keyOf,
-        localLastVisitedAtByKey: {},
-        keepKey: keyOf(read),
-      }).map((thread) => thread.id),
-    ).toEqual(["read", "older"]);
+  it("leaves out the open thread unless it was opened from the list", () => {
+    expect(select(keyOf(newer), null)).toEqual(["older"]);
+    expect(select(keyOf(read), keyOf(read))).toEqual(["read", "newer", "older"]);
   });
 });
 
