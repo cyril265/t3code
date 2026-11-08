@@ -210,6 +210,7 @@ import {
   sidebarListItemId,
   sidebarThreadKeyAtY,
   sortInboxThreadsByReturn,
+  selectSidebarInboxThreads,
   sortPinnedThreadsForSidebar,
   sortThreadsForSidebar,
   sortWorkingThreadsBySend,
@@ -508,8 +509,24 @@ function useSidebarThreads(input: {
     clockKey: `${nowMinute}:${snoozeWakeClock}:${inboxReturnsVersion}`,
   });
 
-  const { pinnedThreads, activeThreads, workingThreads, snoozedThreads, settledThreads } =
-    partition;
+  const { pinnedThreads, workingThreads, snoozedThreads, settledThreads } = partition;
+  const localLastVisitedAtByKey = useUiStateStore((store) => store.threadLastVisitedAtById);
+  const [inboxKeepKey, setInboxKeepKey] = useState<string | null>(null);
+  const inboxThreads = selectSidebarInboxThreads(partition.activeThreads, {
+    keyOf: threadShellKey,
+    localLastVisitedAtByKey,
+    keepKey: inboxKeepKey,
+  });
+  const nextInboxKeepKey = inboxThreads.some(
+    (thread) => threadShellKey(thread) === routeRowThreadKey,
+  )
+    ? routeRowThreadKey
+    : null;
+  if (nextInboxKeepKey !== inboxKeepKey) setInboxKeepKey(nextInboxKeepKey);
+  const activeThreads =
+    inboxThreads.length === 0
+      ? partition.activeThreads
+      : partition.activeThreads.filter((thread) => !inboxThreads.includes(thread));
   // Older settled threads load in pages; the shelf lists them only as far as they are loaded.
   const olderSettledShelf = useOlderSettledShelf({
     scopes: olderSettledScopes([...serverConfigs.keys()], scopedProjectKeys),
@@ -563,6 +580,7 @@ function useSidebarThreads(input: {
           };
         });
   const orderedThreads = [
+    ...inboxThreads,
     ...pinnedThreads,
     ...(projectFolders === null
       ? activeThreads
@@ -574,6 +592,7 @@ function useSidebarThreads(input: {
   const sectionByThreadKey = new Map<string, SidebarSection>();
   for (const [list, section] of [
     [pinnedThreads, "pinned"],
+    [inboxThreads, "active"],
     [activeThreads, "active"],
     [workingThreads, "working"],
     [snoozedThreads, "snoozed"],
@@ -583,9 +602,12 @@ function useSidebarThreads(input: {
   }
   return {
     ...partition,
+    activeThreads,
+    inboxThreads,
     threads,
     workingShelfEnabled,
     searchableThreads: [
+      ...inboxThreads,
       ...pinnedThreads,
       ...activeThreads,
       ...workingThreads,
@@ -1335,6 +1357,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const {
     workingShelfEnabled,
     pinnedThreads,
+    inboxThreads,
     draggableThreadKeys,
     activeReorderableThreadKeys,
     activeThreads,
@@ -2004,7 +2027,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     // Boring mode keeps a pinned open project or one the user filtered to, so it can start a thread.
     if (
       !hasProjectFolders &&
-      pinnedThreads.length +
+      inboxThreads.length +
+        pinnedThreads.length +
         activeThreads.length +
         workingThreads.length +
         snoozedThreads.length +
@@ -3483,6 +3507,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               onDragOver={handleThreadDragOver}
               onDragEnd={handleThreadDragEnd}
             >
+<<<<<<< HEAD
               <SortableContext items={sortableIds} strategy={sidebarSortingStrategy}>
                 <ul
                   ref={attachTreeRef}
@@ -3527,6 +3552,224 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             renamingThreadKey === threadKey ||
                             !draggableThreadKeys.has(threadKey) ||
                             optimisticDrop !== null
+=======
+              <DndContext
+                sensors={dndSensors}
+                autoScroll={isContextDrag ? false : SIDEBAR_AUTO_SCROLL}
+                collisionDetection={dndCollisionDetection}
+                modifiers={dndModifiers}
+                onDragStart={handleThreadDragStart}
+                onDragOver={handleThreadDragOver}
+                onDragEnd={handleThreadDragEnd}
+              >
+                <SortableContext items={sortableIds} strategy={sidebarSortingStrategy}>
+                  <ul
+                    ref={attachTreeRef}
+                    // Presentation flattens VoiceOver's list interaction boundary while preserving descendant
+                    // controls.
+                    role="presentation"
+                    className={cn(
+                      "relative flex flex-col gap-px",
+                      sidebarListItems.length > 0 && "flex-1",
+                      actionSweep !== null && "**:pointer-events-none",
+                      // Projected rows (two boundary labels, two hints) extend the scroll range; a range that
+                      // shrinks as the target changes clamps scrollTop and flips the target under a still pointer.
+                      dragState !== null &&
+                        "after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-30 after:h-px after:content-['']",
+                    )}
+                  >
+                    {(() => {
+                      const renderThreadRow = (
+                        thread: EnvironmentThreadShell,
+                        section: SidebarSection,
+                        // The tree row of the project folder this row sits in.
+                        folderRow?: string,
+                        inInbox = false,
+                      ) => {
+                        const threadKey = scopedThreadKey(
+                          scopeThreadRef(thread.environmentId, thread.id),
+                        );
+                        const isCard =
+                          section === "active" || section === "pinned" || section === "working";
+                        const rowVariant = folderRow
+                          ? folderRowsMultiline
+                            ? "folder-multiline"
+                            : "folder"
+                          : isCard
+                            ? "card"
+                            : "slim";
+                        return (
+                          <SortableThreadRow
+                            key={threadKey}
+                            sortableId={threadKey}
+                            contextDrag={isContextDrag}
+                            sortableDisabled={
+<<<<<<< HEAD
+=======
+                              inInbox ||
+                              projectFolders !== null ||
+>>>>>>> 9dc5a3fed (feat(web): list finished unread threads at the top of the sidebar)
+                              renamingThreadKey === threadKey ||
+                              !draggableThreadKeys.has(threadKey) ||
+                              optimisticDrop !== null
+                            }
+                            thread={thread}
+                            variant={rowVariant}
+                            navigationParent={
+                              folderRow ??
+                              (section === "working" ||
+                              section === "snoozed" ||
+                              section === "settled"
+                                ? `shelf:${section}`
+                                : undefined)
+                            }
+                            variantAction={
+                              section === "snoozed"
+                                ? "unsnooze"
+                                : section === "settled"
+                                  ? "unsettle"
+                                  : "settle"
+                            }
+                            settlementSupported={serverConfigs.has(thread.environmentId)}
+                            snoozeSupported={serverConfigs.has(thread.environmentId)}
+                            pinningSupported={serverConfigs.has(thread.environmentId)}
+                            isPinned={thread.pinnedAt != null}
+                            dropVerb={
+                              dragState?.activeKey === threadKey
+                                ? resolveSidebarDropVerb(dragState.activeSection, dragTargetSection)
+                                : null
+                            }
+                            dragOverPinned={
+                              dragState?.activeKey === threadKey && dragTargetSection === "pinned"
+                            }
+                            sweepAction={
+                              actionSweep?.keys.has(threadKey) ? actionSweep.action : null
+                            }
+                            snoozeWakeLabelText={
+                              section === "snoozed" && thread.snoozedUntil != null
+                                ? snoozeWakeLabel(
+                                    thread.snoozedUntil,
+                                    { now: new Date().toISOString() },
+                                    messages,
+                                  )
+                                : null
+                            }
+                            wokeAt={threadWokeAt(thread, { now: snoozeNow })}
+                            isActive={routeRowThreadKey === threadKey}
+                            revealRef={
+                              routeRowThreadKey === threadKey ? revealActiveRow : undefined
+                            }
+                            isRouteThread={routeThreadKey === threadKey}
+                            readOpensPullRequestsInRightPanel={readOpensPullRequestsInRightPanel}
+                            jumpLabel={
+                              showJumpHints ? (jumpLabelByKey.get(threadKey) ?? null) : null
+                            }
+                            environmentLabel={
+                              environmentLabelById.get(thread.environmentId) ?? null
+                            }
+                            environmentMachine={
+                              environmentMachineById.get(thread.environmentId) ?? "server"
+                            }
+                            project={
+                              projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ??
+                              null
+                            }
+                            projectDisplayName={
+                              projectDisplayNameByKey.get(
+                                `${thread.environmentId}:${thread.projectId}`,
+                              ) ?? null
+                            }
+                            providerEntryByInstanceId={
+                              providerEntriesByEnvironment.get(thread.environmentId) ??
+                              EMPTY_PROVIDER_ENTRIES
+                            }
+                            timestampFormat={timestampFormat}
+                            onThreadClick={handleThreadClick}
+                            onThreadActivate={navigateToThread}
+                            onStartRename={startThreadRename}
+                            onRenameTitleChange={setRenamingTitle}
+                            onCommitRename={commitThreadRename}
+                            onCancelRename={cancelThreadRename}
+                            isRenaming={renamingThreadKey === threadKey}
+                            renamingTitle={renamingThreadKey === threadKey ? renamingTitle : ""}
+                            onContextMenu={handleThreadContextMenu}
+                            onSettle={attemptSettle}
+                            onActionSweepStart={startActionSweep}
+                            onUnsettle={attemptUnsettle}
+                            onSnooze={attemptSnooze}
+                            onUnsnooze={attemptUnsnooze}
+                            onUnpin={attemptUnpin}
+                            onAcknowledgeWoke={acknowledgeWoke}
+                            onFileDropThreads={handleThreadFileDrop}
+                          />
+                        );
+                      };
+                      const from = isContextDrag ? null : (dragState?.activeSection ?? null);
+                      const items: ReactNode[] = [];
+                      if (inboxThreads.length > 0) {
+                        items.push(
+                          <li
+                            key="inbox-header"
+                            data-thread-selection-safe
+                            data-testid="sidebar-inbox-header"
+                            className="list-none px-2.5 pt-1 pb-0.5 text-xs font-medium text-sidebar-muted-foreground"
+                          >
+                            Done · {inboxThreads.length}
+                          </li>,
+                          ...inboxThreads.map((thread) =>
+                            renderThreadRow(thread, "active", undefined, true),
+                          ),
+                          <li
+                            key="inbox-divider"
+                            aria-hidden
+                            className="mx-2.5 my-1.5 h-px list-none bg-sidebar-border"
+                          />,
+                        );
+                      }
+                      items.push(
+                        <SidebarDraftBlock
+                          key="draft-sessions"
+                          draftIds={draftIds}
+                          routeDraftComposer={routeDraftComposer}
+                          terminalLabels={draftTerminalLabels}
+                          jumpLabelByDraftId={draftJumpLabelById}
+                          projectByKey={projectByKey}
+                          projectDisplayNameByKey={projectDisplayNameByKey}
+                          routeDraftId={routeDraftIdForRows}
+                          onNavigateToDraft={navigateToDraft}
+                          onDraftContextMenu={handleDraftContextMenu}
+                        />,
+                      );
+                      for (const item of sidebarListItems) {
+                        if (item.kind === "thread") {
+                          // Folders draw active rows in their own place below.
+                          if (projectFolders !== null && item.section === "active") continue;
+                          items.push(renderThreadRow(threadByKey.get(item.key)!, item.section));
+                          continue;
+                        }
+                        if (projectFolders !== null && item.marker === "active-placeholder") {
+                          for (const folder of projectFolders) {
+                            items.push(
+                              <SidebarProjectFolderHeader
+                                key={`project-folder:${folder.group.projectKey}`}
+                                group={folder.group}
+                                collapsed={folder.collapsed}
+                                hiddenThreads={folder.hiddenThreads}
+                                onToggle={toggleProjectFolder}
+                                onNewThread={startThreadInProjectFolder}
+                                onContextMenu={handleProjectFolderContextMenu}
+                              />,
+                            );
+                            for (const thread of folder.threads) {
+                              items.push(
+                                renderThreadRow(
+                                  thread,
+                                  "active",
+                                  sidebarFolderRowId(folder.group.projectKey),
+                                ),
+                              );
+                            }
+>>>>>>> ffd541ad6a (feat(web): list finished unread threads at the top of the sidebar)
                           }
                           thread={thread}
                           variant={rowVariant}
