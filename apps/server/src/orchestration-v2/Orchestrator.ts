@@ -660,7 +660,7 @@ function delegatedTasksStopEffect(command: {
 
 const WORKSPACE_PREPARATION_INPUT = "Preparing workspace";
 const RESUME_AFTER_COMPACTION_PROMPT =
-  "Continue where you left off. Your last turn was stopped to compact context, so an action it started may or may not have taken effect. Check before you repeat anything that changes state.";
+  "Continue where you left off. Your last turn was stopped to compact context, so an action it started may or may not have taken effect.";
 const RUNTIME_REQUEST_DELIVERY_FAILED_MESSAGE =
   "T3 Code could not confirm that your answer reached the agent. If the run stays stuck, stop it and try again.";
 
