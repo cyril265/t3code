@@ -7769,7 +7769,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       // that is only finishing or running background work is never stopped.
 =======
     const compaction = isCompactionCommandMessage({ role: "user", ...command });
-    let separateTurnStop: { readonly runId: RunId; readonly reason: string } | undefined;
+    let separateTurnStopRunId: RunId | undefined;
     if (goalCommand !== null || compaction) {
       if (goalCommand !== null) {
         yield* ensureGoalCommandSupported(command, command, modelSelection.instanceId);
@@ -7803,6 +7803,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           !(yield* stopReachedRun(command, command.threadId, target.id))
         ) {
 <<<<<<< HEAD
+<<<<<<< HEAD
           queuedRunStop = { runId: target.id, reason: "Stopped to apply /goal" };
 =======
           separateTurnStop = {
@@ -7810,6 +7811,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             reason: goalCommand === null ? "Stopped to compact context" : "Stopped to apply /goal",
           };
 >>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
+=======
+          separateTurnStopRunId = target.id;
+>>>>>>> f9e4580e5 (refactor: derive the compaction resume from the queued message)
         }
         dispatchMode = { type: "queue_after_active" };
       }
@@ -8344,10 +8348,14 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           : {}),
         queuePosition:
 <<<<<<< HEAD
+<<<<<<< HEAD
           queuedRunStop !== undefined
 =======
           separateTurnStop !== undefined
 >>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
+=======
+          separateTurnStopRunId !== undefined
+>>>>>>> f9e4580e5 (refactor: derive the compaction resume from the queued message)
             ? 1
             : (steerFollowUpQueuePosition ??
               Math.max(
@@ -8534,10 +8542,14 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         });
       }
 <<<<<<< HEAD
+<<<<<<< HEAD
       if (queuedRunStop !== undefined) {
 =======
       if (separateTurnStop !== undefined) {
 >>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
+=======
+      if (separateTurnStopRunId !== undefined) {
+>>>>>>> f9e4580e5 (refactor: derive the compaction resume from the queued message)
         return yield* stopRunForQueuedCommand({
           command,
           events,
@@ -8545,14 +8557,18 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           projection: yield* getProjectionWithPendingEvents(command.threadId, events),
           queuedRunId: runId,
 <<<<<<< HEAD
+<<<<<<< HEAD
           targetRunId: queuedRunStop.runId,
           reason: queuedRunStop.reason,
 =======
           targetRunId: separateTurnStop.runId,
           reason: separateTurnStop.reason,
 >>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
+=======
+          targetRunId: separateTurnStopRunId,
+          reason: compaction ? "Stopped to compact context" : "Stopped to apply /goal",
+>>>>>>> f9e4580e5 (refactor: derive the compaction resume from the queued message)
           now,
-          resumeStoppedTurn: goalCommand === null,
         });
       }
       return;
@@ -12355,7 +12371,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         targetRunId: stops ? target.id : undefined,
         reason: goalCommand === null ? "Stopped to compact context" : "Stopped to apply /goal",
         now,
-        resumeStoppedTurn: goalCommand === null,
       });
     }
     if (
@@ -14711,8 +14726,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       readonly targetRunId: RunId | undefined;
       readonly reason: string;
       readonly now: DateTime.Utc;
-      /** Queue a prompt right behind the queued command that resumes the stopped turn. */
-      readonly resumeStoppedTurn?: boolean;
     }) {
       const { command, events, effects, projection, now, targetRunId } = input;
       const others = queuedRunsInDeliveryOrder(projection).filter(
@@ -14764,9 +14777,15 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       const enqueued = yield* Ref.get(interruptEffects);
       yield* Ref.update(events, (existing) => [...existing, ...written]);
       yield* Ref.update(effects, (existing) => [...existing, ...enqueued]);
+      // A compaction stopped real work, so a prompt behind it resumes that work.
+      const queuedRun = projection.runs.find((run) => run.id === input.queuedRunId);
+      const queuedMessage = projection.messages.find(
+        (message) => message.id === queuedRun?.userMessageId,
+      );
       const stoppedRun = projection.runs.find((run) => run.id === targetRunId);
       if (
-        input.resumeStoppedTurn === true &&
+        queuedMessage !== undefined &&
+        isCompactionCommandMessage(queuedMessage) &&
         stoppedRun !== undefined &&
         projection.providerTurns.some(
           (turn) => turn.runAttemptId === stoppedRun.activeAttemptId && turn.status === "running",
