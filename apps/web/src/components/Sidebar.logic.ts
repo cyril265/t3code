@@ -706,26 +706,31 @@ export function hasUnseenCompletion(thread: ThreadStatusInput): boolean {
   return completedAt > lastVisitedAt;
 }
 
+export function isSidebarThreadUnseen(
+  thread: ThreadStatusInput,
+  localLastVisitedAt: string | undefined,
+): boolean {
+  const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
+  return hasUnseenCompletion({ ...thread, lastVisitedAt });
+}
+
 /**
- * Finished threads the user has not opened since, newest completion first.
- * `keepKey` stays listed after it is opened, so the clicked row holds still until the user moves on.
+ * Finished threads the user has not opened since, newest completion first. The open thread is
+ * left out, except `keepKey`: a thread opened while listed stays put until the user moves on.
  */
 export function selectSidebarInboxThreads<T extends ThreadStatusInput>(
   threads: readonly T[],
   input: {
     readonly keyOf: (thread: T) => string;
-    readonly localLastVisitedAtByKey: Readonly<Record<string, string>>;
+    readonly unseenKeys: ReadonlySet<string>;
+    readonly routeKey: string | null;
     readonly keepKey: string | null;
   },
 ): T[] {
   const inbox = threads.filter((thread) => {
     const key = input.keyOf(thread);
     if (key === input.keepKey) return true;
-    const lastVisitedAt = resolveThreadLastVisitedAt(
-      thread.lastVisitedAt,
-      input.localLastVisitedAtByKey[key],
-    );
-    return hasUnseenCompletion({ ...thread, lastVisitedAt });
+    return key !== input.routeKey && input.unseenKeys.has(key);
   });
   const completedAtMs = (thread: T) => Date.parse(thread.latestRun?.completedAt ?? "") || 0;
   return inbox.toSorted((left, right) => completedAtMs(right) - completedAtMs(left));

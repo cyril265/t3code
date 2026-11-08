@@ -207,6 +207,7 @@ import {
   sidebarThreadKeyAtY,
   sortInboxThreadsByReturn,
   selectSidebarInboxThreads,
+  isSidebarThreadUnseen,
   sortPinnedThreadsForSidebar,
   sortThreadsForSidebar,
   sortWorkingThreadsBySend,
@@ -490,19 +491,36 @@ function useSidebarThreads(input: {
   });
 
   const { pinnedThreads, workingThreads, snoozedThreads, settledThreads } = partition;
-  const localLastVisitedAtByKey = useUiStateStore((store) => store.threadLastVisitedAtById);
-  const [inboxKeepKey, setInboxKeepKey] = useState<string | null>(null);
+  // A joined string, so visit timestamps that advance during streaming rerender only on membership changes.
+  const unseenKeysJoined = useUiStateStore((store) =>
+    partition.activeThreads
+      .filter((thread) =>
+        isSidebarThreadUnseen(thread, store.threadLastVisitedAtById[threadShellKey(thread)]),
+      )
+      .map(threadShellKey)
+      .join("\n"),
+  );
+  const unseenKeys = new Set(unseenKeysJoined === "" ? [] : unseenKeysJoined.split("\n"));
+  // Only navigating into a listed thread keeps it; a run finishing in the open thread does not.
+  const [inboxRoute, setInboxRoute] = useState({
+    routeKey: routeRowThreadKey,
+    keepKey: null as string | null,
+  });
+  const inboxKeepKey =
+    inboxRoute.routeKey === routeRowThreadKey
+      ? inboxRoute.keepKey
+      : routeRowThreadKey !== null && unseenKeys.has(routeRowThreadKey)
+        ? routeRowThreadKey
+        : null;
+  if (inboxRoute.routeKey !== routeRowThreadKey) {
+    setInboxRoute({ routeKey: routeRowThreadKey, keepKey: inboxKeepKey });
+  }
   const inboxThreads = selectSidebarInboxThreads(partition.activeThreads, {
     keyOf: threadShellKey,
-    localLastVisitedAtByKey,
+    unseenKeys,
+    routeKey: routeRowThreadKey,
     keepKey: inboxKeepKey,
   });
-  const nextInboxKeepKey = inboxThreads.some(
-    (thread) => threadShellKey(thread) === routeRowThreadKey,
-  )
-    ? routeRowThreadKey
-    : null;
-  if (nextInboxKeepKey !== inboxKeepKey) setInboxKeepKey(nextInboxKeepKey);
   const activeThreads =
     inboxThreads.length === 0
       ? partition.activeThreads
@@ -3698,7 +3716,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           {!isSearchingThreads &&
           !hasProjectFolders &&
           visibleDraftSessionCount === 0 &&
-          pinnedThreads.length +
+          inboxThreads.length +
+            pinnedThreads.length +
             activeThreads.length +
             workingThreads.length +
             snoozedThreads.length +
