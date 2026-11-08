@@ -1539,10 +1539,14 @@ const goalHarness = Effect.fn("goalHarness")(function* (name: string) {
   const read = (threadId: ThreadId) =>
     Effect.gen(function* () {
       const projection = yield* (yield* Orchestrator.OrchestratorV2).getThreadProjection(threadId);
-      const textOf = (run: (typeof projection.runs)[number]) =>
-        run.userMessageId.startsWith("resume-after-compaction:")
+      const textOf = (run: (typeof projection.runs)[number]) => {
+        const message = projection.messages.find((candidate) => candidate.id === run.userMessageId);
+        return message?.createdBy === "agent" &&
+          message.creationSource === "server" &&
+          message.text.startsWith("Continue where you left off")
           ? "(resume)"
-          : projection.messages.find((message) => message.id === run.userMessageId)?.text;
+          : message?.text;
+      };
       return {
         queue: projection.runs
           .filter((run) => run.status === "queued")
@@ -1596,7 +1600,7 @@ it.effect.each([
             started: ["first", text],
             stopRequested: true,
           });
-          if (text !== "/compact") return;
+          if (delivery !== "steer") return;
 
           const compaction = started[1]!;
           const settled = yield* orchestrator.streamDomainEvents.pipe(
