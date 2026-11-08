@@ -11,6 +11,11 @@ import {
   deleteSelectedThreadEntries,
   getFallbackThreadIdAfterDelete,
   hasUnseenCompletion,
+<<<<<<< HEAD
+=======
+  selectSidebarInboxThreads,
+  resolveSidebarRowThreadId,
+>>>>>>> 1ebca2b0e3 (feat(web): list finished unread threads at the top of the sidebar)
   orderItemsByPreferredIds,
   pinOrderKeyBetween,
   resolveSidebarSweepKeys,
@@ -951,6 +956,42 @@ describe("navigation after parking a thread", () => {
       ).toBe(expected);
     },
   );
+});
+
+describe("selectSidebarInboxThreads", () => {
+  const shell = (id: string, completedAt: string, lastVisitedAt: string | null) =>
+    presentThreadShell(localEnvironmentId, {
+      ...makeThreadFixture({ id: ThreadId.make(id) }).source,
+      latestRunId: RunId.make(`run-${id}`),
+      status: "completed",
+      latestRunCompletedAt: DateTime.makeUnsafe(completedAt),
+      lastVisitedAt: lastVisitedAt === null ? null : DateTime.makeUnsafe(lastVisitedAt),
+    });
+  const keyOf = (thread: { environmentId: EnvironmentId; id: ThreadId }) =>
+    scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+  const older = shell("older", "2026-06-20T01:00:00.000Z", "2026-06-20T00:00:00.000Z");
+  const newer = shell("newer", "2026-06-20T02:00:00.000Z", "2026-06-20T00:00:00.000Z");
+  const read = shell("read", "2026-06-20T03:00:00.000Z", "2026-06-20T04:00:00.000Z");
+
+  it("lists unread finished threads, newest completion first", () => {
+    expect(
+      selectSidebarInboxThreads([older, read, newer], {
+        keyOf,
+        localLastVisitedAtByKey: {},
+        keepKey: null,
+      }).map((thread) => thread.id),
+    ).toEqual(["newer", "older"]);
+  });
+
+  it("keeps the opened thread listed until the user moves on", () => {
+    expect(
+      selectSidebarInboxThreads([older, read], {
+        keyOf,
+        localLastVisitedAtByKey: {},
+        keepKey: keyOf(read),
+      }).map((thread) => thread.id),
+    ).toEqual(["read", "older"]);
+  });
 });
 
 describe("unseen completion with background work", () => {
