@@ -17,8 +17,9 @@ on:
     types: [closed]
     branches: ["upstream/**"]
 
+# Adoption runs apart, so a queued schedule tick can never replace a pending merge.
 concurrency:
-  group: self-build
+  group: ${{ github.event_name == 'pull_request' && 'self-build-adopt' || 'self-build' }}
   cancel-in-progress: false
 
 permissions:
@@ -69,7 +70,8 @@ jobs:
             fi
           done
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if [[ -n "$(gh pr list --repo "$GITHUB_REPOSITORY" --head "resolve/$GITHUB_REF_NAME/$tag" --state open --json number --jq '.[].number')" ]]; then
+          open_pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "resolve/$GITHUB_REF_NAME/$tag" --state open --json number --jq '.[].number')"
+          if [[ -n "$open_pr" ]]; then
             echo "build=false" >> "$GITHUB_OUTPUT"
             echo "$tag waits for its conflict-resolution PR (resolve/$GITHUB_REF_NAME/$tag)"
             exit 0
@@ -120,11 +122,26 @@ jobs:
           git config user.email self-build@localhost
           source_sha="$(git rev-parse HEAD)"
           if ! git rebase --onto "upstream-$TAG" "$base"; then
-            conflicted=""
+            conflicted="" unsupported="" steps=0
             while [[ -d .git/rebase-merge || -d .git/rebase-apply ]]; do
-              conflicted+="$(git diff --name-only --diff-filter=U)"$'\n'
+              if (( ++steps > 500 )); then echo "::error::Rebase did not finish" >&2; exit 1; fi
+              while IFS= read -r -d '' entry; do
+                code="${entry:0:2}" path="${entry:3}"
+                if [[ "$code" == UU || "$code" == AA ]] && grep -qE '^<<<<<<< ' -- "$path"; then
+                  conflicted+="$path"$'\n'
+                else
+                  unsupported+="$code $path"$'\n'
+                fi
+              done < <(git status --porcelain=v1 -z | grep -zE '^(DD|AU|UD|UA|DU|AA|UU) ')
+              if [[ -n "$unsupported" ]]; then
+                git rebase --abort
+                echo "::error::Conflicts without text markers (binary, delete or rename) need a manual fix: ${unsupported//$'\n'/; }" >&2
+                exit 1
+              fi
               git add -A
-              git -c core.editor=true rebase --continue || true
+              if ! git -c core.editor=true rebase --continue && [[ -z "$(git diff --name-only --diff-filter=U)" ]]; then
+                git rebase --skip || true
+              fi
             done
             files="$(printf '%s' "$conflicted" | sort -u | sed '/^$/d')"
             base_branch="upstream/$TAG" head_branch="resolve/$GITHUB_REF_NAME/$TAG"
@@ -206,18 +223,20 @@ jobs:
 
       - name: Move the source branch to the resolved result and release it
         env:
-          GH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
+          PUSH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           rest="${HEAD_REF#resolve/}" tag="${HEAD_REF##*/}"
           source="${rest%/*}"
           source_sha="$(grep -oE 'source-sha: [0-9a-f]{40}' <<<"$PR_BODY" | cut -d' ' -f2)"
-          mapfile -t changed < <(git diff --name-only --diff-filter=d HEAD^1 HEAD)
-          if (( ${#changed[@]} )) && git grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- "${changed[@]}"; then
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git "refs/tags/$tag:refs/tags/upstream-$tag"
+          added_markers="$(git diff "upstream-$tag" HEAD | grep -E '^\+(<<<<<<<|>>>>>>>)( |$)' || true)"
+          if [[ -n "$added_markers" ]]; then
             echo "::error::Conflict markers are still in the merged result" >&2
             exit 1
           fi
-          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
           git push --force-with-lease="refs/heads/$source:$source_sha" origin "HEAD:refs/heads/$source"
           gh workflow run self-build.yml --repo "$GITHUB_REPOSITORY" --ref "$source" -f tag="$tag" -f release=true
