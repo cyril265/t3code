@@ -429,7 +429,7 @@ export interface ChatComposerProps {
   contextWindowEntries: Parameters<typeof deriveLatestContextWindowSnapshot>[0];
   contextWindowLiveUsage: Parameters<typeof deriveLatestContextWindowSnapshot>[1];
   contextWindowProviderThread: Parameters<typeof deriveLatestContextWindowSnapshot>[2];
-  compactThreadUnavailable: boolean;
+  compactCommandUnavailable: boolean;
   compactDisabled: boolean;
   compactDisabledReason: string | null;
 
@@ -555,7 +555,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     contextWindowEntries,
     contextWindowLiveUsage,
     contextWindowProviderThread,
-    compactThreadUnavailable,
+    compactCommandUnavailable,
     compactDisabled,
     compactDisabledReason,
     resolvedTheme,
@@ -1127,7 +1127,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const compactSlashCommandAvailable =
     composerTrigger?.kind === "slash-command" &&
     prompt.slice(0, composerTrigger.rangeStart).trim() === "" &&
-    !compactThreadUnavailable &&
+    !compactCommandUnavailable &&
     prompt.slice(composerTrigger.rangeEnd).trim() === "" &&
     composerImages.length + composerFiles.length === 0 &&
     composerDraft.persistedAttachments.length === 0 &&
