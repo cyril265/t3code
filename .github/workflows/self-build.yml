@@ -12,12 +12,8 @@ on:
         description: Publish a new build even if this upstream release is already built (ships new commits on this branch)
         type: boolean
         default: false
-  # A merged conflict-resolution PR moves its source branch to the result and releases it.
-  pull_request:
-    types: [closed]
-    branches: ["upstream/**"]
 
-# One queue for builds and adoptions; queue: max keeps every pending run instead of only the newest.
+# queue: max keeps every pending run; runs share the branch and the Codex login, so they go one at a time.
 concurrency:
   group: self-build
   cancel-in-progress: false
@@ -26,7 +22,6 @@ concurrency:
 permissions:
   contents: write
   actions: write
-  pull-requests: read
 
 defaults:
   run:
@@ -34,7 +29,6 @@ defaults:
 
 jobs:
   resolve:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -71,12 +65,6 @@ jobs:
             fi
           done
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          open_pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "resolve/$GITHUB_REF_NAME/$tag" --state open --json number --jq '.[].number')"
-          if [[ -n "$open_pr" ]]; then
-            echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "$tag waits for its conflict-resolution PR (resolve/$GITHUB_REF_NAME/$tag)"
-            exit 0
-          fi
           echo "latest=$([[ "$tag" == "$upstream_latest" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           if (( last >= 0 )) && [[ "$RELEASE" != "true" ]]; then
             echo "build=false" >> "$GITHUB_OUTPUT"
@@ -103,15 +91,13 @@ jobs:
       LATEST: ${{ needs.resolve.outputs.latest }}
       T3_SELF_SIGN_IDENTITY: ${{ vars.SELF_SIGN_IDENTITY }}
     steps:
-      # The branch tip, not the queued event's SHA: an adoption may have moved it meanwhile.
+      # The branch tip, not the queued event's SHA: an earlier run may have pushed a resolution.
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Apply self-build commits onto the upstream release
-        env:
-          GH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
         run: |
           git remote add upstream https://github.com/pingdotgg/t3code.git
           git fetch --no-tags upstream main "refs/tags/$TAG:refs/tags/upstream-$TAG"
@@ -122,7 +108,7 @@ jobs:
           fi
           git config user.name self-build
           git config user.email self-build@localhost
-          source_sha="$(git rev-parse HEAD)"
+          echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           if ! git rebase --onto "upstream-$TAG" "$base"; then
             conflicted="" unsupported="" steps=0
             while [[ -d .git/rebase-merge || -d .git/rebase-apply ]]; do
@@ -145,30 +131,63 @@ jobs:
                 git rebase --skip || true
               fi
             done
-            files="$(printf '%s' "$conflicted" | sort -u | sed '/^$/d')"
-            base_branch="upstream/$TAG" head_branch="resolve/$GITHUB_REF_NAME/$TAG"
-            git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
-            git -c http.https://github.com/.extraheader= push --force origin "upstream-$TAG^{commit}:refs/heads/$base_branch" "HEAD:refs/heads/$head_branch"
-            list="$(printf '%s\n' "$files" | sed 's/^/- `/; s/$/`/')"
-            pr="$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$base_branch" --head "$head_branch" \
-              --title "Resolve self-build conflicts with $TAG" \
-              --body "$(printf '%s\n\n%s\n\n%s\n' \
-                "Rebasing \`$GITHUB_REF_NAME\` onto pingdotgg/t3code $TAG conflicted. The conflict markers are committed as-is in:" \
-                "$list" \
-                "Merging this PR moves \`$GITHUB_REF_NAME\` to the result and publishes a release. source-sha: $source_sha")")"
-            gh pr comment "$pr" --body "$(printf '%s\n\n%s\n\n%s\n' \
-              "@codex This branch is T3 Code $TAG with this fork's own commits rebased on top (self-signed macOS build, the self-build workflow, the sidebar Done block). The rebase conflicted and the conflict markers were committed as-is in:" \
-              "$list" \
-              "Resolve every conflict marker in those files so T3's $TAG changes and this fork's changes both keep working. Change nothing else. Then run the type check and the tests next to the files you changed, as AGENTS.md describes, and push the fix to this pull request's branch.")"
-            echo "::error::Rebase onto $TAG conflicted in: ${files//$'\n'/ }. Opened $pr for @codex."
-            exit 1
+            printf '%s' "$conflicted" | sort -u | sed '/^$/d' > "$RUNNER_TEMP/conflicts.txt"
+            echo "CONFLICTS=true" >> "$GITHUB_ENV"
+            echo "::warning::Rebase onto $TAG conflicted in: $(tr '\n' ' ' < "$RUNNER_TEMP/conflicts.txt")"
           fi
           echo "UPSTREAM_SHA=$(git rev-parse "upstream-$TAG")" >> "$GITHUB_ENV"
           git log --oneline "upstream-$TAG..HEAD"
 
+      # Runs as the owner's ChatGPT account. The login is refreshed by Codex and saved back after every run.
+      - name: Resolve conflicts with Codex
+        if: env.CONFLICTS == 'true'
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          GH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
+          CODEX_MODEL: ${{ vars.CODEX_MODEL || 'gpt-6.1-sol' }}
+        run: |
+          npm install -g @openai/codex@0.167.0 >/dev/null
+          export CODEX_HOME="$RUNNER_TEMP/codex-home"
+          mkdir -m 700 "$CODEX_HOME"
+          printf 'cli_auth_credentials_store = "file"\n' > "$CODEX_HOME/config.toml"
+          base64 --decode <<<"$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
+          for token in $(jq -r '.tokens | .access_token, .refresh_token, .id_token' "$CODEX_HOME/auth.json"); do
+            echo "::add-mask::$token"
+          done
+          save_login() {
+            if ! cmp -s <(base64 < "$CODEX_HOME/auth.json" | tr -d '\n') <(printf '%s' "$CODEX_AUTH_JSON"); then
+              base64 < "$CODEX_HOME/auth.json" | tr -d '\n' | gh secret set CODEX_AUTH_JSON --repo "$GITHUB_REPOSITORY"
+            fi
+            rm -f "$CODEX_HOME/auth.json"
+          }
+          trap save_login EXIT
+          {
+            echo "This repository is T3 Code $TAG with this fork's own commits rebased on top (self-signed macOS build, the self-build workflow, the sidebar Done block)."
+            echo "The rebase conflicted and the conflict markers were committed as-is in these files:"
+            sed 's/^/- /' "$RUNNER_TEMP/conflicts.txt"
+            echo
+            echo "Resolve every conflict marker in those files so T3's $TAG changes and this fork's changes both keep working."
+            echo "Change nothing else, and do not commit: leave the edits in the working tree."
+          } > "$RUNNER_TEMP/codex-prompt.md"
+          codex exec --model "$CODEX_MODEL" -c model_reasoning_effort=high --sandbox workspace-write \
+            --ephemeral --output-last-message "$RUNNER_TEMP/codex-summary.md" - < "$RUNNER_TEMP/codex-prompt.md"
+          { echo "### Codex conflict resolution"; cat "$RUNNER_TEMP/codex-summary.md"; } >> "$GITHUB_STEP_SUMMARY"
+          mapfile -t files < "$RUNNER_TEMP/conflicts.txt"
+          if grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- "${files[@]}"; then
+            echo "::error::Codex left conflict markers" >&2
+            exit 1
+          fi
+          git add -A
+          git commit -m "fix: resolve conflicts with pingdotgg/t3code $TAG" -m "Resolved by Codex ($CODEX_MODEL) in the self-build workflow."
+
       - uses: ./.github/actions/setup-ci-deps
         with:
           install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
+
+      - name: Type check Codex's resolution
+        if: env.CONFLICTS == 'true'
+        run: vp run --filter "@t3tools/desktop..." --filter "t3..." typecheck
 
       - name: Import signing certificate
         env:
@@ -203,6 +222,15 @@ jobs:
           codesign -d -r- "$app" | grep -F "certificate leaf = H\"$(echo "$T3_SELF_SIGN_IDENTITY" | tr 'A-F' 'a-f')\""
           grep -F "repo: ${GITHUB_REPOSITORY#*/}" "$app/Contents/Resources/app-update.yml"
 
+      - name: Push the resolved branch
+        if: env.CONFLICTS == 'true'
+        env:
+          PUSH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
+        run: |
+          git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git -c http.https://github.com/.extraheader= push \
+            --force-with-lease="refs/heads/$GITHUB_REF_NAME:$SOURCE_SHA" origin "HEAD:refs/heads/$GITHUB_REF_NAME"
+
       - name: Publish release
         if: github.ref_name == github.event.repository.default_branch
         env:
@@ -213,31 +241,3 @@ jobs:
             --notes "pingdotgg/t3code $TAG ($UPSTREAM_SHA) with the self-build commits from $GITHUB_REF_NAME." \
             "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP"/release/*.zip.blockmap "$RUNNER_TEMP"/release/latest-mac.yml
 
-  adopt:
-    if: github.event_name == 'pull_request' && github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'resolve/')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 0
-
-      - name: Move the source branch to the resolved result and release it
-        env:
-          PUSH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
-          GH_TOKEN: ${{ github.token }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          rest="${HEAD_REF#resolve/}" tag="${HEAD_REF##*/}"
-          source="${rest%/*}"
-          source_sha="$(grep -oE 'source-sha: [0-9a-f]{40}' <<<"$PR_BODY" | cut -d' ' -f2)"
-          git fetch --no-tags https://github.com/pingdotgg/t3code.git "refs/tags/$tag:refs/tags/upstream-$tag"
-          added_markers="$(git diff "upstream-$tag" HEAD | grep -E '^\+(<<<<<<<|>>>>>>>)( |$)' || true)"
-          if [[ -n "$added_markers" ]]; then
-            echo "::error::Conflict markers are still in the merged result" >&2
-            exit 1
-          fi
-          git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
-          git -c http.https://github.com/.extraheader= push --force-with-lease="refs/heads/$source:$source_sha" origin "HEAD:refs/heads/$source"
-          gh workflow run self-build.yml --repo "$GITHUB_REPOSITORY" --ref "$source" -f tag="$tag"
