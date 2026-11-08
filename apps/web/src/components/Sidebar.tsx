@@ -211,6 +211,7 @@ import {
   sidebarThreadKeyAtY,
   sortInboxThreadsByReturn,
   selectSidebarInboxThreads,
+  isSidebarThreadUnseen,
   sortPinnedThreadsForSidebar,
   sortThreadsForSidebar,
   sortWorkingThreadsBySend,
@@ -510,19 +511,36 @@ function useSidebarThreads(input: {
   });
 
   const { pinnedThreads, workingThreads, snoozedThreads, settledThreads } = partition;
-  const localLastVisitedAtByKey = useUiStateStore((store) => store.threadLastVisitedAtById);
-  const [inboxKeepKey, setInboxKeepKey] = useState<string | null>(null);
+  // A joined string, so visit timestamps that advance during streaming rerender only on membership changes.
+  const unseenKeysJoined = useUiStateStore((store) =>
+    partition.activeThreads
+      .filter((thread) =>
+        isSidebarThreadUnseen(thread, store.threadLastVisitedAtById[threadShellKey(thread)]),
+      )
+      .map(threadShellKey)
+      .join("\n"),
+  );
+  const unseenKeys = new Set(unseenKeysJoined === "" ? [] : unseenKeysJoined.split("\n"));
+  // Only navigating into a listed thread keeps it; a run finishing in the open thread does not.
+  const [inboxRoute, setInboxRoute] = useState({
+    routeKey: routeRowThreadKey,
+    keepKey: null as string | null,
+  });
+  const inboxKeepKey =
+    inboxRoute.routeKey === routeRowThreadKey
+      ? inboxRoute.keepKey
+      : routeRowThreadKey !== null && unseenKeys.has(routeRowThreadKey)
+        ? routeRowThreadKey
+        : null;
+  if (inboxRoute.routeKey !== routeRowThreadKey) {
+    setInboxRoute({ routeKey: routeRowThreadKey, keepKey: inboxKeepKey });
+  }
   const inboxThreads = selectSidebarInboxThreads(partition.activeThreads, {
     keyOf: threadShellKey,
-    localLastVisitedAtByKey,
+    unseenKeys,
+    routeKey: routeRowThreadKey,
     keepKey: inboxKeepKey,
   });
-  const nextInboxKeepKey = inboxThreads.some(
-    (thread) => threadShellKey(thread) === routeRowThreadKey,
-  )
-    ? routeRowThreadKey
-    : null;
-  if (nextInboxKeepKey !== inboxKeepKey) setInboxKeepKey(nextInboxKeepKey);
   const activeThreads =
     inboxThreads.length === 0
       ? partition.activeThreads
@@ -4043,6 +4061,41 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               </SortableContext>
             </DndContext>
           ) : null}
+<<<<<<< HEAD
+=======
+          {!isSearchingThreads &&
+          !hasProjectFolders &&
+          visibleDraftSessionCount === 0 &&
+          inboxThreads.length +
+            pinnedThreads.length +
+            activeThreads.length +
+            workingThreads.length +
+            snoozedThreads.length +
+            settledCount ===
+            0 ? (
+            <div className="flex flex-col items-center gap-2 px-2 py-6 text-center text-xs text-muted-foreground/60">
+              {projects.length === 0 ? (
+                <>
+                  <span>No projects yet</span>
+                  <button
+                    type="button"
+                    onClick={openAddProjectCommandPalette}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-sidebar-border px-2.5 py-1 text-2xs font-medium text-sidebar-muted-foreground transition-colors hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+                  >
+                    <PlusIcon className="-mx-0.5 size-3" />
+                    Add project
+                  </button>
+                </>
+              ) : scopedProjectGroups.length > 1 ? (
+                "No threads in these projects yet"
+              ) : scopedProjectGroups[0] ? (
+                `No threads in ${scopedProjectGroups[0].displayName} yet`
+              ) : (
+                "No threads yet"
+              )}
+            </div>
+          ) : null}
+>>>>>>> 24ded0bf72 (fix(web): keep the Done block steady while streaming and for the open thread)
         </SidebarGroup>
       </SidebarContent>
       <SidebarChromeFooter />
