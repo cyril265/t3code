@@ -24,6 +24,7 @@ import {
   type Modifier,
 } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
+import { useShallow } from "zustand/react/shallow";
 import { restrictToFirstScrollableAncestor, restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   canSnooze,
@@ -206,8 +207,9 @@ import {
   sidebarListItemId,
   sidebarThreadKeyAtY,
   sortInboxThreadsByReturn,
-  selectSidebarInboxThreads,
-  isSidebarThreadUnseen,
+  splitSidebarInboxThreads,
+  hasUnseenCompletion,
+  resolveThreadLastVisitedAt,
   sortPinnedThreadsForSidebar,
   sortThreadsForSidebar,
   sortWorkingThreadsBySend,
@@ -508,42 +510,51 @@ function useSidebarThreads(input: {
   });
 
   const { pinnedThreads, workingThreads, snoozedThreads, settledThreads } = partition;
-  // A joined string, so visit timestamps that advance during streaming rerender only on membership changes.
-  const unseenKeysJoined = useUiStateStore((store) =>
-    partition.activeThreads
-      .filter((thread) =>
-        isSidebarThreadUnseen(thread, store.threadLastVisitedAtById[threadShellKey(thread)]),
-      )
-      .map(threadShellKey)
-      .join("\n"),
+  // Shallow-compared keys, so visit timestamps that advance while streaming rerender only on change.
+  const unseenKeys = new Set(
+    useUiStateStore(
+      useShallow((store) =>
+        partition.activeThreads
+          .filter((thread) =>
+            hasUnseenCompletion({
+              ...thread,
+              lastVisitedAt: resolveThreadLastVisitedAt(
+                thread.lastVisitedAt,
+                store.threadLastVisitedAtById[threadShellKey(thread)],
+              ),
+            }),
+          )
+          .map(threadShellKey),
+      ),
+    ),
   );
-  const unseenKeys = new Set(unseenKeysJoined === "" ? [] : unseenKeysJoined.split("\n"));
-  // Only navigating into a listed thread keeps it; a run finishing in the open thread does not.
+  // Only navigating into a listed thread keeps it, and only until its next run starts.
+  const routeThread =
+    routeThreadKey === null
+      ? undefined
+      : partition.activeThreads.find((thread) => threadShellKey(thread) === routeThreadKey);
   const [inboxRoute, setInboxRoute] = useState({
     routeKey: routeThreadKey,
-    keepKey: null as string | null,
+    keepRunId: null as string | null,
   });
-  const inboxKeepKey =
-    inboxRoute.routeKey !== routeThreadKey
-      ? routeThreadKey !== null && unseenKeys.has(routeThreadKey)
-        ? routeThreadKey
-        : null
-      : partition.activeThreads.some((thread) => threadShellKey(thread) === inboxRoute.keepKey)
-        ? inboxRoute.keepKey
+  const keepRunId =
+    inboxRoute.routeKey === routeThreadKey
+      ? inboxRoute.keepRunId
+      : routeThreadKey !== null && unseenKeys.has(routeThreadKey)
+        ? (routeThread?.latestRun?.runId ?? null)
         : null;
-  if (inboxRoute.routeKey !== routeThreadKey || inboxRoute.keepKey !== inboxKeepKey) {
-    setInboxRoute({ routeKey: routeThreadKey, keepKey: inboxKeepKey });
+  if (inboxRoute.routeKey !== routeThreadKey) {
+    setInboxRoute({ routeKey: routeThreadKey, keepRunId });
   }
-  const inboxThreads = selectSidebarInboxThreads(partition.activeThreads, {
-    keyOf: threadShellKey,
-    unseenKeys,
-    routeKey: routeThreadKey,
-    keepKey: inboxKeepKey,
-  });
-  const activeThreads =
-    inboxThreads.length === 0
-      ? partition.activeThreads
-      : partition.activeThreads.filter((thread) => !inboxThreads.includes(thread));
+  const { inbox: inboxThreads, rest: activeThreads } = splitSidebarInboxThreads(
+    partition.activeThreads,
+    {
+      keyOf: threadShellKey,
+      unseenKeys,
+      routeKey: routeThreadKey,
+      keepRoute: keepRunId !== null && routeThread?.latestRun?.runId === keepRunId,
+    },
+  );
   // Older settled threads load in pages; the shelf lists them only as far as they are loaded.
   const olderSettledShelf = useOlderSettledShelf({
     scopes: olderSettledScopes([...serverConfigs.keys()], scopedProjectKeys),
