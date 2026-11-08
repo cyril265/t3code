@@ -12,7 +12,11 @@ export function FoldedSettingsSection({
   summary,
   control,
   headerPlacement = "inside",
+<<<<<<< HEAD
   collapsedContent,
+=======
+  defaultOpen = false,
+>>>>>>> 293f1d5ff (test: let folded settings sections start open (deliberate conflict with v0.1.7))
   children,
 }: {
   readonly id: string;
@@ -20,11 +24,16 @@ export function FoldedSettingsSection({
   readonly summary?: string | null;
   readonly control?: ReactNode;
   readonly headerPlacement?: "inside" | "outside";
+<<<<<<< HEAD
   /** Shown under the header only while folded. */
   readonly collapsedContent?: ReactNode;
+=======
+  /** Starts expanded. */
+  readonly defaultOpen?: boolean;
+>>>>>>> 293f1d5ff (test: let folded settings sections start open (deliberate conflict with v0.1.7))
   readonly children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const searchTargetId = useSettingsSearchTargetId();
   const targetRef = useSettingsSearchTarget<HTMLElement>(id);
   // A search jump lands inside the fold, so open it before the scroll runs.
