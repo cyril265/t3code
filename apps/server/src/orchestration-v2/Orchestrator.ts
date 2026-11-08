@@ -795,8 +795,12 @@ const WORKSPACE_PREPARATION_INPUT = "Preparing workspace";
 export const QUEUED_TURN_START_GRACE_MS = 2 * 60 * 1_000;
 =======
 const RESUME_AFTER_COMPACTION_PROMPT =
+<<<<<<< HEAD
   "Continue where you left off. Your last turn was stopped to compact context, so an action it started may or may not have taken effect. Check before you repeat anything that changes state.";
 >>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
+=======
+  "Continue where you left off. Your last turn was stopped to compact context, so an action it started may or may not have taken effect.";
+>>>>>>> 31ec781bd5 (fix(server): shorten the resume prompt after a steered /compact)
 const RUNTIME_REQUEST_DELIVERY_FAILED_MESSAGE =
   "T3 Code could not confirm that your answer reached the agent. If the run stays stuck, stop it and try again.";
 
