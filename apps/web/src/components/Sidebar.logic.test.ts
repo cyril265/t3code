@@ -12,9 +12,13 @@ import {
   getFallbackThreadIdAfterDelete,
   hasUnseenCompletion,
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   selectSidebarInboxThreads,
   isSidebarThreadUnseen,
+=======
+  splitSidebarInboxThreads,
+>>>>>>> dab6086b87 (refactor(web): simplify the Done block and release a kept thread on its next run)
   resolveSidebarRowThreadId,
 >>>>>>> 1ebca2b0e3 (feat(web): list finished unread threads at the top of the sidebar)
   orderItemsByPreferredIds,
@@ -981,7 +985,7 @@ describe("navigation after parking a thread", () => {
   );
 });
 
-describe("selectSidebarInboxThreads", () => {
+describe("splitSidebarInboxThreads", () => {
   const shell = (id: string, completedAt: string, lastVisitedAt: string | null) =>
     presentThreadShell(localEnvironmentId, {
       ...makeThreadFixture({ id: ThreadId.make(id) }).source,
@@ -996,25 +1000,21 @@ describe("selectSidebarInboxThreads", () => {
   const newer = shell("newer", "2026-06-20T02:00:00.000Z", "2026-06-20T00:00:00.000Z");
   const read = shell("read", "2026-06-20T03:00:00.000Z", "2026-06-20T04:00:00.000Z");
 
-  const select = (routeKey: string | null, keepKey: string | null) =>
-    selectSidebarInboxThreads([older, read, newer], {
+  const select = (routeKey: string | null, keepRoute: boolean) =>
+    splitSidebarInboxThreads([older, read, newer], {
       keyOf,
-      unseenKeys: new Set(
-        [older, read, newer]
-          .filter((thread) => isSidebarThreadUnseen(thread, undefined))
-          .map(keyOf),
-      ),
+      unseenKeys: new Set([older, read, newer].filter(hasUnseenCompletion).map(keyOf)),
       routeKey,
-      keepKey,
-    }).map((thread) => thread.id);
+      keepRoute,
+    }).inbox.map((thread) => thread.id);
 
   it("lists unread finished threads, newest completion first", () => {
-    expect(select(null, null)).toEqual(["newer", "older"]);
+    expect(select(null, false)).toEqual(["newer", "older"]);
   });
 
   it("leaves out the open thread unless it was opened from the list", () => {
-    expect(select(keyOf(newer), null)).toEqual(["older"]);
-    expect(select(keyOf(read), keyOf(read))).toEqual(["read", "newer", "older"]);
+    expect(select(keyOf(newer), false)).toEqual(["older"]);
+    expect(select(keyOf(read), true)).toEqual(["read", "newer", "older"]);
   });
 });
 
