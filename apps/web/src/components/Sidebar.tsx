@@ -423,6 +423,8 @@ function useSidebarThreads(input: {
   readonly threads: readonly EnvironmentThreadShell[];
   readonly delegatedUnderParent: ReadonlySet<string>;
   readonly routeRowThreadKey: string | null;
+  // The open thread itself, which may be a hidden child of the highlighted row.
+  readonly routeThreadKey: string | null;
   // Set in boring mode: the project groups to fold active threads into, in order.
   readonly folderGroups: readonly SidebarProjectSnapshot[] | null;
   // Keeps folders with no active threads, so a project the user filtered to or pinned can start one.
@@ -437,6 +439,7 @@ function useSidebarThreads(input: {
     threads,
     delegatedUnderParent,
     routeRowThreadKey,
+    routeThreadKey,
     folderGroups,
     keepEmptyFolders: keepEmpty,
   } = input;
@@ -503,22 +506,24 @@ function useSidebarThreads(input: {
   const unseenKeys = new Set(unseenKeysJoined === "" ? [] : unseenKeysJoined.split("\n"));
   // Only navigating into a listed thread keeps it; a run finishing in the open thread does not.
   const [inboxRoute, setInboxRoute] = useState({
-    routeKey: routeRowThreadKey,
+    routeKey: routeThreadKey,
     keepKey: null as string | null,
   });
   const inboxKeepKey =
-    inboxRoute.routeKey === routeRowThreadKey
-      ? inboxRoute.keepKey
-      : routeRowThreadKey !== null && unseenKeys.has(routeRowThreadKey)
-        ? routeRowThreadKey
+    inboxRoute.routeKey !== routeThreadKey
+      ? routeThreadKey !== null && unseenKeys.has(routeThreadKey)
+        ? routeThreadKey
+        : null
+      : partition.activeThreads.some((thread) => threadShellKey(thread) === inboxRoute.keepKey)
+        ? inboxRoute.keepKey
         : null;
-  if (inboxRoute.routeKey !== routeRowThreadKey) {
-    setInboxRoute({ routeKey: routeRowThreadKey, keepKey: inboxKeepKey });
+  if (inboxRoute.routeKey !== routeThreadKey || inboxRoute.keepKey !== inboxKeepKey) {
+    setInboxRoute({ routeKey: routeThreadKey, keepKey: inboxKeepKey });
   }
   const inboxThreads = selectSidebarInboxThreads(partition.activeThreads, {
     keyOf: threadShellKey,
     unseenKeys,
-    routeKey: routeRowThreadKey,
+    routeKey: routeThreadKey,
     keepKey: inboxKeepKey,
   });
   const activeThreads =
@@ -1379,6 +1384,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     threads,
     delegatedUnderParent,
     routeRowThreadKey,
+    routeThreadKey,
     folderGroups: boringSidebarEnabled
       ? scopedProjectGroups.length === 0
         ? // An archived project keeps a folder for its active threads, below the rest.
