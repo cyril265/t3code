@@ -730,34 +730,29 @@ export function hasUnseenCompletion(thread: ThreadStatusInput): boolean {
   return completedAt > lastVisitedAt;
 }
 
-export function isSidebarThreadUnseen(
-  thread: ThreadStatusInput,
-  localLastVisitedAt: string | undefined,
-): boolean {
-  const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
-  return hasUnseenCompletion({ ...thread, lastVisitedAt });
-}
-
 /**
- * Finished threads the user has not opened since, newest completion first. The open thread is
- * left out, except `keepKey`: a thread opened while listed stays put until the user moves on.
+ * Splits off finished threads the user has not opened since, newest completion first. The open
+ * thread is left out unless `keepRoute`: it was opened from the list and is still on that run.
  */
-export function selectSidebarInboxThreads<T extends ThreadStatusInput>(
+export function splitSidebarInboxThreads<T extends ThreadStatusInput>(
   threads: readonly T[],
   input: {
     readonly keyOf: (thread: T) => string;
     readonly unseenKeys: ReadonlySet<string>;
     readonly routeKey: string | null;
-    readonly keepKey: string | null;
+    readonly keepRoute: boolean;
   },
-): T[] {
-  const inbox = threads.filter((thread) => {
+): { readonly inbox: T[]; readonly rest: T[] } {
+  const inbox: T[] = [];
+  const rest: T[] = [];
+  for (const thread of threads) {
     const key = input.keyOf(thread);
-    if (key === input.keepKey) return true;
-    return key !== input.routeKey && input.unseenKeys.has(key);
-  });
+    const listed = key === input.routeKey ? input.keepRoute : input.unseenKeys.has(key);
+    (listed ? inbox : rest).push(thread);
+  }
   const completedAtMs = (thread: T) => Date.parse(thread.latestRun?.completedAt ?? "") || 0;
-  return inbox.toSorted((left, right) => completedAtMs(right) - completedAtMs(left));
+  inbox.sort((left, right) => completedAtMs(right) - completedAtMs(left));
+  return { inbox, rest };
 }
 
 /** Unopened threads' failures still count as unseen, unlike completions. */
