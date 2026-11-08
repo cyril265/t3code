@@ -17,10 +17,11 @@ on:
     types: [closed]
     branches: ["upstream/**"]
 
-# Adoption runs apart, so a queued schedule tick can never replace a pending merge.
+# One queue for builds and adoptions; queue: max keeps every pending run instead of only the newest.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && 'self-build-adopt' || 'self-build' }}
+  group: self-build
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: write
@@ -102,8 +103,10 @@ jobs:
       LATEST: ${{ needs.resolve.outputs.latest }}
       T3_SELF_SIGN_IDENTITY: ${{ vars.SELF_SIGN_IDENTITY }}
     steps:
+      # The branch tip, not the queued event's SHA: an adoption may have moved it meanwhile.
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -239,4 +242,4 @@ jobs:
           fi
           git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
           git push --force-with-lease="refs/heads/$source:$source_sha" origin "HEAD:refs/heads/$source"
-          gh workflow run self-build.yml --repo "$GITHUB_REPOSITORY" --ref "$source" -f tag="$tag" -f release=true
+          gh workflow run self-build.yml --repo "$GITHUB_REPOSITORY" --ref "$source" -f tag="$tag"
