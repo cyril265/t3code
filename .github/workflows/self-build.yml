@@ -8,8 +8,8 @@ on:
       tag:
         description: Upstream release tag to build (default latest stable)
         required: false
-      force:
-        description: Rebuild even if this fork already has the release
+      release:
+        description: Publish a new build even if this upstream release is already built (ships new commits on this branch)
         type: boolean
         default: false
 
@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
       build: ${{ steps.tag.outputs.build }}
       latest: ${{ steps.tag.outputs.latest }}
     steps:
@@ -38,23 +39,43 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/self-build.yml/enable"
 
+      # Fork builds of upstream X.Y.Z are versioned X.Y.(Z*100+N), so each new
+      # build of the same upstream release is still a newer version to the updater.
       - id: tag
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_TAG: ${{ inputs.tag }}
-          FORCE: ${{ inputs.force }}
+          RELEASE: ${{ inputs.release }}
         run: |
           upstream_latest="$(gh release view --repo pingdotgg/t3code --json tagName --jq .tagName)"
           tag="${INPUT_TAG:-$upstream_latest}"
+          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "$tag is not a stable X.Y.Z release" >&2
+            exit 1
+          fi
+          major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}" first=$(( BASH_REMATCH[3] * 100 ))
+          last=-1
+          for existing in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName'); do
+            if [[ "$existing" =~ ^v${major}\.${minor}\.([0-9]+)$ ]]; then
+              n=$(( BASH_REMATCH[1] - first ))
+              if (( n >= 0 && n < 100 && n > last )); then last=$n; fi
+            fi
+          done
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "latest=$([[ "$tag" == "$upstream_latest" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          if [[ "$FORCE" != "true" ]] && gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if (( last >= 0 )) && [[ "$RELEASE" != "true" ]]; then
             echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "$tag is already built"
-          else
-            echo "build=true" >> "$GITHUB_OUTPUT"
-            echo "building $tag"
+            echo "$tag is already built as $major.$minor.$(( first + last ))"
+            exit 0
           fi
+          if (( last >= 99 )); then
+            echo "$tag already has 100 fork builds" >&2
+            exit 1
+          fi
+          version="$major.$minor.$(( first + last + 1 ))"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "building $tag as $version"
 
   build:
     needs: resolve
@@ -63,6 +84,7 @@ jobs:
     timeout-minutes: 60
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
+      VERSION: ${{ needs.resolve.outputs.version }}
       LATEST: ${{ needs.resolve.outputs.latest }}
       T3_SELF_SIGN_IDENTITY: ${{ vars.SELF_SIGN_IDENTITY }}
     steps:
@@ -109,7 +131,7 @@ jobs:
         run: |
           cp .env.example .env
           vp run dist:desktop:artifact --platform mac --target zip --arch arm64 \
-            --build-version "${TAG#v}" --output-dir "$RUNNER_TEMP/release"
+            --build-version "$VERSION" --output-dir "$RUNNER_TEMP/release"
 
       - name: Verify signature
         run: |
@@ -124,8 +146,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes 2>/dev/null || true
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_REF_NAME" --latest="$LATEST" \
-            --title "T3 Code $TAG (self-build)" \
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_REF_NAME" --latest="$LATEST" \
+            --title "T3 Code $VERSION (self-build of $TAG)" \
             --notes "pingdotgg/t3code $TAG ($UPSTREAM_SHA) with the self-build commits from $GITHUB_REF_NAME." \
             "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP"/release/*.zip.blockmap "$RUNNER_TEMP"/release/latest-mac.yml
