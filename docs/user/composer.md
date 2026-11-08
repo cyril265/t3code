@@ -66,6 +66,12 @@ If your **Send shortcut** requires `Cmd+Enter` or `Ctrl+Enter`, that shortcut us
 your default follow-up behavior; add **Shift** to use the opposite action. This
 applies only to multiline messages when you choose the multiline send option.
 
+`/compact` never joins a running turn. Queued, it runs after the turn ends.
+Steered, or sent from the queue with **Send now**, it stops the turn and compacts
+next. T3 Code then queues a message asking the agent to continue where it left
+off, ahead of the rest of your queue. Remove that message from the queue if you
+don't want the agent to resume.
+
 Use `Cmd+Shift+Enter` on macOS or `Ctrl+Shift+Enter` on Windows and Linux to send
 the oldest queued message as a steer. This leaves the current draft intact and
 requires an active turn that supports steering. If that shortcut sends the opposite
