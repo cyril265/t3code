@@ -12,6 +12,10 @@ on:
         description: Publish a new build even if this upstream release is already built (ships new commits on this branch)
         type: boolean
         default: false
+  # A merged conflict-resolution PR moves its source branch to the result and releases it.
+  pull_request:
+    types: [closed]
+    branches: ["upstream/**"]
 
 concurrency:
   group: self-build
@@ -20,6 +24,7 @@ concurrency:
 permissions:
   contents: write
   actions: write
+  pull-requests: read
 
 defaults:
   run:
@@ -27,6 +32,7 @@ defaults:
 
 jobs:
   resolve:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -63,6 +69,11 @@ jobs:
             fi
           done
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [[ -n "$(gh pr list --repo "$GITHUB_REPOSITORY" --head "resolve/$GITHUB_REF_NAME/$tag" --state open --json number --jq '.[].number')" ]]; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "$tag waits for its conflict-resolution PR (resolve/$GITHUB_REF_NAME/$tag)"
+            exit 0
+          fi
           echo "latest=$([[ "$tag" == "$upstream_latest" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           if (( last >= 0 )) && [[ "$RELEASE" != "true" ]]; then
             echo "build=false" >> "$GITHUB_OUTPUT"
@@ -92,8 +103,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Apply self-build commits onto the upstream release
+        env:
+          GH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
         run: |
           git remote add upstream https://github.com/pingdotgg/t3code.git
           git fetch --no-tags upstream main "refs/tags/$TAG:refs/tags/upstream-$TAG"
@@ -102,7 +116,34 @@ jobs:
             echo "$TAG is older than this branch's upstream base $base" >&2
             exit 1
           fi
-          git -c user.name=self-build -c user.email=self-build@localhost rebase --onto "upstream-$TAG" "$base"
+          git config user.name self-build
+          git config user.email self-build@localhost
+          source_sha="$(git rev-parse HEAD)"
+          if ! git rebase --onto "upstream-$TAG" "$base"; then
+            conflicted=""
+            while [[ -d .git/rebase-merge || -d .git/rebase-apply ]]; do
+              conflicted+="$(git diff --name-only --diff-filter=U)"$'\n'
+              git add -A
+              git -c core.editor=true rebase --continue || true
+            done
+            files="$(printf '%s' "$conflicted" | sort -u | sed '/^$/d')"
+            base_branch="upstream/$TAG" head_branch="resolve/$GITHUB_REF_NAME/$TAG"
+            git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+            git push --force origin "upstream-$TAG^{commit}:refs/heads/$base_branch" "HEAD:refs/heads/$head_branch"
+            list="$(printf '%s\n' "$files" | sed 's/^/- `/; s/$/`/')"
+            pr="$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$base_branch" --head "$head_branch" \
+              --title "Resolve self-build conflicts with $TAG" \
+              --body "$(printf '%s\n\n%s\n\n%s\n' \
+                "Rebasing \`$GITHUB_REF_NAME\` onto pingdotgg/t3code $TAG conflicted. The conflict markers are committed as-is in:" \
+                "$list" \
+                "Merging this PR moves \`$GITHUB_REF_NAME\` to the result and publishes a release. source-sha: $source_sha")")"
+            gh pr comment "$pr" --body "$(printf '%s\n\n%s\n\n%s\n' \
+              "@codex This branch is T3 Code $TAG with this fork's own commits rebased on top (self-signed macOS build, the self-build workflow, the sidebar Done block). The rebase conflicted and the conflict markers were committed as-is in:" \
+              "$list" \
+              "Resolve every conflict marker in those files so T3's $TAG changes and this fork's changes both keep working. Change nothing else. Then run the type check and the tests next to the files you changed, as AGENTS.md describes, and push the fix to this pull request's branch.")"
+            echo "::error::Rebase onto $TAG conflicted in: ${files//$'\n'/ }. Opened $pr for @codex."
+            exit 1
+          fi
           echo "UPSTREAM_SHA=$(git rev-parse "upstream-$TAG")" >> "$GITHUB_ENV"
           git log --oneline "upstream-$TAG..HEAD"
 
@@ -144,6 +185,7 @@ jobs:
           grep -F "repo: ${GITHUB_REPOSITORY#*/}" "$app/Contents/Resources/app-update.yml"
 
       - name: Publish release
+        if: github.ref_name == github.event.repository.default_branch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -151,3 +193,31 @@ jobs:
             --title "T3 Code $VERSION (self-build of $TAG)" \
             --notes "pingdotgg/t3code $TAG ($UPSTREAM_SHA) with the self-build commits from $GITHUB_REF_NAME." \
             "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP"/release/*.zip.blockmap "$RUNNER_TEMP"/release/latest-mac.yml
+
+  adopt:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'resolve/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Move the source branch to the resolved result and release it
+        env:
+          GH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          rest="${HEAD_REF#resolve/}" tag="${HEAD_REF##*/}"
+          source="${rest%/*}"
+          source_sha="$(grep -oE 'source-sha: [0-9a-f]{40}' <<<"$PR_BODY" | cut -d' ' -f2)"
+          mapfile -t changed < <(git diff --name-only --diff-filter=d HEAD^1 HEAD)
+          if (( ${#changed[@]} )) && git grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- "${changed[@]}"; then
+            echo "::error::Conflict markers are still in the merged result" >&2
+            exit 1
+          fi
+          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git push --force-with-lease="refs/heads/$source:$source_sha" origin "HEAD:refs/heads/$source"
+          gh workflow run self-build.yml --repo "$GITHUB_REPOSITORY" --ref "$source" -f tag="$tag" -f release=true
