@@ -85,6 +85,8 @@ jobs:
     if: needs.resolve.outputs.build == 'true'
     runs-on: macos-15
     timeout-minutes: 60
+    # Environment secrets are read when the job starts, so a queued run sees the login the previous run saved.
+    environment: codex
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
       VERSION: ${{ needs.resolve.outputs.version }}
@@ -152,14 +154,32 @@ jobs:
           printf 'cli_auth_credentials_store = "file"\n' > "$CODEX_HOME/config.toml"
           base64 --decode <<<"$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
           chmod 600 "$CODEX_HOME/auth.json"
-          for token in $(jq -r '.tokens | .access_token, .refresh_token, .id_token' "$CODEX_HOME/auth.json"); do
-            echo "::add-mask::$token"
-          done
+          mask_login() {
+            for token in $(jq -r '.tokens | .access_token, .refresh_token, .id_token' "$CODEX_HOME/auth.json"); do
+              echo "::add-mask::$token"
+            done
+          }
+          mask_login
           save_login() {
-            if ! cmp -s <(base64 < "$CODEX_HOME/auth.json" | tr -d '\n') <(printf '%s' "$CODEX_AUTH_JSON"); then
-              base64 < "$CODEX_HOME/auth.json" | tr -d '\n' | gh secret set CODEX_AUTH_JSON --repo "$GITHUB_REPOSITORY"
+            local status=$? encoded
+            if jq -e '.tokens.refresh_token and .tokens.access_token and .tokens.id_token' "$CODEX_HOME/auth.json" >/dev/null 2>&1 &&
+               encoded="$(base64 < "$CODEX_HOME/auth.json" | tr -d '\n')" && [[ -n "$encoded" ]]; then
+              for attempt in 1 2 3; do
+                if printf '%s' "$encoded" | gh secret set CODEX_AUTH_JSON --env codex --repo "$GITHUB_REPOSITORY"; then
+                  break
+                fi
+                if (( attempt == 3 )); then
+                  echo "::error::Could not save the refreshed Codex login; reseed CODEX_AUTH_JSON" >&2
+                  status=1
+                fi
+                sleep 5
+              done
+            else
+              echo "::error::Codex login file is missing or incomplete; not saving it" >&2
+              status=1
             fi
             rm -f "$CODEX_HOME/auth.json"
+            exit "$status"
           }
           trap save_login EXIT
           {
@@ -170,9 +190,17 @@ jobs:
             echo "Resolve every conflict marker in those files so T3's $TAG changes and this fork's changes both keep working."
             echo "Change nothing else, and do not commit: leave the edits in the working tree."
           } > "$RUNNER_TEMP/codex-prompt.md"
+          # The transcript stays off the public log; only the final message is shown, after masking any refreshed tokens.
+          codex_status=0
           codex exec --model "$CODEX_MODEL" -c model_reasoning_effort=high --sandbox workspace-write \
-            --ephemeral --output-last-message "$RUNNER_TEMP/codex-summary.md" - < "$RUNNER_TEMP/codex-prompt.md"
-          { echo "### Codex conflict resolution"; cat "$RUNNER_TEMP/codex-summary.md"; } >> "$GITHUB_STEP_SUMMARY"
+            --ephemeral --output-last-message "$RUNNER_TEMP/codex-summary.md" - \
+            < "$RUNNER_TEMP/codex-prompt.md" > "$RUNNER_TEMP/codex-transcript.log" 2>&1 || codex_status=$?
+          mask_login
+          cat "$RUNNER_TEMP/codex-summary.md" 2>/dev/null || true
+          if (( codex_status != 0 )); then
+            echo "::error::codex exec failed with status $codex_status" >&2
+            exit "$codex_status"
+          fi
           left=""
           while IFS= read -r file; do
             if grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- "$file"; then left+="$file "; fi
