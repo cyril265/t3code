@@ -173,9 +173,12 @@ jobs:
           codex exec --model "$CODEX_MODEL" -c model_reasoning_effort=high --sandbox workspace-write \
             --ephemeral --output-last-message "$RUNNER_TEMP/codex-summary.md" - < "$RUNNER_TEMP/codex-prompt.md"
           { echo "### Codex conflict resolution"; cat "$RUNNER_TEMP/codex-summary.md"; } >> "$GITHUB_STEP_SUMMARY"
-          mapfile -t files < "$RUNNER_TEMP/conflicts.txt"
-          if grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- "${files[@]}"; then
-            echo "::error::Codex left conflict markers" >&2
+          left=""
+          while IFS= read -r file; do
+            if grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- "$file"; then left+="$file "; fi
+          done < "$RUNNER_TEMP/conflicts.txt"
+          if [[ -n "$left" ]]; then
+            echo "::error::Codex left conflict markers in: $left" >&2
             exit 1
           fi
           git add -A
