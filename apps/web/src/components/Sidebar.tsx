@@ -199,6 +199,7 @@ import {
   sidebarListItemId,
   sidebarThreadKeyAtY,
   sortInboxThreadsByReturn,
+  selectSidebarInboxThreads,
   sortPinnedThreadsForSidebar,
   sortThreadsForSidebar,
   sortWorkingThreadsBySend,
@@ -487,8 +488,24 @@ function useSidebarThreads(input: {
     clockKey: `${nowMinute}:${snoozeWakeClock}:${inboxReturnsVersion}`,
   });
 
-  const { pinnedThreads, activeThreads, workingThreads, snoozedThreads, settledThreads } =
-    partition;
+  const { pinnedThreads, workingThreads, snoozedThreads, settledThreads } = partition;
+  const localLastVisitedAtByKey = useUiStateStore((store) => store.threadLastVisitedAtById);
+  const [inboxKeepKey, setInboxKeepKey] = useState<string | null>(null);
+  const inboxThreads = selectSidebarInboxThreads(partition.activeThreads, {
+    keyOf: threadShellKey,
+    localLastVisitedAtByKey,
+    keepKey: inboxKeepKey,
+  });
+  const nextInboxKeepKey = inboxThreads.some(
+    (thread) => threadShellKey(thread) === routeRowThreadKey,
+  )
+    ? routeRowThreadKey
+    : null;
+  if (nextInboxKeepKey !== inboxKeepKey) setInboxKeepKey(nextInboxKeepKey);
+  const activeThreads =
+    inboxThreads.length === 0
+      ? partition.activeThreads
+      : partition.activeThreads.filter((thread) => !inboxThreads.includes(thread));
   // Older settled threads load in pages; the shelf lists them only as far as they are loaded.
   const olderSettledShelf = useOlderSettledShelf({
     scopes: olderSettledScopes([...serverConfigs.keys()], scopedProjectKeys),
@@ -542,6 +559,7 @@ function useSidebarThreads(input: {
           };
         });
   const orderedThreads = [
+    ...inboxThreads,
     ...pinnedThreads,
     ...(projectFolders === null
       ? activeThreads
@@ -553,6 +571,7 @@ function useSidebarThreads(input: {
   const sectionByThreadKey = new Map<string, SidebarSection>();
   for (const [list, section] of [
     [pinnedThreads, "pinned"],
+    [inboxThreads, "active"],
     [activeThreads, "active"],
     [workingThreads, "working"],
     [snoozedThreads, "snoozed"],
@@ -562,9 +581,12 @@ function useSidebarThreads(input: {
   }
   return {
     ...partition,
+    activeThreads,
+    inboxThreads,
     threads,
     workingShelfEnabled,
     searchableThreads: [
+      ...inboxThreads,
       ...pinnedThreads,
       ...activeThreads,
       ...workingThreads,
@@ -1302,6 +1324,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const {
     workingShelfEnabled,
     pinnedThreads,
+    inboxThreads,
     draggableThreadKeys,
     activeReorderableThreadKeys,
     activeThreads,
@@ -1940,7 +1963,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     // Boring mode keeps a pinned open project or one the user filtered to, so it can start a thread.
     if (
       !hasProjectFolders &&
-      pinnedThreads.length +
+      inboxThreads.length +
+        pinnedThreads.length +
         activeThreads.length +
         workingThreads.length +
         snoozedThreads.length +
@@ -3319,6 +3343,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         section: SidebarSection,
                         // The tree row of the project folder this row sits in.
                         folderRow?: string,
+                        inInbox = false,
                       ) => {
                         const threadKey = scopedThreadKey(
                           scopeThreadRef(thread.environmentId, thread.id),
@@ -3338,6 +3363,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             sortableId={threadKey}
                             contextDrag={isContextDrag}
                             sortableDisabled={
+<<<<<<< HEAD
+=======
+                              inInbox ||
+                              projectFolders !== null ||
+>>>>>>> 9dc5a3fed (feat(web): list finished unread threads at the top of the sidebar)
                               renamingThreadKey === threadKey ||
                               !draggableThreadKeys.has(threadKey) ||
                               optimisticDrop !== null
@@ -3434,7 +3464,28 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         );
                       };
                       const from = isContextDrag ? null : (dragState?.activeSection ?? null);
-                      const items: ReactNode[] = [
+                      const items: ReactNode[] = [];
+                      if (inboxThreads.length > 0) {
+                        items.push(
+                          <li
+                            key="inbox-header"
+                            data-thread-selection-safe
+                            data-testid="sidebar-inbox-header"
+                            className="list-none px-2.5 pt-1 pb-0.5 text-xs font-medium text-sidebar-muted-foreground"
+                          >
+                            Done · {inboxThreads.length}
+                          </li>,
+                          ...inboxThreads.map((thread) =>
+                            renderThreadRow(thread, "active", undefined, true),
+                          ),
+                          <li
+                            key="inbox-divider"
+                            aria-hidden
+                            className="mx-2.5 my-1.5 h-px list-none bg-sidebar-border"
+                          />,
+                        );
+                      }
+                      items.push(
                         <SidebarDraftBlock
                           key="draft-sessions"
                           projectByKey={projectByKey}
@@ -3444,7 +3495,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                           onNavigateToDraft={navigateToDraft}
                           onDraftContextMenu={handleDraftContextMenu}
                         />,
-                      ];
+                      );
                       for (const item of sidebarListItems) {
                         if (item.kind === "thread") {
                           // Folders draw active rows in their own place below.
