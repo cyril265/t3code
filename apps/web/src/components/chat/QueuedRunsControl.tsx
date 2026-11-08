@@ -9,12 +9,13 @@ import {
   isAttachmentOnlyBootstrapPrompt,
   replaceComposerContextReferences,
 } from "@t3tools/shared/composerContextReferences";
-import type {
-  ChatAttachment as ContractChatAttachment,
-  EnvironmentId,
-  MessageId,
-  RunId,
-  ThreadId,
+import {
+  type ChatAttachment as ContractChatAttachment,
+  type EnvironmentId,
+  isCompactionCommandMessage,
+  type MessageId,
+  type RunId,
+  type ThreadId,
 } from "@t3tools/contracts";
 import { resolveUserMessagePresentation } from "@t3tools/client-runtime/user-message";
 import { Link } from "@tanstack/react-router";
@@ -314,6 +315,7 @@ export function QueuedRunsControl({
                         </Button>
                       </TooltipTrigger>
                       <TooltipPopup>
+<<<<<<< HEAD
                         {item.serverIndex === 0 && props.steerShortcutLabel
                           ? workflow?.canSendNow
                             ? gt("Start a turn with this message ({shortcut})", {
@@ -331,6 +333,9 @@ export function QueuedRunsControl({
                             : workflow?.promoteSkipsCompaction
                               ? gt("Skip compaction and send this message")
                               : gt("Send into the current turn")}
+=======
+                        {`${workflow?.canSendNow ? "Start a turn with this message" : workflow?.promoteSkipsCompaction ? "Skip compaction and send this message" : item.message && isCompactionCommandMessage(item.message) ? "Stop the current turn and compact" : "Send into the current turn"}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
+>>>>>>> e101407a5a (feat: queue and steer /compact while a turn runs)
                       </TooltipPopup>
                     </Tooltip>
                   </>
