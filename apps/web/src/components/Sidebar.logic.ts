@@ -783,6 +783,44 @@ export function hasUnseenCompletion(thread: ThreadStatusInput): boolean {
   return completedAt > lastVisitedAt;
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * Finished threads the user has not opened since, newest completion first.
+ * `keepKey` stays listed after it is opened, so the clicked row holds still until the user moves on.
+ */
+export function selectSidebarInboxThreads<T extends ThreadStatusInput>(
+  threads: readonly T[],
+  input: {
+    readonly keyOf: (thread: T) => string;
+    readonly localLastVisitedAtByKey: Readonly<Record<string, string>>;
+    readonly keepKey: string | null;
+  },
+): T[] {
+  const inbox = threads.filter((thread) => {
+    const key = input.keyOf(thread);
+    if (key === input.keepKey) return true;
+    const lastVisitedAt = resolveThreadLastVisitedAt(
+      thread.lastVisitedAt,
+      input.localLastVisitedAtByKey[key],
+    );
+    return hasUnseenCompletion({ ...thread, lastVisitedAt });
+  });
+  const completedAtMs = (thread: T) => Date.parse(thread.latestRun?.completedAt ?? "") || 0;
+  return inbox.toSorted((left, right) => completedAtMs(right) - completedAtMs(left));
+}
+
+/** Unopened threads' failures still count as unseen, unlike completions. */
+function hasUnseenFailure(thread: ThreadStatusInput): boolean {
+  if (thread.latestRun?.status !== "failed") return false;
+  if (!thread.lastVisitedAt) return true;
+  const completedAt = Date.parse(thread.latestRun.completedAt ?? "");
+  const lastVisitedAt = Date.parse(thread.lastVisitedAt);
+  if (Number.isNaN(completedAt) || Number.isNaN(lastVisitedAt)) return true;
+  return completedAt > lastVisitedAt;
+}
+
+>>>>>>> 1ebca2b0e3 (feat(web): list finished unread threads at the top of the sidebar)
 // Suppress trailing double-click navigation; keyboard and synthetic clicks use detail 0.
 export function isTrailingDoubleClick(detail: number): boolean {
   return detail > 1;
