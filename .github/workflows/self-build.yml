@@ -55,7 +55,8 @@ jobs:
           fi
           major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}" first=$(( BASH_REMATCH[3] * 100 ))
           last=-1
-          for existing in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName'); do
+          existing_tags="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName')"
+          for existing in $existing_tags; do
             if [[ "$existing" =~ ^v${major}\.${minor}\.([0-9]+)$ ]]; then
               n=$(( BASH_REMATCH[1] - first ))
               if (( n >= 0 && n < 100 && n > last )); then last=$n; fi
