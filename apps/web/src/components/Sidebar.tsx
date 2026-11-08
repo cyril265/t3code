@@ -523,13 +523,17 @@ function useSidebarThreads(input: {
     routeKey: routeThreadKey,
     keepRunId: null as string | null,
   });
+  const routeRunId = routeThread?.latestRun?.runId ?? null;
+  // Leaving the active list or starting a run releases the thread for good.
   const keepRunId =
     inboxRoute.routeKey === routeThreadKey
-      ? inboxRoute.keepRunId
+      ? inboxRoute.keepRunId === routeRunId
+        ? inboxRoute.keepRunId
+        : null
       : routeThreadKey !== null && unseenKeys.has(routeThreadKey)
-        ? (routeThread?.latestRun?.runId ?? null)
+        ? routeRunId
         : null;
-  if (inboxRoute.routeKey !== routeThreadKey) {
+  if (inboxRoute.routeKey !== routeThreadKey || inboxRoute.keepRunId !== keepRunId) {
     setInboxRoute({ routeKey: routeThreadKey, keepRunId });
   }
   const { inbox: inboxThreads, rest: activeThreads } = splitSidebarInboxThreads(
@@ -538,7 +542,7 @@ function useSidebarThreads(input: {
       keyOf: threadShellKey,
       unseenKeys,
       routeKey: routeThreadKey,
-      keepRoute: keepRunId !== null && routeThread?.latestRun?.runId === keepRunId,
+      keepRoute: keepRunId !== null,
     },
   );
   // Older settled threads load in pages; the shelf lists them only as far as they are loaded.
