@@ -1,0 +1,140 @@
+name: Self-build
+
+on:
+  schedule:
+    - cron: "17 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Upstream release tag to build (default latest stable)
+        required: false
+      force:
+        description: Rebuild even if this fork already has the release
+        type: boolean
+        default: false
+
+concurrency:
+  group: self-build
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      build: ${{ steps.tag.outputs.build }}
+      latest: ${{ steps.tag.outputs.latest }}
+    steps:
+      - id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          upstream_latest="$(gh release view --repo pingdotgg/t3code --json tagName --jq .tagName)"
+          tag="${INPUT_TAG:-$upstream_latest}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "latest=$([[ "$tag" == "$upstream_latest" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          if [[ "$FORCE" != "true" ]] && gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "$tag is already built"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "building $tag"
+          fi
+
+  build:
+    needs: resolve
+    if: needs.resolve.outputs.build == 'true'
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      TAG: ${{ needs.resolve.outputs.tag }}
+      LATEST: ${{ needs.resolve.outputs.latest }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Apply self-build commits onto the upstream release
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/pingdotgg/t3code.git
+          git fetch --no-tags upstream main "refs/tags/$TAG:refs/tags/upstream-$TAG"
+          base="$(git merge-base HEAD upstream/main)"
+          if ! git merge-base --is-ancestor "$base" "upstream-$TAG"; then
+            echo "$TAG is older than this branch's upstream base $base" >&2
+            exit 1
+          fi
+          git -c user.name=self-build -c user.email=self-build@localhost rebase --onto "upstream-$TAG" "$base"
+          echo "UPSTREAM_SHA=$(git rev-parse "upstream-$TAG")" >> "$GITHUB_ENV"
+          git log --oneline "upstream-$TAG..HEAD"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: package.json
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          npm install -g "$(node -p 'require("./package.json").packageManager')"
+          pnpm install --frozen-lockfile
+          echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Import signing certificate
+        env:
+          SELF_SIGN_P12: ${{ secrets.SELF_SIGN_P12 }}
+          SELF_SIGN_P12_PASSWORD: ${{ secrets.SELF_SIGN_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/self-sign.keychain-db"
+          password="$(openssl rand -hex 16)"
+          printf '%s' "$SELF_SIGN_P12" | base64 --decode > "$RUNNER_TEMP/self-sign.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/self-sign.p12" -k "$keychain" -P "$SELF_SIGN_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" >/dev/null
+          rm "$RUNNER_TEMP/self-sign.p12"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          security find-identity -p codesigning "$keychain"
+          echo "T3_SELF_SIGN_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          T3_SELF_SIGN_IDENTITY: ${{ vars.SELF_SIGN_IDENTITY }}
+        run: |
+          set -euo pipefail
+          env_example() { sed -n "s|^T3CODE_$1=||p" .env.example; }
+          export T3CODE_CLERK_PUBLISHABLE_KEY="$(env_example CLERK_PUBLISHABLE_KEY)"
+          export T3CODE_CLERK_JWT_TEMPLATE="$(env_example CLERK_JWT_TEMPLATE)"
+          export T3CODE_CLERK_CLI_OAUTH_CLIENT_ID="$(env_example CLERK_CLI_OAUTH_CLIENT_ID)"
+          export T3CODE_RELAY_URL="$(env_example RELAY_URL)"
+          node scripts/build-desktop-artifact.ts --platform mac --target zip --arch arm64 \
+            --build-version "${TAG#v}" --output-dir "$RUNNER_TEMP/release"
+
+      - name: Verify signature
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/verify"
+          ditto -x -k "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP/verify"
+          app="$(ls -d "$RUNNER_TEMP"/verify/*.app)"
+          codesign --verify --deep --strict "$app"
+          codesign -d -r- "$app" | grep -F "certificate leaf = H\"$(echo "${{ vars.SELF_SIGN_IDENTITY }}" | tr 'A-F' 'a-f')\""
+          grep -F "repo: ${GITHUB_REPOSITORY#*/}" "$app/Contents/Resources/app-update.yml"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes 2>/dev/null || true
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_REF_NAME" --latest="$LATEST" \
+            --title "T3 Code $TAG (self-build)" \
+            --notes "pingdotgg/t3code $TAG ($UPSTREAM_SHA) with the self-build commits from $GITHUB_REF_NAME." \
+            "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP"/release/*.zip.blockmap "$RUNNER_TEMP"/release/latest-mac.yml
