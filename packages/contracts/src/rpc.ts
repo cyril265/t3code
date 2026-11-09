@@ -384,6 +384,7 @@ import {
   ScheduledTaskMutationResult,
 } from "./scheduledTask.ts";
 import { SecretRequestAnswerInput, SecretRequestError } from "./secretRequest.ts";
+import { WsExternalWaitsStopRpc, WsExternalWaitsSubscribeRpc } from "./externalWait.ts";
 import {
   ProjectCloneActionInput,
   ProjectCloneActionResult,
@@ -2133,6 +2134,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsSecretsAnswerRequestRpc,
   WsScheduledTasksListWebhookDeliveriesRpc,
   WsScheduledTasksGetWebhookDeliveryRpc,
+  WsExternalWaitsSubscribeRpc,
+  WsExternalWaitsStopRpc,
   WsServerReportClientActivityRpc,
   WsCloudGetRelayClientStatusRpc,
   WsCloudInstallRelayClientRpc,
