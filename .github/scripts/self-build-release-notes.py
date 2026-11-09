@@ -21,7 +21,7 @@ def fork_changes(subjects, previous=frozenset()):
         match = CHANGE.match(subject.strip())
         if match and subject.strip() not in previous:
             text = MARKUP.sub(lambda m: m[0] if m[1] else "&lt;", match.group(1))
-            yield f"- **Fork.** {text[0].upper()}{text[1:]}"
+            yield f"{text[0].upper()}{text[1:]}"
 
 
 def release_notes(version, tag, subjects, upstream, previous_subjects, previous_tag):
@@ -29,7 +29,7 @@ def release_notes(version, tag, subjects, upstream, previous_subjects, previous_
     count = f"{len(changes)} new fork change{'' if len(changes) == 1 else 's'}"
     if previous_tag:
         count += f" since {previous_tag}"
-    fork_list = "\n".join(fork_changes(subjects))
+    fork_list = "\n".join(f"- {change}" for change in fork_changes(subjects))
     full = [f"### Fork changes on pingdotgg/t3code {tag}\n\n{fork_list}"] if fork_list else []
     header, bullets, footer = f"**v{version}** · {count}", [], []
     # Patch Z*100+N: N is 0 only for the first fork build of an upstream release.
@@ -46,7 +46,9 @@ def release_notes(version, tag, subjects, upstream, previous_subjects, previous_
         header = f"**v{version}** · {tag}{f' · {stats}' if stats and bullets else ''} · {count}"
         full.append(f"### pingdotgg/t3code {tag}\n\n{upstream}")
     details = "\n\n".join(full)
-    parts = [header, "\n".join(changes + bullets), *footer]
+    # Only a summary shared with upstream's bullets needs each fork change marked.
+    marker = "**Fork.** " if bullets else ""
+    parts = [header, "\n".join([f"- {marker}{change}" for change in changes] + bullets), *footer]
     parts.append(f"<details>\n<summary>Full changelog</summary>\n\n{details}\n\n</details>")
     return "\n\n".join(part for part in parts if part) + "\n"
 
