@@ -1,3 +1,5 @@
+import * as Cron from "effect/Cron";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import {
@@ -71,6 +73,30 @@ const ScheduledTaskOnceSchedule = Schema.Struct({
       (value) => isIsoWithOffset(value) || "Expected an ISO date and time with an offset.",
     ),
   ),
+});
+
+/** Five fields, no seconds, so a run is at most once a minute; it must also match some date. */
+export function isCronExpression(value: string): boolean {
+  if (value.trim().split(/\s+/).length !== 5) return false;
+  const cron = Cron.parse(value);
+  if (Result.isFailure(cron)) return false;
+  try {
+    Cron.next(cron.success, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const ScheduledTaskCronSchedule = Schema.Struct({
+  type: Schema.Literal("cron"),
+  expression: TrimmedNonEmptyString.check(
+    Schema.makeFilter(
+      (value) => isCronExpression(value) || "Expected a five-field cron expression.",
+    ),
+  ).annotate({
+    description: "Minute hour day month weekday, server local time. Such as 0 9 * * 1-5.",
+  }),
 });
 
 const ScheduledTaskWebhookSignatureFields = {
@@ -196,6 +222,7 @@ export const ScheduledTaskSchedule = Schema.Union([
   ScheduledTaskFixedTimeSchedule,
   ScheduledTaskOnceSchedule,
   ScheduledTaskWebhookSchedule,
+  ScheduledTaskCronSchedule,
 ]);
 export type ScheduledTaskSchedule = typeof ScheduledTaskSchedule.Type;
 
@@ -211,6 +238,7 @@ export const ScheduledTaskUpsertSchedule = Schema.Union([
   ScheduledTaskFixedTimeSchedule,
   ScheduledTaskOnceSchedule,
   ScheduledTaskUpsertWebhookSchedule,
+  ScheduledTaskCronSchedule,
 ]);
 export type ScheduledTaskUpsertSchedule = typeof ScheduledTaskUpsertSchedule.Type;
 

@@ -137,11 +137,17 @@ function describeSchedule(
       msg("Once, {date} at {time}", { date: formatRunAtDate(runAt), time: formatRunAtTime(runAt) }),
     );
   }
+<<<<<<< HEAD
   if (task.schedule.type === "interval")
     return formatScheduledTaskInterval(task.schedule.everyMs, resolve);
   const days = task.schedule.weekdays?.length
     ? repeatLabel(task.schedule.weekdays, resolve, locale)
     : resolve(msg("Every day"));
+=======
+  if (task.schedule.type === "cron") return `Cron ${task.schedule.expression}`;
+  if (task.schedule.type === "interval") return formatScheduledTaskInterval(task.schedule.everyMs);
+  const days = task.schedule.weekdays?.length ? repeatLabel(task.schedule.weekdays) : "Every day";
+>>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
   const zone = scheduleTimeZoneLabel(timeZone, task.nextRunAt);
   const time = formatTime(task.schedule.timeOfDay);
   return zone === undefined
@@ -803,7 +809,12 @@ function TaskForm({
   const offersOnce =
     config?.environment.capabilities.oneTimeSchedules === true ||
     draft.task?.schedule.type === "once";
+<<<<<<< HEAD
   const offersThreadModes = config?.environment.capabilities.scheduledTaskThreadModes === true;
+=======
+  const offersCron =
+    config?.environment.capabilities.cronSchedules === true || draft.task?.schedule.type === "cron";
+>>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
   const save = async () => {
     const current = readEditor();
     if (!current || current.environmentId !== environmentId) return;
@@ -847,7 +858,25 @@ function TaskForm({
       );
       return;
     }
+<<<<<<< HEAD
     const parsedFilters = parseWebhookFilterDrafts(draft.schedule.filters, m);
+=======
+    if (draft.schedule.mode === "cron" && !offersCron) {
+      Dialog.alert(
+        "Cron is not available here",
+        "This environment runs an older T3 Code. Update it to use a cron schedule, or pick another schedule.",
+      );
+      return;
+    }
+    if (draft.schedule.mode === "cron" && schedule === null) {
+      Dialog.alert(
+        "Invalid cron expression",
+        "Use five fields: minute, hour, day of month, month, and weekday.",
+      );
+      return;
+    }
+    const parsedFilters = parseWebhookFilterDrafts(draft.schedule.filters);
+>>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
     if (draft.schedule.mode === "webhook" && "error" in parsedFilters) {
       Dialog.alert(gt("Invalid filter"), parsedFilters.error);
       return;
@@ -1166,7 +1195,14 @@ function TaskForm({
                       },
                     ]
                   : []),
+<<<<<<< HEAD
                 { value: "interval", label: gt("Interval") },
+=======
+                { value: "interval", label: "Interval" },
+                ...(offersCron || draft.schedule.mode === "cron"
+                  ? [{ value: "cron" as const, label: "Cron" }]
+                  : []),
+>>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
                 ...(webhookDenial === undefined || draft.schedule.mode === "webhook"
                   ? [{ value: "webhook" as const, label: gt("On webhook") }]
                   : []),
@@ -1290,6 +1326,17 @@ function TaskForm({
                 reason: webhookDenial,
               })}
             </Text>
+          ) : draft.schedule.mode === "cron" ? (
+            <FormField
+              label="Minute, hour, day of month, month, weekday"
+              value={draft.schedule.cronExpression}
+              placeholder="0 9 * * 1-5"
+              disabled={saving}
+              borderTop
+              onChange={(cronExpression) =>
+                setDraft({ ...draft, schedule: { ...draft.schedule, cronExpression } })
+              }
+            />
           ) : draft.schedule.mode === "once" ? (
             (["date", "time"] as const).map((field) => {
               const runAt = new Date(draft.schedule.runAt);
@@ -1469,7 +1516,7 @@ function TaskForm({
             />
           </View>
         </SettingsSection>
-        {draft.schedule.mode === "fixed_time" ? (
+        {draft.schedule.mode === "fixed_time" || draft.schedule.mode === "cron" ? (
           <Text className="px-2 text-sm text-foreground-muted">
             <T>Time uses the environment's time zone, which may differ from your phone's.</T>
           </Text>

@@ -10,7 +10,11 @@ import {
 } from "@t3tools/contracts";
 import {
   createDraft,
+<<<<<<< HEAD
   editDraft,
+=======
+  hasScheduledTaskDraftChanges,
+>>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
   scheduledTaskDefaultModel,
   DEFAULT_SCHEDULE,
   scheduleDraftForTask,
@@ -22,6 +26,14 @@ describe("scheduleDraftForTask", () => {
     const draft = scheduleDraftForTask({ schedule: { type: "interval", everyMs: 30_000 } });
     expect(draft.intervalMinutes).toBe("1");
     expect(scheduleFromDraft(draft)).toEqual({ type: "interval", everyMs: 60_000 });
+  });
+
+  it("round-trips a cron expression and counts editing it as an unsaved change", () => {
+    const schedule = scheduleDraftForTask({ schedule: { type: "cron", expression: "0 9 * * *" } });
+    expect(scheduleFromDraft(schedule)).toEqual({ type: "cron", expression: "0 9 * * *" });
+    const initial = { ...createDraft(null, null), schedule };
+    const edited = { ...initial, schedule: { ...schedule, cronExpression: "0 10 * * *" } };
+    expect(hasScheduledTaskDraftChanges(initial, edited)).toBe(true);
   });
 
   it("round-trips dedupe settings and rejects invalid windows", () => {
