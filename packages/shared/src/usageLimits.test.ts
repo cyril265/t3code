@@ -11,6 +11,8 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   type LimitAccount,
   collectProviderUsageLimits,
+  customEndpointLimitPool,
+  endpointIdentity,
   sameUsageLimitCommandCoverage,
   withUsageLimitsCommands,
   collectLimitAccounts,
@@ -1504,5 +1506,137 @@ describe("ChatGPT sharing presentation", () => {
         auth: { status: "unauthenticated", subscriptionSharing: true },
       }),
     ).toBe(false);
+  });
+});
+
+describe("custom endpoint limits", () => {
+  const claude = ProviderDriverKind.make("claudeAgent");
+  const instanceId = ProviderInstanceId.make("claudeAgent");
+  const limits = (usedPercent: number, checkedAt = "2026-09-03T11:59:00.000Z") => ({
+    checkedAt,
+    windows: [{ ...window, usedPercent }],
+  });
+  const source = (
+    id: string,
+    endpoint: string,
+    accounts: ReadonlyArray<{ id: string; email: string; usedPercent: number | null }>,
+  ) => ({
+    id: UsageLimitSourceId.make(id),
+    kind: "cliproxy" as const,
+    label: id,
+    endpoint,
+    checkedAt: "2026-09-03T11:59:00.000Z",
+    accounts: accounts.map((account) => ({
+      id: account.id,
+      driver: claude,
+      email: account.email,
+      usageLimits:
+        account.usedPercent === null
+          ? {
+              checkedAt: "2026-09-03T11:59:00.000Z",
+              windows: [],
+              unavailable: { reason: "probeFailed" as const },
+            }
+          : limits(account.usedPercent),
+    })),
+  });
+  const proxy = source("proxy", "http://127.0.0.1:8317", [
+    { id: "sg.json", email: "sg@example.com", usedPercent: 100 },
+    { id: "kv.json", email: "kv@example.com", usedPercent: 2 },
+  ]);
+  const routed = (endpoint?: string) =>
+    provider({
+      instanceId,
+      driver: claude,
+      auth: { status: "authenticated", ...(endpoint ? { endpoint } : {}) },
+      usageLimits: {
+        checkedAt: "2026-09-03T11:59:00.000Z",
+        windows: [],
+        unavailable: { reason: "probeFailed" },
+      },
+    });
+  const sessionLeft = (pool: ReturnType<typeof customEndpointLimitPool>) =>
+    pool?.windows.map((pooled) => [pooled.remainingPercent, pooled.members.length]);
+
+  it("pools the accounts of the source the instance is routed through", () => {
+    const others = [
+      source("port", "http://127.0.0.1:9000", [
+        { id: "x.json", email: "x@example.com", usedPercent: 0 },
+      ]),
+      source("path", "http://127.0.0.1:8317/other", [
+        { id: "y.json", email: "y@example.com", usedPercent: 0 },
+      ]),
+    ];
+    expect(
+      sessionLeft(
+        customEndpointLimitPool(
+          instanceId,
+          [routed("http://127.0.0.1:8317")],
+          [proxy, ...others],
+          now,
+        ),
+      ),
+    ).toEqual([[49, 2]]);
+    expect(
+      customEndpointLimitPool(instanceId, [routed("https://gateway.example.com")], [proxy], now),
+    ).toBeNull();
+    expect(customEndpointLimitPool(instanceId, [routed()], [proxy], now)).toBeNull();
+  });
+
+  it("counts an account once and uses its freshest reading", () => {
+    const repeated = { ...proxy, id: UsageLimitSourceId.make("again") };
+    const native = (checkedAt: string) =>
+      provider({
+        instanceId: ProviderInstanceId.make("claude-sg"),
+        driver: claude,
+        auth: { status: "authenticated", email: "sg@example.com" },
+        usageLimits: limits(20, checkedAt),
+      });
+    const pool = (checkedAt: string) =>
+      sessionLeft(
+        customEndpointLimitPool(
+          instanceId,
+          [routed("http://127.0.0.1:8317"), native(checkedAt)],
+          [proxy, repeated],
+          now,
+        ),
+      );
+    expect(pool("2026-09-03T11:59:30.000Z")).toEqual([[89, 2]]);
+    expect(pool("2026-09-03T11:58:00.000Z")).toEqual([[49, 2]]);
+  });
+
+  it("matches an endpoint to the same proxy written another way", () => {
+    expect(endpointIdentity("HTTP://127.0.0.1:80/")).toBe(endpointIdentity("http://127.0.0.1"));
+    expect(endpointIdentity("https://Hub.example/a/?x=1#y")).toBe("https://hub.example/a");
+    expect(endpointIdentity("https://hub.example/a")).not.toBe(
+      endpointIdentity("https://hub.example/b"),
+    );
+    expect(endpointIdentity("http://hub.example")).not.toBe(
+      endpointIdentity("https://hub.example"),
+    );
+    expect(endpointIdentity("127.0.0.1:8317")).toBeUndefined();
+  });
+
+  it("uses a native reading when the proxy cannot read that account", () => {
+    const blind = source("proxy", "http://127.0.0.1:8317", [
+      { id: "sg.json", email: "sg@example.com", usedPercent: null },
+      { id: "kv.json", email: "kv@example.com", usedPercent: 0 },
+    ]);
+    const native = provider({
+      instanceId: ProviderInstanceId.make("claude-sg"),
+      driver: claude,
+      auth: { status: "authenticated", email: "sg@example.com" },
+      usageLimits: limits(100),
+    });
+    expect(
+      sessionLeft(
+        customEndpointLimitPool(
+          instanceId,
+          [routed("http://127.0.0.1:8317"), native],
+          [blind],
+          now,
+        ),
+      ),
+    ).toEqual([[50, 2]]);
   });
 });

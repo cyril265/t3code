@@ -235,6 +235,35 @@ function accountKeyResolver(reports: Iterable<AccountReport>) {
 
 const hubAccountName = (account: { readonly id: string }) => account.id.replace(/\.json$/i, "");
 
+const providerKeyResolver = (
+  providers: readonly ServerProvider[],
+  sources: UsageLimitSourceSnapshots,
+) =>
+  accountKeyResolver([
+    ...providers.filter((provider) => provider.enabled).map(nativeReport),
+    ...sources.flatMap((source) => source.accounts),
+  ]);
+
+function hubLimitAccount(
+  source: UsageLimitSourceSnapshots[number],
+  account: UsageLimitSourceSnapshots[number]["accounts"][number],
+  sourceLabel: string,
+  redeem: LimitAccount["redeem"],
+): LimitAccount {
+  return {
+    key: `${source.id}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`,
+    driver: account.driver,
+    displayName: account.email ? null : hubAccountName(account),
+    email: account.email,
+    plan: account.plan,
+    accentColor: undefined,
+    environments: [],
+    sourceLabel,
+    redeem,
+    limits: account.usageLimits,
+  };
+}
+
 export interface LimitAccount {
   readonly key: string;
   readonly driver: ServerProvider["driver"];
@@ -361,17 +390,11 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
         : source.label;
       for (const account of source.accounts) {
         if (limitsNotice(account.usageLimits) !== null) continue;
-        const key = `${source.id}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
-        merge(resolveKey(account) ?? key, {
-          key,
-          driver: account.driver,
-          displayName: account.email ? null : hubAccountName(account),
-          email: account.email,
-          plan: account.plan,
-          accentColor: undefined,
-          environments: [],
+        const hub = hubLimitAccount(
+          source,
+          account,
           sourceLabel,
-          redeem: account.usageLimits.resetCredits?.nextCreditId
+          account.usageLimits.resetCredits?.nextCreditId
             ? {
                 environmentId,
                 input: {
@@ -381,8 +404,8 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
                 },
               }
             : null,
-          limits: account.usageLimits,
-        });
+        );
+        merge(resolveKey(account) ?? hub.key, hub);
       }
     }
   }
@@ -750,6 +773,52 @@ export function withUsageLimitsCommands(
   });
 }
 
+/** Scheme, host, port and base path: equal for a provider endpoint and a usage-limit source on the same proxy. */
+export function endpointIdentity(url: string): string | undefined {
+  const parsed = URL.parse(url.trim());
+  if (parsed?.protocol !== "http:" && parsed?.protocol !== "https:") return undefined;
+  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`;
+}
+
+/** Limits for an instance routed through a usage-limit source, such as Claude Code behind CLI Proxy. */
+export function customEndpointLimitPool(
+  instanceId: ProviderInstanceId,
+  providers: readonly ServerProvider[],
+  sources: UsageLimitSourceSnapshots,
+  now: number,
+): LimitPool | null {
+  const selected = providers.find((provider) => provider.instanceId === instanceId);
+  const endpoint = selected?.auth.endpoint;
+  if (!selected || !endpoint) return null;
+  const resolveKey = providerKeyResolver(providers, sources);
+  const proxied = new Map<string, LimitAccount>();
+  const offer = (key: string, account: LimitAccount, limits: ServerProviderUsageLimits) => {
+    if (limitsNotice(limits) !== null) return;
+    const previous = proxied.get(key);
+    if (!previous || Date.parse(limits.checkedAt) > Date.parse(previous.limits.checkedAt)) {
+      proxied.set(key, { ...account, limits });
+    }
+  };
+  const routed = new Map<string, LimitAccount>();
+  for (const source of sources) {
+    if (source.endpoint !== endpoint) continue;
+    for (const account of source.accounts) {
+      if (account.driver !== selected.driver) continue;
+      const hub = hubLimitAccount(source, account, source.label, null);
+      const key = resolveKey(account) ?? hub.key;
+      routed.set(key, hub);
+      offer(key, hub, hub.limits);
+    }
+  }
+  // A login also signed in natively may have the only or a newer usable reading.
+  for (const provider of providersWithLimits(providers)) {
+    const key = resolveKey(nativeReport(provider));
+    const account = key === null ? undefined : routed.get(key);
+    if (key !== null && account && provider.usageLimits) offer(key, account, provider.usageLimits);
+  }
+  return collectLimitPools([...proxied.values()], now)[0] ?? null;
+}
+
 export function collectProviderUsageLimits(
   instanceId: ProviderInstanceId,
   providers: readonly ServerProvider[],
@@ -758,10 +827,7 @@ export function collectProviderUsageLimits(
 ): UsageLimitsReport | null {
   const selected = providers.find((provider) => provider.instanceId === instanceId);
   if (!selected || !hasProviderUsageLimits(selected.driver, providers, sources)) return null;
-  const resolveKey = accountKeyResolver([
-    ...providers.filter((provider) => provider.enabled).map(nativeReport),
-    ...sources.flatMap((source) => source.accounts),
-  ]);
+  const resolveKey = providerKeyResolver(providers, sources);
   type NativeSnapshot = { provider: ServerProvider; limits: ServerProviderUsageLimits };
   const nativeByAccount = new Map<
     string,

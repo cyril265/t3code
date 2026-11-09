@@ -16,6 +16,7 @@ import * as Result from "effect/Result";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { createModelCapabilities } from "@t3tools/shared/model";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import { endpointIdentity } from "@t3tools/shared/usageLimits";
 import {
   query as claudeQuery,
   type Options as ClaudeQueryOptions,
@@ -631,7 +632,13 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
   // A proxy's ANTHROPIC_AUTH_TOKEN reads as an API key; the endpoint is what the token is for.
   const authMetadata =
     apiProviderAuthMetadata(capabilities.apiProvider) ??
-    (customApiEndpoint ? { type: "customEndpoint", label: "Custom API endpoint" } : undefined) ??
+    (customApiEndpoint
+      ? {
+          type: "customEndpoint",
+          label: "Custom API endpoint",
+          ...(baseUrl ? { endpoint: endpointIdentity(baseUrl) } : {}),
+        }
+      : undefined) ??
     claudeAuthMetadata({
       subscriptionType: capabilities.subscriptionType,
       authMethod: capabilities.tokenSource,
