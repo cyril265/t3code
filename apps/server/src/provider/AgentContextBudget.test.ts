@@ -51,6 +51,7 @@ import { SourceControlRepositoryService } from "../sourceControl/SourceControlRe
 import { GitVcsDriver } from "../vcs/GitVcsDriver.ts";
 import { VcsStatusBroadcaster } from "../vcs/VcsStatusBroadcaster.ts";
 import { buildCodexAdditionalContext } from "./CodexDeveloperInstructions.ts";
+import { ExternalWaits } from "../externalWaits/ExternalWaits.ts";
 import { DocumentText } from "./DocumentText.ts";
 import { EnvironmentThemeService } from "../environmentTheme.ts";
 import { ProviderRegistry } from "./ProviderRegistry.ts";
@@ -62,7 +63,11 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(AssetSigner)({}),
   Layer.mock(DeviceService)({}),
   Layer.mock(DocumentText)({}),
+<<<<<<< HEAD
   Layer.mock(EnvironmentThemeService)({}),
+=======
+  Layer.mock(ExternalWaits)({}),
+>>>>>>> f441097e96 (feat: show running wait scripts on their thread)
   Layer.mock(GitVcsDriver)({}),
   Layer.mock(GitWorkflowService)({}),
   Layer.mock(TaskFolders)({}),

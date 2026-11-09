@@ -37,6 +37,7 @@ import {
 } from "./chat/optimisticUserMessages";
 import { useTimelineRewind } from "./chat/useTimelineRewind";
 import { useThreadLifecycle } from "./chat/useThreadLifecycle";
+import { useExternalWaitTasks } from "./chat/useExternalWaitTasks";
 import { useRightPanelActions } from "./chat/useRightPanelActions";
 import { type TerminalLaunchContext, useChatTerminalActions } from "./chat/useChatTerminalActions";
 import { useComposerSend } from "./chat/useComposerSend";
@@ -1604,7 +1605,10 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadLiveTokenUsage,
     activeProviderThread,
   );
-  const pendingBackgroundTasks = deriveThreadPendingBackgroundTasks(serverProjection);
+  const pendingBackgroundTasks = [
+    ...deriveThreadPendingBackgroundTasks(serverProjection),
+    ...useExternalWaitTasks(environmentId, threadId),
+  ];
   const activeWorkStartedAt =
     deriveActiveWorkStartedAt(activeActivityRun, activeRuntime, localDispatchStartedAt) ??
     runlessWorkStartedAt;
