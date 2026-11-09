@@ -72,11 +72,17 @@ import {
   runStopNowItem,
 } from "./ThreadActivityBanners";
 import { useForceStopThread } from "./useForceStopThread";
+import { withExternalWaitStop } from "@t3tools/client-runtime/state/external-waits";
 import { useAtomValue } from "@effect/atom-react";
 import type { RunStopPresentation } from "@t3tools/client-runtime/state/thread-execution";
 import { Atom } from "effect/reactivity";
+<<<<<<< HEAD
 import { environmentThreadDetails } from "../../state/threads";
 import { resolveThreadOpenRoute } from "../../lib/sideChatPane";
+=======
+import { environmentThreadDetails, externalWaits } from "../../state/threads";
+import { openSideChatTab } from "../../lib/sideChatPane";
+>>>>>>> f441097e96 (feat: show running wait scripts on their thread)
 import type { useLocalDispatchState } from "./useLocalDispatchState";
 const RELATED_THREAD_SHELL_WAIT_MS = 1_000;
 const NO_RUN_STOP_ATOM = Atom.make<RunStopPresentation | null>(null).pipe(
@@ -193,9 +199,11 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
     reportFailure: false,
   });
-  const interruptThreadTurn = useOrchestrationCommand(threadEnvironment.interruptTurn, {
-    reportFailure: false,
-  });
+  const interruptThreadTurn = withExternalWaitStop(
+    pendingBackgroundTasks,
+    useAtomCommand(externalWaits.stop, { reportFailure: false }),
+    useOrchestrationCommand(threadEnvironment.interruptTurn, { reportFailure: false }),
+  );
 
   const serverConfigLoaded = serverConfig !== null;
   const activeThreadPinned = serverConfigLoaded && activeThreadShell?.pinnedAt != null;
