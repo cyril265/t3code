@@ -82,7 +82,9 @@ Open **Settings → Scheduled tasks** to create scheduled tasks or manage existi
 ones across your connected environments. Use the settings filter to narrow the
 list by environment or project. Each task runs on the environment you choose,
 using its project, model, and workspace settings. Fixed-time schedules use that
-environment's time zone, which may differ from your phone's. Choose **Once**
+environment's time zone, which may differ from your phone's. **Cron** takes a
+five-field expression, such as `0 9 * * 1-5` for weekdays at 09:00, in that same
+time zone. Choose **Once**
 to run a task a single time at a date and time in your own time zone. If the
 environment is offline then, the task runs when it is back.
 

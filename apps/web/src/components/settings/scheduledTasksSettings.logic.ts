@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { isListedThreadLineage, isWebhookDedupeTemplate } from "@t3tools/contracts";
+=======
+import { isCronExpression, isWebhookDedupeTemplate } from "@t3tools/contracts";
+>>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
 import {
   EnvironmentId,
   MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
@@ -56,7 +60,7 @@ export function validateScheduledTasksSearch(raw: Record<string, unknown>) {
   };
 }
 
-export type ScheduleMode = "fixed" | "once" | "interval" | "webhook";
+export type ScheduleMode = "fixed" | "once" | "interval" | "cron" | "webhook";
 export type WorkspaceMode = "root" | "worktree" | "existing_worktree";
 
 export interface DraftState {
@@ -67,6 +71,7 @@ export interface DraftState {
   readonly scheduleMode: ScheduleMode;
   readonly intervalMinutes: string;
   readonly timeOfDay: string;
+  readonly cronExpression: string;
   /** Local date and time as a `datetime-local` input value, such as 2026-11-02T15:00. */
   readonly runAt: string;
   /** The stored ISO run time, sent back unchanged when the field was not edited. */
@@ -99,6 +104,8 @@ export interface DraftState {
   readonly savedFilters: ReadonlyArray<WebhookFilterDraft>;
 }
 
+export const DEFAULT_CRON_EXPRESSION = "0 9 * * 1-5";
+
 export const WEBHOOK_SIGNATURE_DEFAULTS = {
   signatureHeader: "x-hub-signature-256",
   signatureEncoding: "hex",
@@ -123,6 +130,15 @@ export function scheduleDraftErrors(draft: DraftState) {
       ];
     return [];
   }
+  if (draft.scheduleMode === "cron")
+    return isCronExpression(draft.cronExpression)
+      ? []
+      : [
+          {
+            title: "Invalid cron expression",
+            description: "Use five fields: minute, hour, day of month, month, and weekday.",
+          },
+        ];
   if (draft.scheduleMode !== "webhook") return [];
   if (parseMaxDeliveryAge(draft.maxDeliveryAgeMinutes) === undefined)
     return [
@@ -226,6 +242,8 @@ export function scheduleFromDraft(draft: DraftState): ScheduledTaskUpsertSchedul
         : {}),
     };
   }
+  if (draft.scheduleMode === "cron")
+    return { type: "cron", expression: draft.cronExpression.trim() };
   if (draft.scheduleMode === "interval") {
     const everyMs = Math.round(Number(draft.intervalMinutes) * 60_000);
     return { type: "interval", everyMs };
@@ -253,8 +271,13 @@ export function taskToDraft(task: ScheduledTask): DraftState {
     scheduleMode: schedule.type === "fixed_time" ? "fixed" : schedule.type,
     intervalMinutes:
       schedule.type === "interval" ? String(Math.max(1, schedule.everyMs / 60_000)) : "15",
+<<<<<<< HEAD
     // A time input shows nothing for an unpadded hour such as 9:05, which agents may save.
     timeOfDay: schedule.type === "fixed_time" ? schedule.timeOfDay.padStart(5, "0") : "09:00",
+=======
+    timeOfDay: schedule.type === "fixed_time" ? schedule.timeOfDay : "09:00",
+    cronExpression: schedule.type === "cron" ? schedule.expression : DEFAULT_CRON_EXPRESSION,
+>>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
     runAt: schedule.type === "once" ? toDateTimeLocalValue(new Date(schedule.runAt)) : "",
     savedRunAt: schedule.type === "once" ? schedule.runAt : "",
     weekdays,

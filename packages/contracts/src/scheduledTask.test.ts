@@ -38,6 +38,17 @@ describe("ScheduledTaskSchedule", () => {
       expect(() => decodeUpsertSchedule({ type: "once", runAt })).toThrow();
     }
   });
+  it("accepts only five-field cron expressions that match some date", () => {
+    for (const expression of ["0 9 * * 1-5", "*/15 * * * *", "30 8 1 jan,jul MON"]) {
+      expect(decodeUpsertSchedule({ type: "cron", expression })).toEqual({
+        type: "cron",
+        expression,
+      });
+    }
+    for (const expression of ["0 0 9 * * *", "* * * *", "60 * * * *", "0 0 30 2 *"]) {
+      expect(() => decodeUpsertSchedule({ type: "cron", expression })).toThrow();
+    }
+  });
 });
 
 it.each(["literal", " ", "\t\n", "{{body.bad", "{{unknown.field}}"])(

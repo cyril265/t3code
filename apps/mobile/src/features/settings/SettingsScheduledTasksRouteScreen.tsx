@@ -123,6 +123,7 @@ function describeSchedule(task: ScheduledTask): string {
     const runAt = new Date(task.schedule.runAt);
     return `Once, ${formatRunAtDate(runAt)} at ${formatRunAtTime(runAt)}`;
   }
+  if (task.schedule.type === "cron") return `Cron ${task.schedule.expression}`;
   if (task.schedule.type === "interval") return formatScheduledTaskInterval(task.schedule.everyMs);
   const days = task.schedule.weekdays?.length ? repeatLabel(task.schedule.weekdays) : "Every day";
   return `${days} at ${formatTime(task.schedule.timeOfDay)}`;
@@ -697,7 +698,12 @@ function TaskForm({
   const offersOnce =
     config?.environment.capabilities.oneTimeSchedules === true ||
     draft.task?.schedule.type === "once";
+<<<<<<< HEAD
   const offersThreadModes = config?.environment.capabilities.scheduledTaskThreadModes === true;
+=======
+  const offersCron =
+    config?.environment.capabilities.cronSchedules === true || draft.task?.schedule.type === "cron";
+>>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
   const save = async () => {
     if (
       !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
@@ -729,6 +735,20 @@ function TaskForm({
       Dialog.alert(
         "Once is not available here",
         "This environment runs an older T3 Code. Update it to schedule a one-time task, or pick another schedule.",
+      );
+      return;
+    }
+    if (draft.schedule.mode === "cron" && !offersCron) {
+      Dialog.alert(
+        "Cron is not available here",
+        "This environment runs an older T3 Code. Update it to use a cron schedule, or pick another schedule.",
+      );
+      return;
+    }
+    if (draft.schedule.mode === "cron" && schedule === null) {
+      Dialog.alert(
+        "Invalid cron expression",
+        "Use five fields: minute, hour, day of month, month, and weekday.",
       );
       return;
     }
@@ -1028,6 +1048,9 @@ function TaskForm({
                   ? [{ value: "once" as const, label: "Once" }]
                   : []),
                 { value: "interval", label: "Interval" },
+                ...(offersCron || draft.schedule.mode === "cron"
+                  ? [{ value: "cron" as const, label: "Cron" }]
+                  : []),
                 ...(webhookDenial === undefined || draft.schedule.mode === "webhook"
                   ? [{ value: "webhook" as const, label: "On webhook" }]
                   : []),
@@ -1135,6 +1158,17 @@ function TaskForm({
             <Text className="border-t border-border-subtle px-4 py-3 text-sm text-foreground-muted">
               {`${webhookDenial} Switch the task to a timer, or turn it off, to save it.`}
             </Text>
+          ) : draft.schedule.mode === "cron" ? (
+            <FormField
+              label="Minute, hour, day of month, month, weekday"
+              value={draft.schedule.cronExpression}
+              placeholder="0 9 * * 1-5"
+              disabled={saving}
+              borderTop
+              onChange={(cronExpression) =>
+                setDraft({ ...draft, schedule: { ...draft.schedule, cronExpression } })
+              }
+            />
           ) : draft.schedule.mode === "once" ? (
             (["date", "time"] as const).map((field) => {
               const runAt = new Date(draft.schedule.runAt);
@@ -1288,7 +1322,7 @@ function TaskForm({
             />
           </View>
         </SettingsSection>
-        {draft.schedule.mode === "fixed_time" ? (
+        {draft.schedule.mode === "fixed_time" || draft.schedule.mode === "cron" ? (
           <Text className="px-2 text-sm text-foreground-muted">
             Time uses the environment's time zone, which may differ from your phone's.
           </Text>
