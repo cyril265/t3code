@@ -780,13 +780,16 @@ export function endpointIdentity(url: string): string | undefined {
   return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`;
 }
 
-/** Limits for an instance routed through a usage-limit source, such as Claude Code behind CLI Proxy. */
+/**
+ * Limits for an instance routed through a usage-limit source, such as Claude Code behind CLI Proxy.
+ * `servedBy` is the account the source last relayed a response for, so the one in use now.
+ */
 export function customEndpointLimitPool(
   instanceId: ProviderInstanceId,
   providers: readonly ServerProvider[],
   sources: UsageLimitSourceSnapshots,
   now: number,
-): LimitPool | null {
+): (LimitPool & { readonly servedBy: { account: LimitAccount; at: number } | null }) | null {
   const selected = providers.find((provider) => provider.instanceId === instanceId);
   const endpoint = selected?.auth.endpoint;
   if (!selected || !endpoint) return null;
@@ -800,6 +803,7 @@ export function customEndpointLimitPool(
     }
   };
   const routed = new Map<string, LimitAccount>();
+  let served: { key: string | null; at: number } = { key: null, at: 0 };
   for (const source of sources) {
     if (source.endpoint !== endpoint) continue;
     for (const account of source.accounts) {
@@ -808,6 +812,10 @@ export function customEndpointLimitPool(
       const key = resolveKey(account) ?? hub.key;
       routed.set(key, hub);
       offer(key, hub, hub.limits);
+      const servedAt = Date.parse(account.lastServedAt ?? "");
+      if (servedAt > served.at) served = { key, at: servedAt };
+      // Two accounts stamped in the same millisecond cannot say which one answered last.
+      else if (servedAt === served.at && key !== served.key) served = { key: null, at: servedAt };
     }
   }
   // A login also signed in natively may have the only or a newer usable reading.
@@ -816,7 +824,10 @@ export function customEndpointLimitPool(
     const account = key === null ? undefined : routed.get(key);
     if (key !== null && account && provider.usageLimits) offer(key, account, provider.usageLimits);
   }
-  return collectLimitPools([...proxied.values()], now)[0] ?? null;
+  const pool = collectLimitPools([...proxied.values()], now)[0];
+  if (!pool) return null;
+  const servedAccount = served.key === null ? undefined : proxied.get(served.key);
+  return { ...pool, servedBy: servedAccount ? { account: servedAccount, at: served.at } : null };
 }
 
 export function collectProviderUsageLimits(

@@ -61,6 +61,8 @@ export const UsageLimitSourceAccount = Schema.Struct({
   email: Schema.optional(TrimmedNonEmptyString),
   plan: Schema.optional(TrimmedNonEmptyString),
   workspaceId: Schema.optional(TrimmedNonEmptyString),
+  /** When the source last relayed a provider response for this account. */
+  lastServedAt: Schema.optional(IsoDateTime),
   usageLimits: ServerProviderUsageLimits,
 });
 export type UsageLimitSourceAccount = typeof UsageLimitSourceAccount.Type;

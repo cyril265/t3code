@@ -1519,7 +1519,12 @@ describe("custom endpoint limits", () => {
   const source = (
     id: string,
     endpoint: string,
-    accounts: ReadonlyArray<{ id: string; email: string; usedPercent: number | null }>,
+    accounts: ReadonlyArray<{
+      id: string;
+      email: string;
+      usedPercent: number | null;
+      lastServedAt?: string;
+    }>,
   ) => ({
     id: UsageLimitSourceId.make(id),
     kind: "cliproxy" as const,
@@ -1530,6 +1535,7 @@ describe("custom endpoint limits", () => {
       id: account.id,
       driver: claude,
       email: account.email,
+      ...(account.lastServedAt ? { lastServedAt: account.lastServedAt } : {}),
       usageLimits:
         account.usedPercent === null
           ? {
@@ -1603,6 +1609,48 @@ describe("custom endpoint limits", () => {
       );
     expect(pool("2026-09-03T11:59:30.000Z")).toEqual([[89, 2]]);
     expect(pool("2026-09-03T11:58:00.000Z")).toEqual([[49, 2]]);
+  });
+
+  it("names the account the proxy last answered through, at its freshest reading", () => {
+    const served = (accounts: Parameters<typeof source>[2], native: ServerProvider[] = []) =>
+      customEndpointLimitPool(
+        instanceId,
+        [routed("http://127.0.0.1:8317"), ...native],
+        [source("proxy", "http://127.0.0.1:8317", accounts)],
+        now,
+      )?.servedBy;
+    const sg = { id: "sg.json", email: "sg@example.com", usedPercent: 100 };
+    const kv = { id: "kv.json", email: "kv@example.com", usedPercent: 2 };
+    const answered = served([
+      { ...sg, lastServedAt: "2026-09-03T09:00:00.000Z" },
+      { ...kv, lastServedAt: "2026-09-03T11:58:00.000Z" },
+    ]);
+    expect(answered?.account.email).toBe("kv@example.com");
+    expect(answered?.at).toBe(Date.parse("2026-09-03T11:58:00.000Z"));
+    const nativeKv = provider({
+      instanceId: ProviderInstanceId.make("claude-kv"),
+      driver: claude,
+      auth: { status: "authenticated", email: "kv@example.com" },
+      usageLimits: limits(40, "2026-09-03T11:59:30.000Z"),
+    });
+    expect(
+      served([{ ...kv, lastServedAt: "2026-09-03T11:58:00.000Z" }], [nativeKv])?.account.limits
+        .windows[0]?.usedPercent,
+    ).toBe(40);
+    expect(served([sg, kv])).toBeNull();
+    expect(
+      served([
+        { ...sg, lastServedAt: "2026-09-03T11:58:00.000Z" },
+        { ...kv, lastServedAt: "2026-09-03T11:58:00.000Z" },
+      ]),
+    ).toBeNull();
+    // An account answered last but unreadable leaves the pool to speak for the proxy.
+    expect(
+      served([
+        { ...sg, lastServedAt: "2026-09-03T09:00:00.000Z" },
+        { ...kv, usedPercent: null, lastServedAt: "2026-09-03T11:58:00.000Z" },
+      ]),
+    ).toBeNull();
   });
 
   it("matches an endpoint to the same proxy written another way", () => {

@@ -10,6 +10,7 @@ import * as Digest from "effect/crypto/Digest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Hex from "effect/encoding/Hex";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse } from "effect/http";
 
@@ -30,6 +31,7 @@ const AuthFile = Schema.Struct({
   provider: Schema.String,
   email: Schema.optional(Schema.String),
   disabled: Schema.optional(Schema.Boolean),
+  quota: Schema.optional(Schema.Struct({ observed_at: Schema.optional(Schema.String) })),
   id_token: Schema.optional(
     Schema.Struct({
       chatgpt_account_id: Schema.optional(Schema.String),
@@ -38,6 +40,11 @@ const AuthFile = Schema.Struct({
     }),
   ),
 });
+// The proxy stamps an account each time an upstream response for it carries quota headers.
+const lastServedAt = (account: typeof AuthFile.Type) => {
+  const at = Option.getOrUndefined(DateTime.make(account.quota?.observed_at ?? ""));
+  return at ? { lastServedAt: DateTime.formatIso(at) } : {};
+};
 const AuthFiles = Schema.Struct({ files: Schema.Array(AuthFile) });
 const ApiResponse = Schema.Struct({ status_code: Schema.Number, body: Schema.String });
 const CodexWindow = Schema.Struct({
@@ -277,6 +284,7 @@ export const makeCliproxyApi = Effect.gen(function* () {
       id: account.id,
       driver: ProviderDriverKind.make(account.provider === "codex" ? "codex" : "claudeAgent"),
       ...(account.email ? { email: account.email } : {}),
+      ...lastServedAt(account),
       ...(account.id_token?.chatgpt_account_id?.trim()
         ? { workspaceId: account.id_token.chatgpt_account_id.trim() }
         : {}),
