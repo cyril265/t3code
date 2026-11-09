@@ -13,7 +13,11 @@ import {
   type AuthEnvironmentScope,
   mcpClientScopes,
 } from "./auth.ts";
+<<<<<<< HEAD
 import { PeerLinkLinkPairingInput } from "./peerLink.ts";
+=======
+import { EXTERNAL_WAIT_WS_METHODS } from "./externalWait.ts";
+>>>>>>> c71aed8336 (feat: show running wait scripts on their thread)
 import { ORCHESTRATION_V2_WS_METHODS } from "./orchestrationV2.ts";
 import { WS_METHODS } from "./rpc.ts";
 
@@ -95,6 +99,7 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.workflowsDeleteDefinition]: AuthTerminalOperateScope,
   // Force stop kills agent processes, as Stop on a terminal does.
   [ORCHESTRATION_V2_WS_METHODS.forceStopThread]: AuthOrchestrationOperateScope,
+  [EXTERNAL_WAIT_WS_METHODS.stop]: AuthOrchestrationOperateScope,
   // A guest link hands thread access to someone outside, like a pairing link.
   [WS_METHODS.guestShareCreate]: AuthAccessWriteScope,
   [WS_METHODS.peerLinksLink]: AuthAccessWriteScope,

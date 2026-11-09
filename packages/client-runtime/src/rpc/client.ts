@@ -13,6 +13,7 @@ import {
   type AuthEnvironmentScope,
   type EnvironmentId,
   type ClientGuardedRpcTag,
+  EXTERNAL_WAIT_WS_METHODS,
   ORCHESTRATION_V2_WS_METHODS,
   WS_METHODS,
 } from "@t3tools/contracts";
@@ -71,8 +72,12 @@ export type EnvironmentSubscriptionRpcTag =
   | typeof WS_METHODS.subscribeServerConfig
   | typeof WS_METHODS.subscribeServerLifecycle
   | typeof WS_METHODS.scheduledTasksSubscribe
+<<<<<<< HEAD
   | typeof WS_METHODS.workflowsSubscribe
   | typeof WS_METHODS.workflowsCounts
+=======
+  | typeof EXTERNAL_WAIT_WS_METHODS.subscribe
+>>>>>>> c71aed8336 (feat: show running wait scripts on their thread)
   | typeof WS_METHODS.serverGetStorageCleanupReport
   | typeof WS_METHODS.serverGetDatabaseStorage
   | typeof WS_METHODS.subscribeTerminalMetadata
