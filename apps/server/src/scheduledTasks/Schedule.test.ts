@@ -26,6 +26,20 @@ describe("scheduled task schedule calculation", () => {
     expect(parts?.minute).toBe(0);
   });
 
+  it("runs cron schedules at the next match in the server's zone, across daylight saving", () => {
+    const at = (iso: string) => DateTime.makeZonedUnsafe(iso, { timeZone: "America/Los_Angeles" });
+    const next = (expression: string, from: string) =>
+      DateTime.formatIso(
+        nextScheduledRunAt({ type: "cron", expression }, at(from)) ?? DateTime.makeUnsafe(0),
+      );
+    // Friday 2026-07-03 10:00 PDT: weekday 09:00 is next Monday.
+    expect(next("0 9 * * 1-5", "2026-07-03T17:00:00Z")).toBe("2026-07-06T16:00:00.000Z");
+    // On a match, the next run is the following one, not the same minute.
+    expect(next("*/15 * * * *", "2026-07-03T17:15:00Z")).toBe("2026-07-03T17:30:00.000Z");
+    // 09:00 stays local when clocks spring forward on 2026-03-08.
+    expect(next("0 9 * * *", "2026-03-07T18:00:00Z")).toBe("2026-03-08T16:00:00.000Z");
+  });
+
   it("compares schedules structurally", () => {
     expect(
       isSameSchedule(
@@ -81,5 +95,11 @@ describe("scheduled task schedule calculation", () => {
         { type: "fixed_time", timeOfDay: "09:00" },
       ),
     ).toBe(false);
+    expect(
+      isSameSchedule(
+        { type: "cron", expression: "0 9 * * *" },
+        { type: "cron", expression: "0 9 * * *" },
+      ),
+    ).toBe(true);
   });
 });

@@ -206,6 +206,18 @@ describe("one-time scheduled tasks", () => {
   });
 });
 
+it("round-trips a cron expression", () => {
+  const draft = taskToDraft({
+    ...legacyTask,
+    schedule: { type: "cron", expression: "30 8 1 * *" },
+  });
+  expect(scheduleFromDraft({ ...draft, cronExpression: " */15 * * * * " })).toEqual({
+    type: "cron",
+    expression: "*/15 * * * *",
+  });
+  expect(scheduleFromDraft(draft)).toEqual({ type: "cron", expression: "30 8 1 * *" });
+});
+
 describe("webhook scheduled tasks", () => {
   const signature = { header: "x-signature", encoding: "base64", prefix: "" } as const;
   const webhookTask: ScheduledTask = {

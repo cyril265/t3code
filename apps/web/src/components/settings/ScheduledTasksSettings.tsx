@@ -83,6 +83,7 @@ import { EnvironmentRow, useEnvironmentTransportLabel } from "./EnvironmentRow";
 import { SettingsGroup } from "./SettingsGroup";
 import { settingsScopeEnvironmentLabel, settingsScopeEnvironmentLabels } from "./settingsScopeAxis";
 import {
+  DEFAULT_CRON_EXPRESSION,
   WEBHOOK_SIGNATURE_DEFAULTS,
   scheduleDraftErrors,
   toDateTimeLocalValue,
@@ -144,6 +145,7 @@ const EMPTY_DRAFT: DraftState = {
   scheduleMode: "fixed",
   intervalMinutes: "15",
   timeOfDay: "09:00",
+  cronExpression: DEFAULT_CRON_EXPRESSION,
   runAt: "",
   savedRunAt: "",
   weekdays: new Set([1, 2, 3, 4, 5]),
@@ -302,6 +304,7 @@ const ONCE_FORMATTER = new Intl.DateTimeFormat(undefined, {
 export function scheduleLabel(schedule: ScheduledTaskSchedule): string {
   if (schedule.type === "webhook") return "On webhook";
   if (schedule.type === "once") return `Once, ${ONCE_FORMATTER.format(new Date(schedule.runAt))}`;
+  if (schedule.type === "cron") return `Cron ${schedule.expression}`;
   if (schedule.type === "interval") {
     const minutes = schedule.everyMs / 60_000;
     return Number.isInteger(minutes)
@@ -1193,6 +1196,9 @@ function ScheduledTaskEditorForm({
   const offersOnce =
     environment?.serverConfig?.environment.capabilities.oneTimeSchedules === true ||
     task?.schedule.type === "once";
+  const offersCron =
+    environment?.serverConfig?.environment.capabilities.cronSchedules === true ||
+    task?.schedule.type === "cron";
   const connected =
     environment?.connection.phase === "connected" && environment.serverConfig !== null;
   const tasksQuery = useEnvironmentQuery(
@@ -1325,6 +1331,13 @@ function ScheduledTaskEditorForm({
       reportFailure(
         "Once is not available here",
         "This environment runs an older T3 Code. Update it to schedule a one-time task, or pick another schedule.",
+      );
+      return;
+    }
+    if (schedule.type === "cron" && !offersCron) {
+      reportFailure(
+        "Cron is not available here",
+        "This environment runs an older T3 Code. Update it to use a cron schedule, or pick another schedule.",
       );
       return;
     }
@@ -1621,6 +1634,7 @@ function ScheduledTaskEditorForm({
                     mode === "fixed" ||
                     mode === "once" ||
                     mode === "interval" ||
+                    mode === "cron" ||
                     mode === "webhook"
                   )
                     setDraft((current) => {
@@ -1651,6 +1665,9 @@ function ScheduledTaskEditorForm({
                   <Toggle value="once">Once</Toggle>
                 ) : null}
                 <Toggle value="interval">Every interval</Toggle>
+                {offersCron || draft.scheduleMode === "cron" ? (
+                  <Toggle value="cron">Cron</Toggle>
+                ) : null}
                 <Toggle
                   value="webhook"
                   disabled={webhookDenial !== undefined && draft.scheduleMode !== "webhook"}
@@ -1855,6 +1872,26 @@ function ScheduledTaskEditorForm({
                     setDraft((current) => ({ ...current, runAt: event.target.value }))
                   }
                 />
+              </div>
+            ) : draft.scheduleMode === "cron" ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="scheduled-task-cron">Cron</Label>
+                  <Input
+                    id="scheduled-task-cron"
+                    nativeInput
+                    className="w-56"
+                    spellCheck={false}
+                    placeholder={DEFAULT_CRON_EXPRESSION}
+                    value={draft.cronExpression}
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, cronExpression: event.target.value }))
+                    }
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Minute, hour, day of month, month, weekday, in the environment's time zone.
+                </p>
               </div>
             ) : draft.scheduleMode === "fixed" ? (
               <div className="flex flex-wrap items-center gap-3">
