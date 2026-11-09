@@ -5060,14 +5060,21 @@ it.layer(
     );
 
     it.effect.each([
-      { source: "inherited HTTPS endpoint", baseUrl: "https://proxy.example/api", overrides: [] },
+      {
+        source: "inherited HTTPS endpoint",
+        baseUrl: "https://proxy.example/api",
+        overrides: [],
+        endpoint: "https://proxy.example/api",
+      },
       {
         source: "instance HTTP endpoint overriding Anthropic",
         baseUrl: "https://api.anthropic.com",
         overrides: [
           { name: "ANTHROPIC_BASE_URL", value: "http://localhost:8080", sensitive: false },
         ],
+        endpoint: "http://localhost:8080",
       },
+<<<<<<< HEAD
     ])("keeps Claude ready with an empty first-party account: $source", ({ baseUrl, overrides }) =>
       Effect.gen(function* () {
         const environment = yield* mergeProviderInstanceEnvironment(overrides, {
@@ -5094,8 +5101,38 @@ it.layer(
             if (joined === "--version") return { stdout: "1.0.0\n", stderr: "", code: 0 };
             throw new Error(`Unexpected args: ${joined}`);
           }),
+=======
+    ])(
+      "keeps Claude ready with an empty first-party account: $source",
+      ({ baseUrl, overrides, endpoint }) =>
+        Effect.gen(function* () {
+          const environment = yield* mergeProviderInstanceEnvironment(overrides, {
+            ANTHROPIC_BASE_URL: baseUrl,
+          });
+          const status = yield* checkClaudeProviderStatus(
+            defaultClaudeSettings,
+            claudeCapabilities({
+              tokenSource: "none",
+              apiKeySource: "none",
+              apiProvider: "firstParty",
+            }),
+            environment,
+          );
+          assert.strictEqual(status.status, "ready");
+          assert.strictEqual(status.auth.status, "authenticated");
+          assert.strictEqual(status.auth.type, "customEndpoint");
+          assert.strictEqual(status.auth.label, "Custom API endpoint");
+          assert.strictEqual(status.auth.endpoint, endpoint);
+        }).pipe(
+          Effect.provide(
+            layerMockSpawner((args) => {
+              const joined = args.join(" ");
+              if (joined === "--version") return { stdout: "1.0.0\n", stderr: "", code: 0 };
+              throw new Error(`Unexpected args: ${joined}`);
+            }),
+          ),
+>>>>>>> 2425fc78d4 (fix(web): show CLI Proxy limits for Claude Code routed through it)
         ),
-      ),
     );
 
     it.effect.each([
