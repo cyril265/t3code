@@ -1,4 +1,5 @@
 import { MIN_SCHEDULED_TASK_INTERVAL_MS, type ScheduledTaskSchedule } from "@t3tools/contracts";
+import * as Cron from "effect/Cron";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 
@@ -21,6 +22,13 @@ export function nextScheduledRunAt(
       DateTime.toEpochMillis(runAt.value) > DateTime.toEpochMillis(from)
       ? runAt.value
       : null;
+  }
+  if (schedule.type === "cron") {
+    const cron = Cron.parseUnsafe(
+      schedule.expression,
+      DateTime.isZoned(from) ? from.zone : undefined,
+    );
+    return DateTime.makeUnsafe(Cron.next(cron, from));
   }
   if (schedule.type === "interval") {
     // Intervals advance elapsed time, including across daylight-saving changes.
@@ -57,6 +65,7 @@ export function isSameSchedule(a: ScheduledTaskSchedule, b: ScheduledTaskSchedul
   }
   if (a.type === "webhook") return b.type === "webhook";
   if (a.type === "once") return b.type === "once" && Date.parse(a.runAt) === Date.parse(b.runAt);
+  if (a.type === "cron") return b.type === "cron" && a.expression === b.expression;
   if (b.type !== "fixed_time") return false;
   // Compare parsed times so padded-hour edits do not reschedule pending runs.
   const aTime = parseTimeOfDay(a.timeOfDay);
@@ -77,6 +86,6 @@ export function isMissedFixedTimeRun(
   dueAt: DateTime.DateTime,
   now: DateTime.DateTime,
 ): boolean {
-  if (schedule.type !== "fixed_time") return false;
+  if (schedule.type !== "fixed_time" && schedule.type !== "cron") return false;
   return DateTime.toEpochMillis(now) - DateTime.toEpochMillis(dueAt) > MISSED_FIXED_TIME_GRACE_MS;
 }
