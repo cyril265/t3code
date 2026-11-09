@@ -10,6 +10,7 @@ import {
   type UsageLimitSourceSnapshot,
 } from "@t3tools/contracts";
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
+import { endpointIdentity } from "@t3tools/shared/usageLimits";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -79,7 +80,14 @@ export const make = Effect.gen(function* () {
     config: UsageLimitSourceConfig,
   ) {
     const checkedAt = DateTime.formatIso(yield* DateTime.now);
-    const base = { id, kind: config.kind, label: sourceLabel(id, config), checkedAt } as const;
+    const endpoint = endpointIdentity(config.url);
+    const base = {
+      id,
+      kind: config.kind,
+      label: sourceLabel(id, config),
+      ...(endpoint ? { endpoint } : {}),
+      checkedAt,
+    } as const;
     const managementKey = yield* readManagementKey(config);
     if (managementKey.length === 0) {
       return { ...base, accounts: [], error: missingManagementKey(config) };

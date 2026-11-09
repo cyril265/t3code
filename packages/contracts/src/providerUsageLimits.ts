@@ -69,6 +69,8 @@ export const UsageLimitSourceSnapshot = Schema.Struct({
   id: UsageLimitSourceId,
   kind: Schema.Literal("cliproxy"),
   label: TrimmedNonEmptyString,
+  /** The source's URL as `endpointIdentity`, so providers routed through it can find their limits. */
+  endpoint: Schema.optional(TrimmedNonEmptyString),
   checkedAt: IsoDateTime,
   accounts: ForwardCompatibleArray(UsageLimitSourceAccount),
   error: Schema.optional(TrimmedNonEmptyString),
