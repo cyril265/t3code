@@ -207,6 +207,7 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   triage: Schema.optionalKey(Schema.Boolean),
   /** Server accepts `{ type: "once" }` scheduled tasks; older servers reject them on save. */
   oneTimeSchedules: Schema.optionalKey(Schema.Boolean),
+<<<<<<< HEAD
   /** Server honors `freshContext` on sends; older servers ignore it and keep the old context. */
   freshContext: Schema.optionalKey(Schema.Boolean),
   /** Server saves and runs scheduled task `threadMode`; older servers ignore it. */
@@ -214,6 +215,7 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   /** Server can transcribe 16 kHz mono PCM audio on the environment machine. */
   voiceTranscription: Schema.optionalKey(Schema.Boolean),
   cloudVoiceTranscription: Schema.optionalKey(Schema.Boolean),
+<<<<<<< HEAD
   /**
    * The server config's flags of the same names. A server that names them here lets a client
    * load the shell snapshot before the socket opens, and answers its `resumeFrom`.
@@ -222,12 +224,26 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   shellOlderSettled: Schema.optionalKey(Schema.Boolean),
   /** Publishes a pull request refresh when linked-thread answers change; older servers need polling. */
   linkedThreadRefreshes: Schema.optionalKey(Schema.Boolean),
+<<<<<<< HEAD
   /** Honors the `agentFeedback` setting; older servers drop it, so hide its switch where absent. */
   agentFeedback: Schema.optionalKey(Schema.Boolean),
   /** Answers `issues.linkedThreads`, the threads an issue is linked to. */
   issueLinkedThreads: Schema.optionalKey(Schema.Boolean),
   /** Keeps more than one account per standalone issue tracker; older servers keep one. */
   issueTrackerAccounts: Schema.optionalKey(Schema.Boolean),
+=======
+<<<<<<< HEAD
+  /** Answers `issues.linkedThreads`, the threads an issue is linked to. */
+  issueLinkedThreads: Schema.optionalKey(Schema.Boolean),
+=======
+=======
+=======
+  /** Server accepts `{ type: "cron" }` scheduled tasks; older servers reject them on save. */
+  cronSchedules: Schema.optionalKey(Schema.Boolean),
+>>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
+>>>>>>> 3dddb989f2 (feat: cron schedules for scheduled tasks)
+>>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
+>>>>>>> 604656cb23 (feat: cron schedules for scheduled tasks)
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 
