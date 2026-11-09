@@ -20,6 +20,7 @@ const accounts = [
     provider: "codex",
     email: "first@example.com",
     id_token: { chatgpt_account_id: "account-a" },
+    quota: { observed_at: "2026-11-09T21:03:31.944025+01:00" },
   },
   {
     id: "second.json",
@@ -205,6 +206,10 @@ describe("CLIProxyAPI built-in management API", () => {
         expect(result.map((account) => account.usageLimits.resetCredits)).toEqual([
           { availableCount: 2, nextCreditId: "first", nextExpiresAt: "2099-01-01T00:00:00.000Z" },
           { availableCount: 2, nextCreditId: "first", nextExpiresAt: "2099-01-01T00:00:00.000Z" },
+        ]);
+        expect(result.map((account) => account.lastServedAt)).toEqual([
+          "2026-11-09T20:03:31.944Z",
+          undefined,
         ]);
         expect(result[0]?.usageLimits.windows).toMatchObject([
           { id: "secondary", usedPercent: 78, kind: "weekly" },
