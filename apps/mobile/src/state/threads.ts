@@ -1,5 +1,6 @@
 import { createChildThreadApprovalsAtom } from "@t3tools/client-runtime/state/thread-requests";
 import { useAtomValue } from "@effect/atom-react";
+import { createExternalWaitAtoms } from "@t3tools/client-runtime/state/external-waits";
 import {
   createEnvironmentThreadDetailAtoms,
   createEnvironmentThreadShellAtoms,
@@ -41,9 +42,10 @@ export const environmentThreads = createEnvironmentThreadStateAtoms(connectionAt
 export const environmentThreadDetails = createEnvironmentThreadDetailAtoms(
   environmentThreads.stateAtom,
 );
+export const externalWaits = createExternalWaitAtoms(connectionAtomRuntime);
 export const environmentThreadShells = createEnvironmentThreadShellAtoms({
   catalogValueAtom: environmentCatalog.catalogValueAtom,
-  snapshotAtom: threadEnvironment.snapshotAtom,
+  snapshotAtom: externalWaits.withExternalWaits(threadEnvironment.snapshotAtom),
   hiddenThreadTagsAtom: serverEnvironment.hiddenThreadTagsAtom,
 });
 export const childThreadApprovalsAtom = createChildThreadApprovalsAtom({

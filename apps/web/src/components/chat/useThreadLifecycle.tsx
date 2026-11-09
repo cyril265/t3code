@@ -71,10 +71,11 @@ import {
   runStopNowItem,
 } from "./ThreadActivityBanners";
 import { useForceStopThread } from "./useForceStopThread";
+import { withExternalWaitStop } from "@t3tools/client-runtime/state/external-waits";
 import { useAtomValue } from "@effect/atom-react";
 import type { RunStopPresentation } from "@t3tools/client-runtime/state/thread-execution";
 import { Atom } from "effect/reactivity";
-import { environmentThreadDetails } from "../../state/threads";
+import { environmentThreadDetails, externalWaits } from "../../state/threads";
 import { openSideChatTab } from "../../lib/sideChatPane";
 import type { useLocalDispatchState } from "./useLocalDispatchState";
 const RELATED_THREAD_SHELL_WAIT_MS = 1_000;
@@ -183,9 +184,11 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
     reportFailure: false,
   });
-  const interruptThreadTurn = useOrchestrationCommand(threadEnvironment.interruptTurn, {
-    reportFailure: false,
-  });
+  const interruptThreadTurn = withExternalWaitStop(
+    pendingBackgroundTasks,
+    useAtomCommand(externalWaits.stop, { reportFailure: false }),
+    useOrchestrationCommand(threadEnvironment.interruptTurn, { reportFailure: false }),
+  );
 
   const serverConfigLoaded = serverConfig !== null;
   const activeThreadPinned = serverConfigLoaded && activeThreadShell?.pinnedAt != null;

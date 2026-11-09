@@ -1,4 +1,6 @@
 import {
+  EXTERNAL_WAIT_TOOL_NAME,
+  ExternalWaitReportResult,
   OrchestratorMcpFailure,
   OrchestratorMcpThreadListResult,
   OrchestratorMcpThreadReadResult,
@@ -680,9 +682,15 @@ const threadSendCommand = Command.make("send", {
   message: messageArgument,
   wait: waitFlag,
   json: jsonFlag,
+  mode: Flag.Literals("mode", ["queue", "auto", "steer"]).pipe(
+    Flag.withDescription(
+      "queue waits for the current turn; steer adds to it; auto steers a busy thread.",
+    ),
+    Flag.withDefault("queue"),
+  ),
 }).pipe(
   Command.withDescription(
-    "Send a message to a thread. A busy thread gets it as its next turn; nothing is interrupted.",
+    "Send a message to a thread. By default a busy thread gets it as its next turn; nothing is interrupted.",
   ),
   Command.withHandler((flags) =>
     Effect.gen(function* () {
@@ -693,7 +701,7 @@ const threadSendCommand = Command.make("send", {
         Effect.fn("cli.thread.send")(function* (tools) {
           const sent = yield* tools.call(
             "t3_thread_send",
-            { threadId, message, mode: "queue" },
+            { threadId, message, mode: flags.mode },
             OrchestratorMcpThreadSendResult,
           );
           if (flags.wait) {
@@ -762,6 +770,53 @@ const threadShowCommand = Command.make("show", {
   ),
 );
 
+const threadWaitStatusCommand = Command.make("wait-status", {
+  ...projectLocationFlags,
+  thread: threadArgument,
+  waitId: Argument.String("wait-id").pipe(Argument.withDescription("Stable id of this wait.")),
+  label: Argument.String("label").pipe(Argument.withDescription("Shown on the thread.")),
+  detail: Flag.String("detail").pipe(
+    Flag.withDescription("Latest output line, shown after the label."),
+    Flag.optional,
+  ),
+  finished: Flag.Boolean("finished").pipe(
+    Flag.withDescription("The wait ended; remove it from the thread."),
+    Flag.withDefault(false),
+  ),
+  pid: Flag.Int("pid").pipe(
+    Flag.withDescription("The script's process, which Stop sends SIGTERM."),
+    Flag.optional,
+  ),
+}).pipe(
+  Command.withDescription(
+    "Show a running wait on a thread, for wait scripts. Report at least every 30 seconds. Prints whether Stop was pressed.",
+  ),
+  Command.withHandler((flags) =>
+    Effect.gen(function* () {
+      const threadId = yield* decodeThreadId(flags.thread);
+      yield* withThreadTools(
+        flags,
+        Effect.fn("cli.thread.waitStatus")(function* (tools) {
+          const result = yield* tools.call(
+            EXTERNAL_WAIT_TOOL_NAME,
+            {
+              threadId,
+              waitId: flags.waitId,
+              label: flags.label,
+              // Undefined fields drop out of the JSON arguments.
+              detail: Option.getOrUndefined(flags.detail),
+              pid: Option.getOrUndefined(flags.pid),
+              finished: flags.finished,
+            },
+            ExternalWaitReportResult,
+          );
+          yield* printJson(result);
+        }),
+      );
+    }).pipe(reportThreadErrors),
+  ),
+);
+
 export const threadCommand = Command.make("thread").pipe(
   Command.withDescription("Start, message, and read threads on the running server."),
   Command.withSubcommands([
@@ -769,5 +824,6 @@ export const threadCommand = Command.make("thread").pipe(
     threadStartCommand,
     threadSendCommand,
     threadShowCommand,
+    threadWaitStatusCommand,
   ]),
 );

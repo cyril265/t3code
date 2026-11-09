@@ -157,8 +157,10 @@ import {
 import {
   environmentThreadDetails,
   environmentThreadShells,
+  externalWaits,
   threadEnvironment,
 } from "../../state/threads";
+import { withExternalWaitStop } from "@t3tools/client-runtime/state/external-waits";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { threadStreamHaptics } from "./threadStreamHaptics";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -563,9 +565,11 @@ function ThreadDetailBody(
     retryError,
     RECONNECT_ERROR_DELAY_MS,
   );
-  const interruptThreadTurn = useAtomCommand(threadEnvironment.interruptTurn, {
-    reportFailure: false,
-  });
+  const interruptThreadTurn = withExternalWaitStop(
+    props.selectedThread.pendingBackgroundTasks,
+    useAtomCommand(externalWaits.stop, { reportFailure: false }),
+    useAtomCommand(threadEnvironment.interruptTurn, { reportFailure: false }),
+  );
   const unsnoozeThread = useAtomCommand(threadEnvironment.unsnooze, { reportFailure: false });
   const unsettleThread = useAtomCommand(threadEnvironment.unsettle, { reportFailure: false });
   const updateMetadata = useAtomCommand(threadEnvironment.updateMetadata, { reportFailure: false });

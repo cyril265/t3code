@@ -327,6 +327,10 @@
       "types": "./src/state/threadInbox.ts",
       "default": "./src/state/threadInbox.ts"
     },
+    "./state/external-waits": {
+      "types": "./src/state/externalWaits.ts",
+      "default": "./src/state/externalWaits.ts"
+    },
     "./state/thread-relationships": {
       "types": "./src/state/threadRelationships.ts",
       "default": "./src/state/threadRelationships.ts"

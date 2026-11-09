@@ -69,6 +69,8 @@ import * as WorktreeHandlers from "./toolkits/worktree/handlers.ts";
 import { WorktreeToolkit } from "./toolkits/worktree/tools.ts";
 import * as WorktreeMcpService from "./WorktreeMcpService.ts";
 import * as PullRequestsHandlers from "./toolkits/pullRequests/handlers.ts";
+import * as ExternalWaitHandlers from "./toolkits/externalWait/handlers.ts";
+import { ExternalWaitToolkit } from "./toolkits/externalWait/tools.ts";
 import { PullRequestsToolkit } from "./toolkits/pullRequests/tools.ts";
 import * as DeviceHandlers from "./toolkits/device/handlers.ts";
 import {
@@ -1203,6 +1205,7 @@ export const layerTools = Layer.mergeAll(
   layerPreviewControlsRegistration,
   layerWorktreeToolkitRegistration,
   layerPullRequestsToolkit,
+  toolkitRegistration(ExternalWaitToolkit, ExternalWaitHandlers.layer),
   layerDeviceToolkit,
   layerHtmlToolkit,
 );
