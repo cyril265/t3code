@@ -16,6 +16,7 @@ import {
 =======
   customEndpointLimitPool,
   formatDuration,
+  type LimitAccount,
   type LimitPace,
   type LimitPoolWindow,
   limitsNotice,
@@ -122,6 +123,7 @@ export function ThreadDetailsUsage({
     >
       <div className="grid grid-cols-[auto_minmax(3rem,1fr)_auto] gap-x-3 text-xs">
 <<<<<<< HEAD
+<<<<<<< HEAD
         {resolved?.kind === "pool"
           ? resolved.windows.map((window) => <PoolRow key={window.id} window={window} now={now} />)
           : resolved &&
@@ -133,6 +135,16 @@ export function ThreadDetailsUsage({
         ))}
 =======
         {pool ? (
+=======
+        {pool?.servedBy ? (
+          <>
+            <ServedByRow {...pool.servedBy} now={now} />
+            {pool.servedBy.account.limits.windows.map((window) => (
+              <LimitRow key={window.id} window={window} now={now} />
+            ))}
+          </>
+        ) : pool ? (
+>>>>>>> 245b0854eb (fix(web): show the CLI Proxy account a thread is running on)
           pool.windows.map((window) => <PoolRow key={window.id} window={window} now={now} />)
         ) : notice ? (
           <UsageRow
@@ -303,6 +315,7 @@ function LimitRow({
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly now: number }) {
   const gt = useGT();
   const m = useMessages();
@@ -366,8 +379,43 @@ function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly n
 =======
 <<<<<<< HEAD
 >>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
+=======
+<<<<<<< HEAD
+>>>>>>> 245b0854eb (fix(web): show the CLI Proxy account a thread is running on)
 /** One label, hairline, and value row; the whole row opens the details tooltip. With `opensUsage` it links to the usage page. */
 =======
+=======
+function ServedByRow({
+  account,
+  at,
+  now,
+}: {
+  readonly account: LimitAccount;
+  readonly at: number;
+  readonly now: number;
+}) {
+  const name = account.email ?? account.displayName ?? "Proxy account";
+  return (
+    <UsageRow
+      label="Account"
+      fill={null}
+      tone={null}
+      value={name}
+      tooltip={
+        <>
+          <span className="text-foreground">
+            {account.sourceLabel ?? "The proxy"} last answered through {name}
+          </span>
+          <span className="text-muted-foreground">
+            {now - at < 60_000 ? "Just now" : `${formatDuration(now - at)} ago`}
+          </span>
+        </>
+      }
+    />
+  );
+}
+
+>>>>>>> e40588df8b (fix(web): show the CLI Proxy account a thread is running on)
 function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly now: number }) {
   const left = window.remainingPercent;
   const accounts = window.members.length;
