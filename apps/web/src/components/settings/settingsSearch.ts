@@ -454,6 +454,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["hide fold running monitoring threads inbox sidebar shelf"],
   },
   {
+    id: "inbox-response-order",
+    title: "Order by last response",
+    to: "/settings/general",
+    searchTerms: ["sort inbox threads sidebar latest reply finished recent activity"],
+  },
+  {
     id: "boring-sidebar",
     title: "Boring sidebar (group by project)",
     to: "/settings/labs",

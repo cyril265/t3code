@@ -483,6 +483,10 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.sidebarWorkingShelfEnabled !== DEFAULT_UNIFIED_SETTINGS.sidebarWorkingShelfEnabled
       ? ["Working section"]
       : []),
+    ...(settings.sidebarInboxResponseOrderEnabled !==
+    DEFAULT_UNIFIED_SETTINGS.sidebarInboxResponseOrderEnabled
+      ? ["Order by last response"]
+      : []),
     ...(settings.sidebarAutoSettleAfterDays !== DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays
       ? ["Auto-settle inactive threads"]
       : []),
@@ -649,6 +653,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       sidebarProjectGroupingMode: DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode,
       sidebarProjectSortOrder: DEFAULT_UNIFIED_SETTINGS.sidebarProjectSortOrder,
       sidebarWorkingShelfEnabled: DEFAULT_UNIFIED_SETTINGS.sidebarWorkingShelfEnabled,
+      sidebarInboxResponseOrderEnabled: DEFAULT_UNIFIED_SETTINGS.sidebarInboxResponseOrderEnabled,
       sidebarAutoSettleAfterDays: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays,
       sidebarAutoSettleKeepPullRequests: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleKeepPullRequests,
       sidebarAutoSettleOnMerge: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleOnMerge,
@@ -901,6 +906,36 @@ export function GeneralSettingsPanel() {
                 updateSettings({ sidebarWorkingShelfEnabled: Boolean(checked) })
               }
               aria-label="Working section"
+            />
+          }
+        />
+        <SettingsRow
+          {...searchableSetting("inbox-response-order")}
+          description="Keep inbox threads ordered by when the agent last finished or you last sent, instead of the order you drag them into. Always on with the Working section."
+          resetAction={
+            settings.sidebarInboxResponseOrderEnabled !==
+            DEFAULT_UNIFIED_SETTINGS.sidebarInboxResponseOrderEnabled ? (
+              <SettingResetButton
+                label="order by last response"
+                onClick={() =>
+                  updateSettings({
+                    sidebarInboxResponseOrderEnabled:
+                      DEFAULT_UNIFIED_SETTINGS.sidebarInboxResponseOrderEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={
+                settings.sidebarWorkingShelfEnabled || settings.sidebarInboxResponseOrderEnabled
+              }
+              disabled={settings.sidebarWorkingShelfEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ sidebarInboxResponseOrderEnabled: Boolean(checked) })
+              }
+              aria-label="Order by last response"
             />
           }
         />
