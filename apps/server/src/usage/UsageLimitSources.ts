@@ -12,7 +12,11 @@ import {
   type UsageLimitSourceSnapshot,
 } from "@t3tools/contracts";
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
+<<<<<<< HEAD
 import { antigravityWindowLimitsModel, hubRoutes } from "@t3tools/shared/usageLimits";
+=======
+import { endpointIdentity } from "@t3tools/shared/usageLimits";
+>>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -151,17 +155,29 @@ export const make = Effect.gen(function* () {
     config: UsageLimitSourceConfig,
   ) {
     const checkedAt = DateTime.formatIso(yield* DateTime.now);
+<<<<<<< HEAD
     const url = URL.parse(config.url);
+=======
+    const endpoint = endpointIdentity(config.url);
+>>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
     const base = {
       id,
       kind: config.kind,
       label: sourceLabel(id, config),
+<<<<<<< HEAD
       ...(config.kind === "cliproxy" && url && /^https?:$/.test(url.protocol)
+=======
+<<<<<<< HEAD
+      ...(url && /^https?:$/.test(url.protocol)
+>>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
         ? {
             origin: url.origin,
             endpoint: `${url.origin}${url.pathname.replace(/(\/management\.html)?\/*$/i, "")}`,
           }
         : {}),
+=======
+      ...(endpoint ? { endpoint } : {}),
+>>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       checkedAt,
     } as const;
     const managementKey = yield* readManagementKey(config);
