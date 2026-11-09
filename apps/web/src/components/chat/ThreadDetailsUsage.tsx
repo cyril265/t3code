@@ -6,7 +6,15 @@ import type {
 } from "@t3tools/contracts";
 import {
   collectProviderUsageLimits,
+<<<<<<< HEAD
   type LimitPace,
+=======
+  customEndpointLimitPool,
+  formatDuration,
+  type LimitPace,
+  type LimitPoolWindow,
+  limitsNotice,
+>>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
   paceOf,
   paceRemainingPercent,
   remainingPercent,
@@ -41,7 +49,14 @@ export interface ThreadDetailsUsageInput {
 
 type UsageTone = "error" | "warning" | null;
 
+<<<<<<< HEAD
 /** The selected provider's limit windows. Each row reads as room left and opens the usage page. */
+=======
+const limitTone = (left: number): UsageTone =>
+  left <= 10 ? "error" : left <= 20 ? "warning" : null;
+
+/** The selected provider's limit windows. Each row reads as room left. */
+>>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 export function ThreadDetailsUsage({
   providerInstanceId,
   providers,
@@ -61,7 +76,15 @@ export function ThreadDetailsUsage({
     report?.accounts.find((entry) => entry.instanceId === providerInstanceId)?.limits ??
     providers.find((provider) => provider.instanceId === providerInstanceId)?.usageLimits;
   if (!limits) return null;
+<<<<<<< HEAD
   const notice = limitsNotice(limits, m);
+=======
+  const notice = limitsNotice(limits);
+  const pool =
+    notice && providerInstanceId !== null
+      ? customEndpointLimitPool(providerInstanceId, providers, sources, now)
+      : null;
+>>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 
   return (
     <ThreadDetailsSection
@@ -70,7 +93,9 @@ export function ThreadDetailsUsage({
       showHeading={false}
     >
       <div className="grid grid-cols-[auto_minmax(3rem,1fr)_auto] gap-x-3 text-xs">
-        {notice ? (
+        {pool ? (
+          pool.windows.map((window) => <PoolRow key={window.id} window={window} now={now} />)
+        ) : notice ? (
           <UsageRow
             label={gt("Limits", { $context: "usage limits row label" })}
             fill={null}
@@ -172,8 +197,12 @@ function LimitRow({
     <UsageRow
       label={window.label}
       fill={left}
+<<<<<<< HEAD
       tone={left <= 10 ? "error" : left <= 20 ? "warning" : null}
       tick={timeLeft}
+=======
+      tone={limitTone(left)}
+>>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       value={`${left}%`}
       ariaValue={gt("{left}% left", { left })}
       opensUsage
@@ -201,7 +230,41 @@ function LimitRow({
   );
 }
 
+<<<<<<< HEAD
 /** One label, hairline, and value row; the whole row opens the details tooltip. With `opensUsage` it links to the usage page. */
+=======
+function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly now: number }) {
+  const left = window.remainingPercent;
+  const accounts = window.members.length;
+  const next = window.resets.find((reset) => reset.at > now);
+  return (
+    <UsageRow
+      label={window.label}
+      fill={left}
+      tone={limitTone(left)}
+      value={`${left}%`}
+      ariaValue={`${left}% left`}
+      tooltip={
+        <>
+          <span className="text-foreground">
+            {window.label}: {left}% left across {accounts} account{accounts === 1 ? "" : "s"}
+          </span>
+          {next ? (
+            <span className="text-muted-foreground">
+              Next reset in {formatDuration(next.at - now)} · +{next.restoresPercent}%
+            </span>
+          ) : null}
+          {window.pace ? (
+            <span className="text-muted-foreground">{PACE_LABEL[window.pace]}</span>
+          ) : null}
+        </>
+      }
+    />
+  );
+}
+
+/** One label, hairline, and value row; the whole row opens the details tooltip. */
+>>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 function UsageRow({
   label,
   fill,
