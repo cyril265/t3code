@@ -166,7 +166,7 @@ jobs:
             exit 1
           fi
           git add -A
-          git commit -m "fix: resolve conflicts with pingdotgg/t3code $TAG" -m "Resolved by Codex ($CODEX_MODEL) in the self-build workflow."
+          git commit --no-verify -m "fix: resolve conflicts with pingdotgg/t3code $TAG" -m "Resolved by Codex ($CODEX_MODEL) in the self-build workflow."
           echo "CHANGED=true" >> "$GITHUB_ENV"
 
       - uses: ./.github/actions/setup-ci-deps
@@ -206,7 +206,7 @@ jobs:
           done
           if [[ -n "$(git status --porcelain)" ]]; then
             git add -A
-            git commit -m "fix: build with pingdotgg/t3code $TAG" -m "Fixed by Codex ($CODEX_MODEL) in the self-build workflow."
+            git commit --no-verify -m "fix: build with pingdotgg/t3code $TAG" -m "Fixed by Codex ($CODEX_MODEL) in the self-build workflow."
             echo "CHANGED=true" >> "$GITHUB_ENV"
           fi
 
