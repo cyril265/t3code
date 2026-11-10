@@ -3860,12 +3860,19 @@ const goalHarness = Effect.fn("goalHarness")(function* (name: string, nativeGoal
 const goalHarness = Effect.fn("goalHarness")(function* (name: string) {
   const harness = yield* nextTurnSelectionHarness(name);
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
   const send = (id: string, text: string, delivery: "queue" | "auto", freshContext = false) =>
 =======
+=======
+>>>>>>> b527e96ec (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
   // "agent steer" is how an MCP send steers: a steer mode with no delivery intent.
-  const send = (id: string, text: string, delivery: "queue" | "auto" | "steer" | "agent steer") =>
->>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
+  const send = (
+    id: string,
+    text: string,
+    delivery: "queue" | "auto" | "steer" | "agent steer",
+    freshContext = false,
+  ) =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
       const threadId = ThreadId.make(`thread:${name}`);
@@ -3916,6 +3923,7 @@ const goalHarness = Effect.fn("goalHarness")(function* (name: string) {
   return { ...harness, send, read };
 });
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 it.effect.each([undefined, false, true])(
   "goal dispatch stops the active turn only with native support: %s",
@@ -4407,6 +4415,8 @@ it.effect.each(["next", "/goal ship it", "fresh next"])(
 <<<<<<< HEAD
 =======
 =======
+=======
+>>>>>>> b527e96ec (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
 it.effect.each([
   { text: "/goal all tests pass", delivery: "auto" },
   { text: "/compact", delivery: "steer" },
@@ -4414,7 +4424,6 @@ it.effect.each([
 ] as const)(
   "stops the running turn and starts $text sent into it ($delivery) next",
   ({ text, delivery }) =>
->>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
     Effect.scoped(
       Effect.gen(function* () {
         const { events, started, steered, layer, startFirstTurn, send, read } = yield* goalHarness(
@@ -4424,25 +4433,7 @@ it.effect.each([
           const orchestrator = yield* Orchestrator.OrchestratorV2;
           const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
           const threadId = yield* startFirstTurn;
-<<<<<<< HEAD
-          yield* send("compact", "/compact", "queue");
-          yield* send("queued", "queued", "queue");
-          yield* send("next", promoted, "queue", promoted.startsWith("fresh"));
-          const settled = yield* orchestrator.streamDomainEvents.pipe(
-            Stream.filter(
-              (event) =>
-                event.type === "run.updated" &&
-                event.payload.id === started[0]!.runId &&
-                event.payload.status === "waiting",
-            ),
-            Stream.take(1),
-            Stream.runDrain,
-            Effect.forkScoped,
-          );
-          const compacting = yield* orchestrator.streamDomainEvents.pipe(
-=======
           const secondTurnRunning = yield* orchestrator.streamDomainEvents.pipe(
->>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
             Stream.filter(
               (event) =>
                 event.type === "provider-turn.updated" &&
@@ -4574,6 +4565,7 @@ it.effect.each(["/goal ship it", "/compact"])(
 it.effect.each([
   { promoted: "next", stops: true },
   { promoted: "/goal ship it", stops: true },
+  { promoted: "fresh next", stops: true },
   { promoted: "/compact", stops: false },
 ])("promoting $promoted into a compaction moves it first (stops: $stops)", ({ promoted, stops }) =>
   Effect.scoped(
@@ -4587,7 +4579,7 @@ it.effect.each([
         const threadId = yield* startFirstTurn;
         yield* send("compact", "/compact", "queue");
         yield* send("queued", "queued", "queue");
-        yield* send("next", promoted, "queue");
+        yield* send("next", promoted, "queue", promoted.startsWith("fresh"));
         const settled = yield* orchestrator.streamDomainEvents.pipe(
           Stream.filter(
             (event) =>
