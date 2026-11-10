@@ -12,10 +12,23 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
+import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import * as ProcessRunner from "../processRunner.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
+
+class ExternalWaitTerminateError extends Schema.TaggedError<ExternalWaitTerminateError>()(
+  "ExternalWaitTerminateError",
+  {
+    pid: Schema.Number,
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `Failed to terminate external wait process ${this.pid}.`;
+  }
+}
 
 /** Each report renews the wait for this long; a script that stops reporting drops off. */
 const LEASE_MS = 60_000;
@@ -84,7 +97,10 @@ export const make = Effect.gen(function* () {
         waitId: wait.waitId,
       });
     }
-    yield* Effect.try(() => process.kill(pid, "SIGTERM")).pipe(Effect.ignore({ log: true }));
+    yield* Effect.try({
+      try: () => process.kill(pid, "SIGTERM"),
+      catch: (cause) => new ExternalWaitTerminateError({ pid, cause }),
+    }).pipe(Effect.ignore({ log: true }));
   });
   // Notifications re-emit the full list, so subscribers need only the newest signal.
   const changes = yield* PubSub.sliding<void>(1);
