@@ -11423,7 +11423,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         now,
       });
     }
-<<<<<<< HEAD
     // Skipping compaction starts the message as its own turn; steering would join the current one.
     if (queuedRun.freshContext === true) {
       return yield* new OrchestratorDispatchError({
@@ -11432,18 +11431,24 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         cause: "A message that starts a fresh session can't steer the current turn.",
       });
     }
+<<<<<<< HEAD
     if (goalCommand !== null) {
 <<<<<<< HEAD
       yield* ensureGoalCommandSupported(command, queuedMessage, modelSelection.instanceId);
 =======
       yield* ensureGoalCommandSupported(command, queuedMessage, queuedRun.providerInstanceId);
 =======
+=======
+>>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
     if (goalCommand !== null || compaction) {
       if (goalCommand !== null) {
         yield* ensureGoalCommandSupported(command, queuedMessage, queuedRun.providerInstanceId);
       }
+<<<<<<< HEAD
 >>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
 >>>>>>> 8d89bcffc2 (feat: queue and steer /compact while a turn runs)
+=======
+>>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
       const goal = projection.providerThreads.find(
         (candidate) => candidate.id === target?.providerThreadId,
       )?.goal;
