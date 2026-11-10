@@ -698,12 +698,9 @@ function TaskForm({
   const offersOnce =
     config?.environment.capabilities.oneTimeSchedules === true ||
     draft.task?.schedule.type === "once";
-<<<<<<< HEAD
   const offersThreadModes = config?.environment.capabilities.scheduledTaskThreadModes === true;
-=======
   const offersCron =
     config?.environment.capabilities.cronSchedules === true || draft.task?.schedule.type === "cron";
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
   const save = async () => {
     if (
       !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||

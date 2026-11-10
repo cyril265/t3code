@@ -1,5 +1,6 @@
 {
 <<<<<<< HEAD
+<<<<<<< HEAD
   "claudeSystemAppendBytes": 5597,
   "codexAdditionalContextBytes": 7327,
   "mcpToolListJsonBytes": 48217
@@ -21,4 +22,9 @@
   "mcpToolListJsonBytes": 48112
 >>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
 >>>>>>> 1501e06c3 (feat: cron schedules for scheduled tasks)
+=======
+  "claudeSystemAppendBytes": 5549,
+  "codexAdditionalContextBytes": 7279,
+  "mcpToolListJsonBytes": 48807
+>>>>>>> b527e96ec (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
 }

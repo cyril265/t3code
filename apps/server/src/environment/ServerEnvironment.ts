@@ -273,12 +273,9 @@ export const make = Effect.gen(function* () {
       ignoredFileListing: true,
       triage: true,
       oneTimeSchedules: true,
-<<<<<<< HEAD
       freshContext: true,
       scheduledTaskThreadModes: true,
-=======
       cronSchedules: true,
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
       npmReleaseLookup: true,
       voiceTranscription: isSpeechPlatformSupported(hostPlatform, hostArchitecture, hostLibc),
       cloudVoiceTranscription: true,
