@@ -207,7 +207,6 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   triage: Schema.optionalKey(Schema.Boolean),
   /** Server accepts `{ type: "once" }` scheduled tasks; older servers reject them on save. */
   oneTimeSchedules: Schema.optionalKey(Schema.Boolean),
-<<<<<<< HEAD
   /** Server honors `freshContext` on sends; older servers ignore it and keep the old context. */
   freshContext: Schema.optionalKey(Schema.Boolean),
   /** Server saves and runs scheduled task `threadMode`; older servers ignore it. */
@@ -215,6 +214,7 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   /** Server can transcribe 16 kHz mono PCM audio on the environment machine. */
   voiceTranscription: Schema.optionalKey(Schema.Boolean),
   cloudVoiceTranscription: Schema.optionalKey(Schema.Boolean),
+<<<<<<< HEAD
 <<<<<<< HEAD
   /**
    * The server config's flags of the same names. A server that names them here lets a client
@@ -242,8 +242,18 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   cronSchedules: Schema.optionalKey(Schema.Boolean),
 >>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
 >>>>>>> 3dddb989f2 (feat: cron schedules for scheduled tasks)
+<<<<<<< HEAD
 >>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
+<<<<<<< HEAD
 >>>>>>> 604656cb23 (feat: cron schedules for scheduled tasks)
+=======
+=======
+=======
+  /** Server accepts `{ type: "cron" }` scheduled tasks; older servers reject them on save. */
+  cronSchedules: Schema.optionalKey(Schema.Boolean),
+>>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
+>>>>>>> a5fe74f2a2 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
+>>>>>>> 7b8ad62a85 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 
