@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { isListedThreadLineage, isWebhookDedupeTemplate } from "@t3tools/contracts";
-=======
-import { isCronExpression, isWebhookDedupeTemplate } from "@t3tools/contracts";
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
+import { isCronExpression, isListedThreadLineage, isWebhookDedupeTemplate } from "@t3tools/contracts";
 import {
   EnvironmentId,
   MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
@@ -271,13 +267,9 @@ export function taskToDraft(task: ScheduledTask): DraftState {
     scheduleMode: schedule.type === "fixed_time" ? "fixed" : schedule.type,
     intervalMinutes:
       schedule.type === "interval" ? String(Math.max(1, schedule.everyMs / 60_000)) : "15",
-<<<<<<< HEAD
     // A time input shows nothing for an unpadded hour such as 9:05, which agents may save.
     timeOfDay: schedule.type === "fixed_time" ? schedule.timeOfDay.padStart(5, "0") : "09:00",
-=======
-    timeOfDay: schedule.type === "fixed_time" ? schedule.timeOfDay : "09:00",
     cronExpression: schedule.type === "cron" ? schedule.expression : DEFAULT_CRON_EXPRESSION,
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
     runAt: schedule.type === "once" ? toDateTimeLocalValue(new Date(schedule.runAt)) : "",
     savedRunAt: schedule.type === "once" ? schedule.runAt : "",
     weekdays,

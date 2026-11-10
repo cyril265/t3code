@@ -1,15 +1,5 @@
 {
-<<<<<<< HEAD
   "claudeSystemAppendBytes": 5549,
   "codexAdditionalContextBytes": 7279,
-  "mcpToolListJsonBytes": 48233
-=======
-  "claudeSystemAppendBytes": 5153,
-  "codexAdditionalContextBytes": 6883,
-<<<<<<< HEAD
-  "mcpToolListJsonBytes": 47994
->>>>>>> 32c8995ec (feat: show running wait scripts on their thread)
-=======
-  "mcpToolListJsonBytes": 48112
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
+  "mcpToolListJsonBytes": 48807
 }

@@ -413,14 +413,7 @@ export interface ChatComposerProps {
   activeProjectId: ProjectId | null;
   projectName?: string | undefined;
 
-<<<<<<< HEAD
-  compactThreadUnavailable: boolean;
-=======
-  contextWindowEntries: Parameters<typeof deriveLatestContextWindowSnapshot>[0];
-  contextWindowLiveUsage: Parameters<typeof deriveLatestContextWindowSnapshot>[1];
-  contextWindowProviderThread: Parameters<typeof deriveLatestContextWindowSnapshot>[2];
   compactCommandUnavailable: boolean;
->>>>>>> 7376a1ec1 (fix(web): offer /compact in the slash menu while a turn runs)
   compactDisabled: boolean;
 
   resolvedTheme: "light" | "dark";
@@ -536,15 +529,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     activeThreadModelSelection,
     reportedModelSelection,
     activeProjectId,
-<<<<<<< HEAD
     projectName,
-    compactThreadUnavailable,
-=======
-    contextWindowEntries,
-    contextWindowLiveUsage,
-    contextWindowProviderThread,
     compactCommandUnavailable,
->>>>>>> 7376a1ec1 (fix(web): offer /compact in the slash menu while a turn runs)
     compactDisabled,
     resolvedTheme,
     settings,

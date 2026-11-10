@@ -449,23 +449,8 @@ function useSidebarThreads(input: {
   // Folders already separate the work, so boring mode has no Working shelf.
   const workingShelfEnabled =
     useClientSettings((s) => s.sidebarWorkingShelfEnabled) && folderGroups === null;
-<<<<<<< HEAD
-=======
   const responseOrderEnabled = useClientSettings((s) => s.sidebarInboxResponseOrderEnabled);
   const activeTimeOrdered = workingShelfEnabled || (responseOrderEnabled && folderGroups === null);
-  const environmentConnections = useEnvironmentConnectionSummaries();
-  const liveShellEnvironmentIds = useAtomValue(liveShellEnvironmentIdsAtom);
-  const disconnectedEnvironmentIds = new Set(
-    environmentConnections
-      .filter((environment) =>
-        isSidebarEnvironmentDisconnected(
-          environment.connectionState,
-          liveShellEnvironmentIds.has(environment.environmentId),
-        ),
-      )
-      .map((environment) => environment.environmentId),
-  );
->>>>>>> 2fb5134ae (feat(web): order the sidebar inbox by last response)
   const inboxReturnsVersion = useSyncExternalStore(
     inboxReturns.subscribe,
     inboxReturns.getSnapshot,
@@ -3449,11 +3434,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             sortableId={threadKey}
                             contextDrag={isContextDrag}
                             sortableDisabled={
-<<<<<<< HEAD
-=======
                               inInbox ||
                               projectFolders !== null ||
->>>>>>> 9dc5a3fed (feat(web): list finished unread threads at the top of the sidebar)
                               renamingThreadKey === threadKey ||
                               !draggableThreadKeys.has(threadKey) ||
                               optimisticDrop !== null

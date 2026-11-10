@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { isWebhookDedupeTemplate, scheduledTaskThreadMode } from "@t3tools/contracts";
-=======
-import { isCronExpression, isWebhookDedupeTemplate } from "@t3tools/contracts";
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
+import { isCronExpression, isWebhookDedupeTemplate, scheduledTaskThreadMode } from "@t3tools/contracts";
 import type {
   ModelSelection,
   ServerConfig,

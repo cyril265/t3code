@@ -1545,12 +1545,13 @@ it.effect("queues a plain send behind the stopped queue and releases its hold", 
 
 const goalHarness = Effect.fn("goalHarness")(function* (name: string) {
   const harness = yield* nextTurnSelectionHarness(name);
-<<<<<<< HEAD
-  const send = (id: string, text: string, delivery: "queue" | "auto", freshContext = false) =>
-=======
   // "agent steer" is how an MCP send steers: a steer mode with no delivery intent.
-  const send = (id: string, text: string, delivery: "queue" | "auto" | "steer" | "agent steer") =>
->>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
+  const send = (
+    id: string,
+    text: string,
+    delivery: "queue" | "auto" | "steer" | "agent steer",
+    freshContext = false,
+  ) =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
       const threadId = ThreadId.make(`thread:${name}`);
@@ -1601,90 +1602,6 @@ const goalHarness = Effect.fn("goalHarness")(function* (name: string) {
   return { ...harness, send, read };
 });
 
-<<<<<<< HEAD
-it.effect("stops the running turn and starts a goal sent into it next", () =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const { steered, layer, startFirstTurn, send, read } = yield* goalHarness("goal-steer");
-      yield* Effect.gen(function* () {
-        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
-        const threadId = yield* startFirstTurn;
-        yield* send("queued", "queued", "queue");
-        yield* send("goal", "/goal all tests pass", "auto");
-        yield* worker.drain();
-
-        assert.deepEqual(steered, []);
-        assert.deepEqual(yield* read(threadId), {
-          queue: ["queued"],
-          started: ["first", "/goal all tests pass"],
-          stopRequested: true,
-        });
-      }).pipe(Effect.provide(layer));
-    }),
-  ),
-);
-
-it.effect("queues a goal clear without stopping work when no goal drives it", () =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const { steered, layer, startFirstTurn, send, read } = yield* goalHarness("goal-clear");
-      yield* Effect.gen(function* () {
-        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
-        const threadId = yield* startFirstTurn;
-        yield* send("queued", "queued", "queue");
-        yield* send("clear", "/goal clear", "auto");
-        yield* worker.drain();
-
-        assert.deepEqual(steered, []);
-        assert.deepEqual(yield* read(threadId), {
-          queue: ["queued", "/goal clear"],
-          started: ["first"],
-          stopRequested: false,
-        });
-      }).pipe(Effect.provide(layer));
-    }),
-  ),
-);
-
-it.effect("promotes a queued goal by stopping the running turn", () =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const { started, steered, layer, startFirstTurn, send, read } =
-        yield* goalHarness("goal-promote");
-      yield* Effect.gen(function* () {
-        const orchestrator = yield* Orchestrator.OrchestratorV2;
-        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
-        const threadId = yield* startFirstTurn;
-        yield* send("queued", "queued", "queue");
-        yield* send("goal", "/goal ship it", "queue");
-        const goalRun = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
-          (run) => run.userMessageId === MessageId.make("message:goal"),
-        )!;
-        yield* orchestrator.dispatch({
-          type: "queued-message.promote-to-steer",
-          commandId: CommandId.make("promote"),
-          threadId,
-          queuedRunId: goalRun.id,
-          targetRunId: started[0]!.runId,
-        });
-        yield* worker.drain();
-
-        assert.deepEqual(steered, []);
-        assert.deepEqual(yield* read(threadId), {
-          queue: ["queued"],
-          started: ["first", "/goal ship it"],
-          stopRequested: true,
-        });
-      }).pipe(Effect.provide(layer));
-    }),
-  ),
-);
-
-// A fresh message skips compaction as its own turn, which steering a running turn would not.
-it.effect.each(["next", "/goal ship it", "fresh next"])(
-  "promoting %s into a compaction stops it and sends it next",
-  (promoted) =>
-=======
 it.effect.each([
   { text: "/goal all tests pass", delivery: "auto" },
   { text: "/compact", delivery: "steer" },
@@ -1692,7 +1609,6 @@ it.effect.each([
 ] as const)(
   "stops the running turn and starts $text sent into it ($delivery) next",
   ({ text, delivery }) =>
->>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
     Effect.scoped(
       Effect.gen(function* () {
         const { events, started, steered, layer, startFirstTurn, send, read } = yield* goalHarness(
@@ -1702,25 +1618,7 @@ it.effect.each([
           const orchestrator = yield* Orchestrator.OrchestratorV2;
           const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
           const threadId = yield* startFirstTurn;
-<<<<<<< HEAD
-          yield* send("compact", "/compact", "queue");
-          yield* send("queued", "queued", "queue");
-          yield* send("next", promoted, "queue", promoted.startsWith("fresh"));
-          const settled = yield* orchestrator.streamDomainEvents.pipe(
-            Stream.filter(
-              (event) =>
-                event.type === "run.updated" &&
-                event.payload.id === started[0]!.runId &&
-                event.payload.status === "waiting",
-            ),
-            Stream.take(1),
-            Stream.runDrain,
-            Effect.forkScoped,
-          );
-          const compacting = yield* orchestrator.streamDomainEvents.pipe(
-=======
           const secondTurnRunning = yield* orchestrator.streamDomainEvents.pipe(
->>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
             Stream.filter(
               (event) =>
                 event.type === "provider-turn.updated" &&
@@ -1852,6 +1750,7 @@ it.effect.each(["/goal ship it", "/compact"])(
 it.effect.each([
   { promoted: "next", stops: true },
   { promoted: "/goal ship it", stops: true },
+  { promoted: "fresh next", stops: true },
   { promoted: "/compact", stops: false },
 ])("promoting $promoted into a compaction moves it first (stops: $stops)", ({ promoted, stops }) =>
   Effect.scoped(
@@ -1865,7 +1764,7 @@ it.effect.each([
         const threadId = yield* startFirstTurn;
         yield* send("compact", "/compact", "queue");
         yield* send("queued", "queued", "queue");
-        yield* send("next", promoted, "queue");
+        yield* send("next", promoted, "queue", promoted.startsWith("fresh"));
         const settled = yield* orchestrator.streamDomainEvents.pipe(
           Stream.filter(
             (event) =>

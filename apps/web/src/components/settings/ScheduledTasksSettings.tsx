@@ -1374,14 +1374,11 @@ function ScheduledTaskEditorForm({
   const offersOnce =
     environment?.serverConfig?.environment.capabilities.oneTimeSchedules === true ||
     task?.schedule.type === "once";
-<<<<<<< HEAD
   const offersThreadModes =
     environment?.serverConfig?.environment.capabilities.scheduledTaskThreadModes === true;
-=======
   const offersCron =
     environment?.serverConfig?.environment.capabilities.cronSchedules === true ||
     task?.schedule.type === "cron";
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
   const connected =
     environment?.connection.phase === "connected" && environment.serverConfig !== null;
   const tasksQuery = useEnvironmentQuery(
