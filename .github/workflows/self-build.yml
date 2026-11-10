@@ -140,7 +140,6 @@ jobs:
           echo "UPSTREAM_SHA=$(git rev-parse "upstream-$TAG")" >> "$GITHUB_ENV"
           git log --oneline "upstream-$TAG..HEAD"
 
-      # Runs as the owner's ChatGPT account. The login is refreshed by Codex and saved back after every run.
       - name: Resolve conflicts with Codex
         if: env.CONFLICTS == 'true'
         env:
@@ -148,40 +147,7 @@ jobs:
           GH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
           CODEX_MODEL: ${{ vars.CODEX_MODEL || 'gpt-6.1-sol' }}
         run: |
-          npm install -g @openai/codex@0.167.0 >/dev/null
-          export CODEX_HOME="$RUNNER_TEMP/codex-home"
-          mkdir -m 700 "$CODEX_HOME"
-          printf 'cli_auth_credentials_store = "file"\n' > "$CODEX_HOME/config.toml"
-          base64 --decode <<<"$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
-          chmod 600 "$CODEX_HOME/auth.json"
-          mask_login() {
-            for token in $(jq -r '.tokens | .access_token, .refresh_token, .id_token' "$CODEX_HOME/auth.json"); do
-              echo "::add-mask::$token"
-            done
-          }
-          mask_login
-          save_login() {
-            local status=$? encoded
-            if jq -e '.tokens.refresh_token and .tokens.access_token and .tokens.id_token' "$CODEX_HOME/auth.json" >/dev/null 2>&1 &&
-               encoded="$(base64 < "$CODEX_HOME/auth.json" | tr -d '\n')" && [[ -n "$encoded" ]]; then
-              for attempt in 1 2 3; do
-                if printf '%s' "$encoded" | gh secret set CODEX_AUTH_JSON --env codex --repo "$GITHUB_REPOSITORY"; then
-                  break
-                fi
-                if (( attempt == 3 )); then
-                  echo "::error::Could not save the refreshed Codex login; reseed CODEX_AUTH_JSON" >&2
-                  status=1
-                fi
-                sleep 5
-              done
-            else
-              echo "::error::Codex login file is missing or incomplete; not saving it" >&2
-              status=1
-            fi
-            rm -f "$CODEX_HOME/auth.json"
-            exit "$status"
-          }
-          trap save_login EXIT
+          echo "REBASED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           {
             echo "This repository is T3 Code $TAG with this fork's own commits rebased on top (self-signed macOS build, the self-build workflow, the sidebar Done block)."
             echo "The rebase conflicted and the conflict markers were committed as-is in these files:"
@@ -190,17 +156,7 @@ jobs:
             echo "Resolve every conflict marker in those files so T3's $TAG changes and this fork's changes both keep working."
             echo "Change nothing else, and do not commit: leave the edits in the working tree."
           } > "$RUNNER_TEMP/codex-prompt.md"
-          # The transcript stays off the public log; only the final message is shown, after masking any refreshed tokens.
-          codex_status=0
-          codex exec --model "$CODEX_MODEL" -c model_reasoning_effort=high --sandbox workspace-write \
-            --ephemeral --output-last-message "$RUNNER_TEMP/codex-summary.md" - \
-            < "$RUNNER_TEMP/codex-prompt.md" > "$RUNNER_TEMP/codex-transcript.log" 2>&1 || codex_status=$?
-          mask_login
-          cat "$RUNNER_TEMP/codex-summary.md" 2>/dev/null || true
-          if (( codex_status != 0 )); then
-            echo "::error::codex exec failed with status $codex_status" >&2
-            exit "$codex_status"
-          fi
+          .github/scripts/self-build-codex.sh "$RUNNER_TEMP/codex-prompt.md"
           left=""
           while IFS= read -r file; do
             if grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- "$file"; then left+="$file "; fi
@@ -211,14 +167,66 @@ jobs:
           fi
           git add -A
           git commit -m "fix: resolve conflicts with pingdotgg/t3code $TAG" -m "Resolved by Codex ($CODEX_MODEL) in the self-build workflow."
+          echo "CHANGED=true" >> "$GITHUB_ENV"
 
       - uses: ./.github/actions/setup-ci-deps
         with:
           install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
 
-      - name: Type check Codex's resolution
-        if: env.CONFLICTS == 'true'
-        run: vp run --filter "@t3tools/desktop..." --filter "t3..." typecheck
+      # Fork code can break on a new release without any conflict, e.g. when upstream tightens a lint rule.
+      - name: Type check, fixing errors with Codex
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          GH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
+          CODEX_MODEL: ${{ vars.CODEX_MODEL || 'gpt-6.1-sol' }}
+        run: |
+          typecheck=(vp run --filter "@t3tools/desktop..." --filter "t3..." typecheck)
+          [[ -n "${REBASED_SHA:-}" ]] || echo "REBASED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          for round in 0 1 2; do
+            if "${typecheck[@]}" > "$RUNNER_TEMP/typecheck.log" 2>&1; then
+              break
+            fi
+            errors="$(grep -E ': error TS[0-9]+:' "$RUNNER_TEMP/typecheck.log" | sort -u | head -n 200 || true)"
+            [[ -n "$errors" ]] || errors="$(tail -n 100 "$RUNNER_TEMP/typecheck.log")"
+            printf '%s\n' "$errors"
+            if (( round == 2 )); then
+              echo "::error::Type check still fails after Codex's fixes" >&2
+              exit 1
+            fi
+            {
+              echo "This repository is T3 Code $TAG with this fork's own commits rebased on top."
+              echo "Dependencies are installed. \`${typecheck[*]}\` fails with:"
+              echo
+              printf '%s\n' "$errors"
+              echo
+              echo "Fix these errors so this fork's changes keep working on top of $TAG, following $TAG's own code where they disagree."
+              echo "Change only what the errors need, run the type check yourself if you can, and do not commit: leave the edits in the working tree."
+            } > "$RUNNER_TEMP/codex-prompt.md"
+            .github/scripts/self-build-codex.sh "$RUNNER_TEMP/codex-prompt.md"
+          done
+          if [[ -n "$(git status --porcelain)" ]]; then
+            git add -A
+            git commit -m "fix: build with pingdotgg/t3code $TAG" -m "Fixed by Codex ($CODEX_MODEL) in the self-build workflow."
+            echo "CHANGED=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Remove the Codex login
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/codex-home"
+
+      - name: Save Codex's changes
+        if: always() && env.REBASED_SHA != '' && (env.CHANGED == 'true' || failure())
+        run: |
+          git add -A
+          git diff --cached "$REBASED_SHA" > "$RUNNER_TEMP/codex-changes.patch"
+          git diff --cached --stat "$REBASED_SHA"
+
+      - uses: actions/upload-artifact@v7
+        if: always() && env.REBASED_SHA != '' && (env.CHANGED == 'true' || failure())
+        with:
+          name: codex-changes
+          path: ${{ runner.temp }}/codex-changes.patch
+          if-no-files-found: ignore
 
       - name: Import signing certificate
         env:
@@ -254,7 +262,7 @@ jobs:
           grep -F "repo: ${GITHUB_REPOSITORY#*/}" "$app/Contents/Resources/app-update.yml"
 
       - name: Push the resolved branch
-        if: env.CONFLICTS == 'true'
+        if: env.CHANGED == 'true'
         env:
           PUSH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
         run: |
