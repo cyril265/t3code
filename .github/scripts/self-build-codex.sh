@@ -38,7 +38,16 @@ save_login() {
   return 1
 }
 
+save_on_exit() {
+  local status=$?
+  save_login || status=1
+  exit "$status"
+}
+
 mask_login
+trap save_on_exit EXIT
+trap "exit 130" INT
+trap "exit 143" TERM
 # The transcript stays off the public log; only the final message is shown, after masking any refreshed tokens.
 codex_status=0
 codex exec --model "$CODEX_MODEL" -c model_reasoning_effort=high --sandbox workspace-write \
@@ -47,7 +56,6 @@ codex exec --model "$CODEX_MODEL" -c model_reasoning_effort=high --sandbox works
 mask_login
 cat "$RUNNER_TEMP/codex-summary.md" 2>/dev/null || true
 echo
-save_login || exit 1
 if (( codex_status != 0 )); then
   echo "::error::codex exec failed with status $codex_status" >&2
   exit "$codex_status"
