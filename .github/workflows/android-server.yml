@@ -1,0 +1,109 @@
+name: Android server
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        description: Release tag to attach t3-server-android-arm64.tar.gz to
+        type: string
+        required: true
+  pull_request:
+    paths:
+      - .github/workflows/android-server.yml
+      - scripts/stage-android-server.ts
+      - scripts/android-compat.c
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  stage:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/scripts...
+      - run: |
+          vp run --filter t3 build
+          node scripts/stage-android-server.ts "$RUNNER_TEMP/android-server"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-server-stage
+          path: ${{ runner.temp }}/android-server
+          include-hidden-files: true
+
+  package:
+    needs: stage
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      RELEASE: ${{ inputs.release }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-server-stage
+          path: ${{ runner.temp }}/t3-server
+
+      - name: Install the native externals and start the server in Termux
+        run: |
+          stage="$RUNNER_TEMP/t3-server"
+          echo "${RELEASE:-dev}" > "$stage/VERSION"
+          mkdir "$RUNNER_TEMP/termux"
+          cat > "$RUNNER_TEMP/termux/build.sh" <<'SCRIPT'
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq -o Dpkg::Options::=--force-confnew nodejs python make clang curl >/dev/null
+          cd ~/t3-server
+          npm install -g --silent node-gyp "$(node -p "require('./package.json').packageManager")"
+          mkdir -p ~/.gyp && echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
+          pnpm install --prod --ignore-scripts --store-dir ~/.pnpm-store
+          (cd node_modules/node-pty && node "$(command -v node-gyp)" rebuild)
+          clang -O2 -shared -fPIC -o lib/libt3-android-compat.so lib/android-compat.c
+          rm lib/android-compat.c
+          LD_PRELOAD="$PWD/lib/libt3-android-compat.so" node --input-type=module -e "(await import('@ff-labs/fff-node')).FileFinder.ensureLoaded()"
+          rm -rf package.json pnpm-workspace.yaml pnpm-lock.yaml patches \
+            node_modules/.pnpm node_modules/.modules.yaml node_modules/.pnpm-workspace-state-v1.json
+          find node_modules -name .bin -type d -prune -exec rm -rf {} +
+          chmod -R a+rX node_modules lib/libt3-android-compat.so
+          home="$(mktemp -d)"
+          ./bin/t3 serve --host 127.0.0.1 --port 3773 --no-browser --base-dir "$home" "$home" > "$home/serve.log" 2>&1 &
+          pid=$!
+          for _ in $(seq 1 90); do
+            if curl -fsS --connect-timeout 1 --max-time 2 -o /dev/null http://127.0.0.1:3773/ 2>/dev/null; then
+              echo "server answered on 127.0.0.1:3773"
+              kill "$pid"
+              exit 0
+            fi
+            { read -r _ _ state _ < "/proc/$pid/stat"; } 2>/dev/null || break
+            [ "$state" != Z ] || break
+            sleep 1
+          done
+          cat "$home/serve.log"
+          exit 1
+          SCRIPT
+          chmod -R a+rwX "$stage" "$RUNNER_TEMP/termux"
+          chmod 755 "$stage/bin/t3"
+          docker run --rm \
+            -v "$stage:/data/data/com.termux/files/home/t3-server" \
+            -v "$RUNNER_TEMP/termux:/data/data/com.termux/files/home/ci" \
+            termux/termux-docker:aarch64 bash -l /data/data/com.termux/files/home/ci/build.sh
+          tar --hard-dereference -czf "$RUNNER_TEMP/t3-server-android-arm64.tar.gz" -C "$RUNNER_TEMP" t3-server
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: t3-server-android-arm64
+          path: ${{ runner.temp }}/t3-server-android-arm64.tar.gz
+
+      - name: Attach to the release
+        if: inputs.release != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$RELEASE" "$RUNNER_TEMP/t3-server-android-arm64.tar.gz" --clobber --repo "$GITHUB_REPOSITORY"
