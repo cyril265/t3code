@@ -84,7 +84,7 @@ jobs:
           }
           C
           clang -O2 -shared -fPIC -o lib/libt3-clear-cache.so "$HOME/clear-cache.c"
-          LD_PRELOAD="$PWD/lib/libt3-clear-cache.so" node -e "require('ffi-rs'); require('@ff-labs/fff-node').FileFinder.ensureLoaded()"
+          LD_PRELOAD="$PWD/lib/libt3-clear-cache.so" node --input-type=module -e "(await import('@ff-labs/fff-node')).FileFinder.ensureLoaded()"
           rm -rf package.json pnpm-workspace.yaml pnpm-lock.yaml patches \
             node_modules/.pnpm node_modules/.modules.yaml node_modules/.pnpm-workspace-state-v1.json
           find node_modules -name .bin -type d -prune -exec rm -rf {} +

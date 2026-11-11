@@ -32,9 +32,15 @@ const workspace = Schema.decodeUnknownSync(fromYaml(WorkspaceConfig))(
   NodeFS.readFileSync(NodePath.join(repoRoot, "pnpm-workspace.yaml"), "utf8"),
 );
 const catalog = workspace.catalog ?? {};
-const dependencies = selectCliRuntimeExternalDependencies(
-  resolveCatalogDependencies(serverPackageJson.dependencies, catalog, "apps/server"),
+const serverDependencies = resolveCatalogDependencies(
+  serverPackageJson.dependencies,
+  catalog,
+  "apps/server",
 );
+const dependencies = {
+  ...selectCliRuntimeExternalDependencies(serverDependencies),
+  "@ff-labs/fff-bin-android-arm64": serverDependencies["@ff-labs/fff-node"],
+};
 const patchedDependencies = createStagePatchedDependencies(
   workspace.patchedDependencies ?? {},
   dependencies,
