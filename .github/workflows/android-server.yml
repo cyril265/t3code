@@ -11,6 +11,7 @@ on:
     paths:
       - .github/workflows/android-server.yml
       - scripts/stage-android-server.ts
+      - scripts/android-compat.c
 
 permissions:
   contents: write
@@ -65,25 +66,13 @@ jobs:
           mkdir -p ~/.gyp && echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
           pnpm install --prod --ignore-scripts --store-dir ~/.pnpm-store
           (cd node_modules/node-pty && node "$(command -v node-gyp)" rebuild)
-          mkdir -p lib
-          clang -O2 -shared -fPIC -o lib/libt3-clear-cache.so -x c - <<'C'
-          #include <stdint.h>
-          void __clear_cache(void *start, void *end) {
-            uint64_t ctr;
-            __asm__ volatile("mrs %0, ctr_el0" : "=r"(ctr));
-            uintptr_t dline = 4u << ((ctr >> 16) & 15), iline = 4u << (ctr & 15);
-            uintptr_t first = (uintptr_t)start, last = (uintptr_t)end, at;
-            for (at = first & ~(dline - 1); at < last; at += dline) __asm__ volatile("dc cvau, %0" ::"r"(at) : "memory");
-            __asm__ volatile("dsb ish" ::: "memory");
-            for (at = first & ~(iline - 1); at < last; at += iline) __asm__ volatile("ic ivau, %0" ::"r"(at) : "memory");
-            __asm__ volatile("dsb ish\n\tisb" ::: "memory");
-          }
-          C
-          LD_PRELOAD="$PWD/lib/libt3-clear-cache.so" node --input-type=module -e "(await import('@ff-labs/fff-node')).FileFinder.ensureLoaded()"
+          clang -O2 -shared -fPIC -o lib/libt3-android-compat.so lib/android-compat.c
+          rm lib/android-compat.c
+          LD_PRELOAD="$PWD/lib/libt3-android-compat.so" node --input-type=module -e "(await import('@ff-labs/fff-node')).FileFinder.ensureLoaded()"
           rm -rf package.json pnpm-workspace.yaml pnpm-lock.yaml patches \
             node_modules/.pnpm node_modules/.modules.yaml node_modules/.pnpm-workspace-state-v1.json
           find node_modules -name .bin -type d -prune -exec rm -rf {} +
-          chmod -R a+rX node_modules lib
+          chmod -R a+rX node_modules lib/libt3-android-compat.so
           home="$(mktemp -d)"
           ./bin/t3 serve --host 127.0.0.1 --port 3773 --no-browser --base-dir "$home" "$home" > "$home/serve.log" 2>&1 &
           pid=$!
@@ -106,7 +95,7 @@ jobs:
             -v "$stage:/data/data/com.termux/files/home/t3-server" \
             -v "$RUNNER_TEMP/termux:/data/data/com.termux/files/home/ci" \
             termux/termux-docker:aarch64 bash -l /data/data/com.termux/files/home/ci/build.sh
-          tar -czf "$RUNNER_TEMP/t3-server-android-arm64.tar.gz" -C "$RUNNER_TEMP" t3-server
+          tar --hard-dereference -czf "$RUNNER_TEMP/t3-server-android-arm64.tar.gz" -C "$RUNNER_TEMP" t3-server
 
       - uses: actions/upload-artifact@v7
         with:

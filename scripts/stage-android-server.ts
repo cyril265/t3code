@@ -57,6 +57,11 @@ const stageWorkspace = {
 
 NodeFS.rmSync(stageDir, { recursive: true, force: true });
 NodeFS.mkdirSync(NodePath.join(stageDir, "bin"), { recursive: true });
+NodeFS.mkdirSync(NodePath.join(stageDir, "lib"), { recursive: true });
+NodeFS.copyFileSync(
+  NodePath.join(repoRoot, "scripts/android-compat.c"),
+  NodePath.join(stageDir, "lib/android-compat.c"),
+);
 NodeFS.cpSync(serverDist, NodePath.join(stageDir, "dist"), { recursive: true });
 NodeFS.writeFileSync(
   NodePath.join(stageDir, "package.json"),
@@ -83,7 +88,7 @@ NodeFS.writeFileSync(
   [
     "#!/data/data/com.termux/files/usr/bin/sh",
     'root="$(dirname "$(dirname "$(readlink -f "$0")")")"',
-    'export LD_PRELOAD="$root/lib/libt3-clear-cache.so${LD_PRELOAD:+:$LD_PRELOAD}"',
+    'export LD_PRELOAD="$root/lib/libt3-android-compat.so${LD_PRELOAD:+:$LD_PRELOAD}"',
     'exec node "$root/dist/bin.mjs" "$@"',
     "",
   ].join("\n"),
