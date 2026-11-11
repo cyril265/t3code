@@ -58,35 +58,37 @@ jobs:
       - name: Install the native externals and start the server in Termux
         run: |
           stage="$RUNNER_TEMP/t3-server"
-          pnpm_version="$(jq -r .packageManager "$stage/package.json")"
           echo "${RELEASE:-dev}" > "$stage/VERSION"
-          chmod -R a+rwX "$stage"
-          docker run --rm -e PNPM="$pnpm_version" \
+          mkdir "$RUNNER_TEMP/termux"
+          cat > "$RUNNER_TEMP/termux/build.sh" <<'SCRIPT'
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq -o Dpkg::Options::=--force-confnew nodejs python make clang curl >/dev/null
+          cd ~/t3-server
+          npm install -g --silent "$(node -p "require('./package.json').packageManager")"
+          pnpm install --prod
+          rm -rf package.json pnpm-workspace.yaml pnpm-lock.yaml patches \
+            node_modules/.pnpm node_modules/.modules.yaml node_modules/.pnpm-workspace-state-v1.json
+          find node_modules -name .bin -type d -prune -exec rm -rf {} +
+          home="$(mktemp -d)"
+          ./bin/t3 serve --host 127.0.0.1 --port 3773 --no-browser --base-dir "$home" "$home" > "$home/serve.log" 2>&1 &
+          for _ in $(seq 1 90); do
+            if curl -fsS -o /dev/null http://127.0.0.1:3773/; then
+              echo "server answered on 127.0.0.1:3773"
+              kill %1
+              exit 0
+            fi
+            kill -0 %1 2>/dev/null || break
+            sleep 1
+          done
+          cat "$home/serve.log"
+          exit 1
+          SCRIPT
+          chmod -R a+rwX "$stage" "$RUNNER_TEMP/termux"
+          docker run --rm \
             -v "$stage:/data/data/com.termux/files/home/t3-server" \
-            termux/termux-docker:aarch64 bash -lc '
-              set -euo pipefail
-              apt-get update -qq
-              apt-get install -y -qq -o Dpkg::Options::=--force-confnew nodejs python make clang curl >/dev/null
-              npm install -g --silent "$PNPM"
-              cd ~/t3-server
-              pnpm install --prod
-              rm -rf package.json pnpm-workspace.yaml pnpm-lock.yaml patches \
-                node_modules/.pnpm node_modules/.modules.yaml node_modules/.pnpm-workspace-state-v1.json
-              find node_modules -name .bin -type d -prune -exec rm -rf {} +
-              home="$(mktemp -d)"
-              ./bin/t3 serve --host 127.0.0.1 --port 3773 --no-browser --base-dir "$home" "$home" > "$home/serve.log" 2>&1 &
-              for _ in $(seq 1 90); do
-                if curl -fsS -o /dev/null http://127.0.0.1:3773/; then
-                  echo "server answered on 127.0.0.1:3773"
-                  kill %1
-                  exit 0
-                fi
-                kill -0 %1 2>/dev/null || break
-                sleep 1
-              done
-              cat "$home/serve.log"
-              exit 1
-            '
+            -v "$RUNNER_TEMP/termux:/data/data/com.termux/files/home/ci" \
+            termux/termux-docker:aarch64 bash -l /data/data/com.termux/files/home/ci/build.sh
           tar -czf "$RUNNER_TEMP/t3-server-android-arm64.tar.gz" -C "$RUNNER_TEMP" t3-server
 
       - uses: actions/upload-artifact@v7
