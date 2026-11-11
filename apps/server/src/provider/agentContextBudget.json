@@ -1,6 +1,7 @@
 {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   "claudeSystemAppendBytes": 5930,
   "codexAdditionalContextBytes": 7324,
   "mcpToolListJsonBytes": 49736
@@ -41,4 +42,9 @@
   "mcpToolListJsonBytes": 48807
 >>>>>>> b527e96ec (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
 >>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
+=======
+  "claudeSystemAppendBytes": 5597,
+  "codexAdditionalContextBytes": 7327,
+  "mcpToolListJsonBytes": 48791
+>>>>>>> f1f791285e (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
 }
