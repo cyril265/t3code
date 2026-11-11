@@ -72,21 +72,25 @@ jobs:
           rm -rf package.json pnpm-workspace.yaml pnpm-lock.yaml patches \
             node_modules/.pnpm node_modules/.modules.yaml node_modules/.pnpm-workspace-state-v1.json
           find node_modules -name .bin -type d -prune -exec rm -rf {} +
+          chmod -R a+rX node_modules
           home="$(mktemp -d)"
           ./bin/t3 serve --host 127.0.0.1 --port 3773 --no-browser --base-dir "$home" "$home" > "$home/serve.log" 2>&1 &
+          pid=$!
           for _ in $(seq 1 90); do
-            if curl -fsS -o /dev/null http://127.0.0.1:3773/; then
+            if curl -fsS --connect-timeout 1 --max-time 2 -o /dev/null http://127.0.0.1:3773/ 2>/dev/null; then
               echo "server answered on 127.0.0.1:3773"
-              kill %1
+              kill "$pid"
               exit 0
             fi
-            kill -0 %1 2>/dev/null || break
+            { read -r _ _ state _ < "/proc/$pid/stat"; } 2>/dev/null || break
+            [ "$state" != Z ] || break
             sleep 1
           done
           cat "$home/serve.log"
           exit 1
           SCRIPT
           chmod -R a+rwX "$stage" "$RUNNER_TEMP/termux"
+          chmod 755 "$stage/bin/t3"
           docker run --rm \
             -v "$stage:/data/data/com.termux/files/home/t3-server" \
             -v "$RUNNER_TEMP/termux:/data/data/com.termux/files/home/ci" \
