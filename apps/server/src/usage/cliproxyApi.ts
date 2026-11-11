@@ -56,7 +56,7 @@ const AuthFile = Schema.Struct({
   ),
 });
 // The proxy stamps an account each time an upstream response for it carries quota headers.
-const lastServedAt = (account: typeof AuthFile.Type) => {
+const lastServedAt = (account: AuthFile) => {
   const at = Option.getOrUndefined(DateTime.make(account.quota?.observed_at ?? ""));
   return at ? { lastServedAt: DateTime.formatIso(at) } : {};
 };
