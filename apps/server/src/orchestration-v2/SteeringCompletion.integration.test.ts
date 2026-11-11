@@ -3673,6 +3673,7 @@ it.effect("queues a plain send behind the stopped queue and releases its hold", 
 );
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 it.effect(
   "ends the run as interrupted when the provider finishes before an accepted Stop reaches it",
   () =>
@@ -3749,6 +3750,8 @@ it.effect(
 =======
 <<<<<<< HEAD
 >>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
+=======
+>>>>>>> b0dec28dce (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
 const goalHarness = Effect.fn("goalHarness")(function* (name: string, nativeGoals?: boolean) {
   const harness = yield* nextTurnSelectionHarness(
     name,
@@ -3758,16 +3761,6 @@ const goalHarness = Effect.fn("goalHarness")(function* (name: string, nativeGoal
     true,
     nativeGoals,
   );
-=======
-const goalHarness = Effect.fn("goalHarness")(function* (name: string) {
-  const harness = yield* nextTurnSelectionHarness(name);
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
-  const send = (id: string, text: string, delivery: "queue" | "auto", freshContext = false) =>
-=======
-=======
->>>>>>> b527e96ec (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
   // "agent steer" is how an MCP send steers: a steer mode with no delivery intent.
   const send = (
     id: string,
@@ -3825,8 +3818,6 @@ const goalHarness = Effect.fn("goalHarness")(function* (name: string) {
   return { ...harness, send, read };
 });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 it.effect.each([undefined, false, true])(
   "goal dispatch stops the active turn only with native support: %s",
   (nativeGoals) =>
@@ -3853,6 +3844,7 @@ it.effect.each([undefined, false, true])(
 );
 
 it.effect("starts a goal that names no model on the thread's model ahead of a queued pick", () =>
+<<<<<<< HEAD
 <<<<<<< HEAD
   Effect.gen(function* () {
     const { started, layer, startFirstTurn, read } = yield* goalHarness("goal-ahead-of-pick");
@@ -3882,6 +3874,8 @@ it.effect("starts a goal that names no model on the thread's model ahead of a qu
 <<<<<<< HEAD
 it.effect("stops the running turn and starts a goal sent into it next", () =>
 >>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
+=======
+>>>>>>> f1f791285e (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
   Effect.scoped(
     Effect.gen(function* () {
       const { started, layer, startFirstTurn, read } = yield* goalHarness("goal-ahead-of-pick");
@@ -4278,6 +4272,7 @@ it.effect("promotes a queued goal by stopping the running turn", () =>
   }),
 );
 
+<<<<<<< HEAD
 it.effect("stops the running turn for a goal an agent steers into it", () =>
   Effect.gen(function* () {
     const { started, steered, layer, startFirstTurn, read } = yield* goalHarness("goal-raw-steer");
@@ -4310,6 +4305,9 @@ it.effect("stops the running turn for a goal an agent steers into it", () =>
   }),
 );
 
+=======
+<<<<<<< HEAD
+>>>>>>> b0dec28dce (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
 // A fresh message skips compaction as its own turn, which steering a running turn would not.
 it.effect.each(["next", "/goal ship it", "fresh next"])(
   "promoting %s into a compaction stops it and sends it next",
@@ -4319,6 +4317,8 @@ it.effect.each(["next", "/goal ship it", "fresh next"])(
 =======
 =======
 >>>>>>> b527e96ec (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
+=======
+>>>>>>> f1f791285e (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
 it.effect.each([
   { text: "/goal all tests pass", delivery: "auto" },
   { text: "/compact", delivery: "steer" },

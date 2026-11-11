@@ -45,11 +45,8 @@ const AuthFile = Schema.Struct({
   provider: Schema.String,
   email: Schema.optional(Schema.String),
   disabled: Schema.optional(Schema.Boolean),
-<<<<<<< HEAD
   project_id: Schema.optional(Schema.String),
-=======
   quota: Schema.optional(Schema.Struct({ observed_at: Schema.optional(Schema.String) })),
->>>>>>> ca1627eff (fix(web): show the CLI Proxy account a thread is running on)
   id_token: Schema.optional(
     Schema.Struct({
       chatgpt_account_id: Schema.optional(Schema.String),
@@ -495,11 +492,11 @@ export const makeCliproxyApi = Effect.gen(function* () {
     provider: HubProvider,
   ) {
     const checkedAt = DateTime.formatIso(yield* DateTime.now);
-<<<<<<< HEAD
     const call: HubCall = (url, data) =>
       apiCall(hub, account, provider.header(account, platform, architecture), url, data);
     const reading = yield* provider.read({ account, call, checkedAt }).pipe(
       Effect.provideService(Digest.Digest, digest),
+<<<<<<< HEAD
 <<<<<<< HEAD
       Effect.catch((error) =>
         Effect.succeed({
@@ -603,6 +600,8 @@ export const makeCliproxyApi = Effect.gen(function* () {
     });
     return yield* read.pipe(
 >>>>>>> ca1627eff (fix(web): show the CLI Proxy account a thread is running on)
+=======
+>>>>>>> b0dec28dce (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
       Effect.orElseSucceed(() => ({
         ...listedIdentity(account),
         usageLimits: makeUnavailableUsageLimits({
@@ -613,7 +612,7 @@ export const makeCliproxyApi = Effect.gen(function* () {
         }),
       ),
     );
-    return { id: account.id, driver: provider.driver, ...reading };
+    return { id: account.id, driver: provider.driver, ...lastServedAt(account), ...reading };
   });
 
   const readAccounts = Effect.fn("CliproxyApi.readAccounts")(function* (
