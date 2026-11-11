@@ -45,11 +45,8 @@ const AuthFile = Schema.Struct({
   provider: Schema.String,
   email: Schema.optional(Schema.String),
   disabled: Schema.optional(Schema.Boolean),
-<<<<<<< HEAD
   project_id: Schema.optional(Schema.String),
-=======
   quota: Schema.optional(Schema.Struct({ observed_at: Schema.optional(Schema.String) })),
->>>>>>> ca1627eff (fix(web): show the CLI Proxy account a thread is running on)
   id_token: Schema.optional(
     Schema.Struct({
       chatgpt_account_id: Schema.optional(Schema.String),
@@ -476,101 +473,10 @@ export const makeCliproxyApi = Effect.gen(function* () {
     provider: HubProvider,
   ) {
     const checkedAt = DateTime.formatIso(yield* DateTime.now);
-<<<<<<< HEAD
     const call: HubCall = (url, data) =>
       apiCall(hub, account, provider.header(account, platform, architecture), url, data);
     const reading = yield* provider.read({ account, call, checkedAt }).pipe(
       Effect.provideService(Digest.Digest, digest),
-=======
-    const base = {
-      id: account.id,
-      driver: ProviderDriverKind.make(account.provider === "codex" ? "codex" : "claudeAgent"),
-      ...(account.email ? { email: account.email } : {}),
-      ...lastServedAt(account),
-      ...(account.id_token?.chatgpt_account_id?.trim()
-        ? { workspaceId: account.id_token.chatgpt_account_id.trim() }
-        : {}),
-    };
-    const read = Effect.gen(function* () {
-      if (account.provider === "claude") {
-        const body = yield* apiCall(hub, account, "https://api.anthropic.com/api/oauth/usage");
-        const usage = yield* decodeClaudeUsage(body);
-        const model_scoped = (usage.limits ?? []).flatMap((limit) =>
-          limit.kind === "weekly_scoped" && limit.scope?.model && typeof limit.percent === "number"
-            ? [
-                {
-                  display_name: limit.scope.model.display_name,
-                  utilization: limit.percent,
-                  resets_at: limit.resets_at ?? null,
-                },
-              ]
-            : [],
-        );
-        const rateLimits = {
-          five_hour: usage.five_hour ?? null,
-          seven_day: usage.seven_day ?? null,
-          model_scoped,
-          spend: usage.spend,
-          extra_usage: usage.extra_usage ?? null,
-        };
-        return {
-          ...base,
-          plan: "Claude Subscription",
-          usageLimits: claudeUsageResponseToLimits({
-            checkedAt,
-            response: {
-              rate_limits_available: true,
-              rate_limits: rateLimits,
-            },
-          }).limits,
-        };
-      }
-      const body = yield* apiCall(hub, account, `${CODEX_BASE}/usage`);
-      const usage = yield* decodeCodexUsage(body);
-      const toWindow = (window: typeof CodexWindow.Type | null | undefined) =>
-        window
-          ? {
-              usedPercent: window.used_percent,
-              resetsAt: window.reset_at ?? null,
-              ...(window.limit_window_seconds === undefined
-                ? {}
-                : { windowDurationMins: window.limit_window_seconds / 60 }),
-            }
-          : null;
-      const available = yield* credits(hub, account).pipe(Effect.orElseSucceed(() => undefined));
-      const next = available?.[0];
-      const planType =
-        usage.plan_type ?? account.id_token?.plan_type ?? account.id_token?.chatgpt_plan_type;
-      return {
-        ...base,
-        plan: codexPlanLabel(planType),
-        usageLimits: {
-          ...codexRateLimitsToLimits({
-            checkedAt,
-            snapshot: {
-              planType: planType ?? null,
-              primary: toWindow(usage.rate_limit?.primary_window),
-              secondary: toWindow(usage.rate_limit?.secondary_window),
-            },
-          }),
-          ...(available
-            ? {
-                resetCredits: {
-                  availableCount: available.length,
-                  ...(next
-                    ? {
-                        nextCreditId: next.id,
-                        nextExpiresAt: DateTime.formatIso(DateTime.makeUnsafe(next.expires_at)),
-                      }
-                    : {}),
-                },
-              }
-            : {}),
-        },
-      };
-    });
-    return yield* read.pipe(
->>>>>>> ca1627eff (fix(web): show the CLI Proxy account a thread is running on)
       Effect.orElseSucceed(() => ({
         ...listedIdentity(account),
         usageLimits: makeUnavailableUsageLimits({
@@ -580,7 +486,7 @@ export const makeCliproxyApi = Effect.gen(function* () {
         }),
       })),
     );
-    return { id: account.id, driver: provider.driver, ...reading };
+    return { id: account.id, driver: provider.driver, ...lastServedAt(account), ...reading };
   });
 
   const readAccounts = Effect.fn("CliproxyApi.readAccounts")(function* (

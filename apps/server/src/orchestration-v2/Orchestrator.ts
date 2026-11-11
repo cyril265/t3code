@@ -6192,26 +6192,14 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       (yield* goalDriverFor(command, modelSelection.instanceId)) === undefined
         ? null
         : parsedGoalCommand;
-<<<<<<< HEAD
+    const compaction = isCompactionCommandMessage({ role: "user", ...command });
     let queuedRunStop:
       | { readonly runId: RunId; readonly reason: string; readonly skipsHeldQueue?: true }
       | undefined;
-    if (goalCommand !== null) {
-      // A goal command never joins a running turn. One that starts or ends goal
-      // work stops the run and goes first in the queue; the rest wait. A send
-      // that asked to be queued (no delivery intent) only queues, and a run
-      // that is only finishing or running background work is never stopped.
-=======
-    const compaction = isCompactionCommandMessage({ role: "user", ...command });
-    let separateTurnStopRunId: RunId | undefined;
     if (goalCommand !== null || compaction) {
-      if (goalCommand !== null) {
-        yield* ensureGoalCommandSupported(command, command, modelSelection.instanceId);
-      }
       // Goal and compaction commands never join a running turn. Goal work changes and
       // steered compactions stop the run and go first in the queue; the rest wait. A
       // queued send only queues, and a run only finishing or in background work never stops.
->>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
       const resolvedMode = dispatchMode;
       const target =
         resolvedMode.type === "steer_active" || resolvedMode.type === "restart_active"
@@ -6236,18 +6224,10 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           (targetMessage === undefined || !isNativeMaintenanceCommand(targetMessage)) &&
           !(yield* stopReachedRun(command, command.threadId, target.id))
         ) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-          queuedRunStop = { runId: target.id, reason: "Stopped to apply /goal" };
-=======
-          separateTurnStop = {
+          queuedRunStop = {
             runId: target.id,
             reason: goalCommand === null ? "Stopped to compact context" : "Stopped to apply /goal",
           };
->>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
-=======
-          separateTurnStopRunId = target.id;
->>>>>>> f9e4580e5 (refactor: derive the compaction resume from the queued message)
         }
         dispatchMode = { type: "queue_after_active" };
       }
@@ -6658,15 +6638,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           ? { queueHeld: true }
           : {}),
         queuePosition:
-<<<<<<< HEAD
-<<<<<<< HEAD
           queuedRunStop !== undefined
-=======
-          separateTurnStop !== undefined
->>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
-=======
-          separateTurnStopRunId !== undefined
->>>>>>> f9e4580e5 (refactor: derive the compaction resume from the queued message)
             ? 1
             : Math.max(
                 0,
@@ -6824,33 +6796,15 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           },
         });
       }
-<<<<<<< HEAD
-<<<<<<< HEAD
       if (queuedRunStop !== undefined) {
-=======
-      if (separateTurnStop !== undefined) {
->>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
-=======
-      if (separateTurnStopRunId !== undefined) {
->>>>>>> f9e4580e5 (refactor: derive the compaction resume from the queued message)
         return yield* stopRunForQueuedCommand({
           command,
           events,
           effects,
           projection: yield* getProjectionWithPendingEvents(command.threadId, events),
           queuedRunId: runId,
-<<<<<<< HEAD
-<<<<<<< HEAD
           targetRunId: queuedRunStop.runId,
           reason: queuedRunStop.reason,
-=======
-          targetRunId: separateTurnStop.runId,
-          reason: separateTurnStop.reason,
->>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
-=======
-          targetRunId: separateTurnStopRunId,
-          reason: compaction ? "Stopped to compact context" : "Stopped to apply /goal",
->>>>>>> f9e4580e5 (refactor: derive the compaction resume from the queued message)
           now,
         });
       }
