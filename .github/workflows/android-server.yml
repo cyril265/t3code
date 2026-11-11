@@ -3,10 +3,6 @@ name: Android server
 on:
   workflow_call:
     inputs:
-      stage-artifact:
-        description: Artifact with the staged server from the calling job
-        type: string
-        required: true
       release:
         description: Release tag to attach t3-server-android-arm64.tar.gz to
         type: string
@@ -44,7 +40,7 @@ jobs:
 
   package:
     needs: stage
-    if: always() && !cancelled() && needs.stage.result != 'failure'
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     env:
@@ -52,7 +48,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: ${{ inputs.stage-artifact || 'android-server-stage' }}
+          name: android-server-stage
           path: ${{ runner.temp }}/t3-server
 
       - name: Install the native externals and start the server in Termux
@@ -70,7 +66,7 @@ jobs:
           pnpm install --prod --ignore-scripts --store-dir ~/.pnpm-store
           (cd node_modules/node-pty && node "$(command -v node-gyp)" rebuild)
           mkdir -p lib
-          cat > "$HOME/clear-cache.c" <<'C'
+          clang -O2 -shared -fPIC -o lib/libt3-clear-cache.so -x c - <<'C'
           #include <stdint.h>
           void __clear_cache(void *start, void *end) {
             uint64_t ctr;
@@ -83,7 +79,6 @@ jobs:
             __asm__ volatile("dsb ish\n\tisb" ::: "memory");
           }
           C
-          clang -O2 -shared -fPIC -o lib/libt3-clear-cache.so "$HOME/clear-cache.c"
           LD_PRELOAD="$PWD/lib/libt3-clear-cache.so" node --input-type=module -e "(await import('@ff-labs/fff-node')).FileFinder.ensureLoaded()"
           rm -rf package.json pnpm-workspace.yaml pnpm-lock.yaml patches \
             node_modules/.pnpm node_modules/.modules.yaml node_modules/.pnpm-workspace-state-v1.json

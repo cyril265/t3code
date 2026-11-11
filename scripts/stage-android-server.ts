@@ -16,7 +16,6 @@ const WorkspaceConfig = Schema.Struct({
   catalog: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   overrides: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   patchedDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-  allowBuilds: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
 });
 
 const stageDir = process.argv[2];
@@ -49,7 +48,6 @@ const stageWorkspace = {
   ...createStageWorkspaceConfig({
     platform: "linux",
     arch: "arm64",
-    ...(workspace.allowBuilds ? { allowBuilds: workspace.allowBuilds } : {}),
     patchedDependencies,
     overrides: resolveCatalogDependencies(workspace.overrides ?? {}, catalog, "apps/server"),
   }),

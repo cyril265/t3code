@@ -308,5 +308,4 @@ jobs:
     if: github.ref_name == github.event.repository.default_branch
     uses: ./.github/workflows/android-server.yml
     with:
-      stage-artifact: android-server-stage
       release: v${{ needs.resolve.outputs.version }}
