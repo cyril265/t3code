@@ -76,6 +76,12 @@ for (const patch of Object.values(patchedDependencies)) {
 }
 NodeFS.writeFileSync(
   NodePath.join(stageDir, "bin/t3"),
-  '#!/data/data/com.termux/files/usr/bin/sh\nexec node "$(dirname "$(dirname "$(readlink -f "$0")")")/dist/bin.mjs" "$@"\n',
+  [
+    "#!/data/data/com.termux/files/usr/bin/sh",
+    'root="$(dirname "$(dirname "$(readlink -f "$0")")")"',
+    'export LD_PRELOAD="$root/lib/libt3-clear-cache.so${LD_PRELOAD:+:$LD_PRELOAD}"',
+    'exec node "$root/dist/bin.mjs" "$@"',
+    "",
+  ].join("\n"),
   { mode: 0o755 },
 );
