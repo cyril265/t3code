@@ -67,7 +67,8 @@ jobs:
           cd ~/t3-server
           npm install -g --silent node-gyp "$(node -p "require('./package.json').packageManager")"
           mkdir -p ~/.gyp && echo "{'variables':{'android_ndk_path':''}}" > ~/.gyp/include.gypi
-          pnpm install --prod --store-dir ~/.pnpm-store
+          pnpm install --prod --ignore-scripts --store-dir ~/.pnpm-store
+          (cd node_modules/node-pty && node-gyp rebuild)
           rm -rf package.json pnpm-workspace.yaml pnpm-lock.yaml patches \
             node_modules/.pnpm node_modules/.modules.yaml node_modules/.pnpm-workspace-state-v1.json
           find node_modules -name .bin -type d -prune -exec rm -rf {} +
