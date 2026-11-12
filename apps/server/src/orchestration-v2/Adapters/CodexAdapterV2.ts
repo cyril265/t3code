@@ -17,6 +17,7 @@ import {
   getCodexTurnAccumulator,
   accumulateCodexTurnTokenUsage,
   completeCodexTurnTokenUsage,
+  readCodexTurnTokenUsage,
   type CodexTurnTokenUsageState,
 } from "../../provider/CodexTurnTokenUsage.ts";
 import type { ManagedServerProvider } from "@t3tools/provider-core/server/snapshot";
@@ -5459,6 +5460,13 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                   payload.tokenUsage,
                   DateTime.formatIso(now),
                 ),
+                turnTokenUsage: {
+                  ...readCodexTurnTokenUsage(usageStateForThread(payload.threadId), payload.turnId),
+                  elapsedMs: Math.max(
+                    0,
+                    DateTime.toEpochMillis(now) - DateTime.toEpochMillis(context.startedAt),
+                  ),
+                },
               },
             });
           }).pipe(Effect.orDie),
