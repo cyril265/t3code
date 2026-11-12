@@ -1,4 +1,5 @@
 import { Button } from "../../components/ui/Button";
+import { useAtomValue } from "@effect/atom-react";
 import * as Dialog from "../../components/ui/Dialog";
 import { useOpenPullRequest } from "../../native/useOpenPullRequest";
 import { useWorkspaceSettledContentWidth } from "../layout/workspace-content-width";
@@ -41,6 +42,10 @@ import {
   resolveUserMessagePresentation,
 } from "@t3tools/client-runtime/user-message";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
+import {
+  formatLiveTurnTokenUsage,
+  formatTurnTokenRate,
+} from "@t3tools/client-runtime/state/turn-token-rate";
 import type { ThreadCheckpointSummary } from "@t3tools/client-runtime/state/thread-checkpoints";
 import { formatDiffCount } from "@t3tools/client-runtime/diff-count";
 import type { WorkflowOpening } from "@t3tools/client-runtime/state/subagentRuntime";
@@ -253,7 +258,11 @@ import { useModelMentions } from "../../state/model-mentions";
 import { composerDocumentAttachmentRecord } from "../../lib/composerContext";
 import * as Option from "effect/Option";
 import { appAtomRegistry } from "../../state/atom-registry";
-import { environmentThreadShells, threadEnvironment } from "../../state/threads";
+import {
+  environmentThreadDetails,
+  environmentThreadShells,
+  threadEnvironment,
+} from "../../state/threads";
 import { ThreadWorkflowOpening, useWorkflowOpening } from "./thread-workflow-opening";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useV2ItemSupport } from "../../state/v2-item-support";
@@ -377,6 +386,49 @@ function UserMessageCopyButton(props: {
     >
       {button}
     </Menu>
+  );
+}
+
+function AssistantTokenRate(props: {
+  readonly environmentId: EnvironmentId;
+  readonly projectedItem: OrchestrationV2ProjectedTurnItem;
+}) {
+  const support = useV2ItemSupport({
+    environmentId: props.environmentId,
+    sourceThreadId: props.projectedItem.sourceThreadId,
+    sourceItemId: props.projectedItem.sourceItemId,
+  });
+  const label = formatTurnTokenRate(support.providerTurn);
+  if (label === null) return null;
+
+  return (
+    <Text
+      className="font-t3-medium text-xs tabular-nums text-foreground-secondary"
+      accessibilityLabel={`${label}. Average output tokens per second over this provider turn, including reasoning, tool calls, and waits.`}
+    >
+      · {label}
+    </Text>
+  );
+}
+
+function LiveTurnTokenUsage(props: {
+  readonly environmentId: EnvironmentId;
+  readonly threadId: ThreadId;
+}) {
+  const turn = useAtomValue(
+    environmentThreadDetails.activeTokenRateTurnAtom(
+      scopeThreadRef(props.environmentId, props.threadId),
+    ),
+  );
+  const label = formatLiveTurnTokenUsage(turn);
+  if (label === null) return null;
+  return (
+    <Text
+      className="px-1 py-1 font-t3-medium text-xs tabular-nums text-foreground-secondary"
+      accessibilityLabel={`${label}. Output tokens reported so far, including reasoning. The average includes tool calls and waits.`}
+    >
+      {label}
+    </Text>
   );
 }
 
@@ -2278,6 +2330,12 @@ function renderFeedEntry(
             <Text className="font-t3-medium text-xs tabular-nums text-foreground-secondary">
               {timestampLabel}
             </Text>
+            {message.projectedItem ? (
+              <AssistantTokenRate
+                environmentId={props.environmentId}
+                projectedItem={message.projectedItem}
+              />
+            ) : null}
           </View>
         ) : null}
       </Animated.View>
@@ -3741,15 +3799,18 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
               </>
             }
             ListFooterComponent={
-              props.pendingHandoff ? (
-                <ThreadHandoffDivider
-                  environmentId={props.environmentId}
-                  endpoints={props.pendingHandoff}
-                  iconColor={iconSubtleColor}
-                  surfaceColor={screenColor}
-                  label="Context handoff pending"
-                />
-              ) : null
+              <>
+                <LiveTurnTokenUsage environmentId={props.environmentId} threadId={props.threadId} />
+                {props.pendingHandoff ? (
+                  <ThreadHandoffDivider
+                    environmentId={props.environmentId}
+                    endpoints={props.pendingHandoff}
+                    iconColor={iconSubtleColor}
+                    surfaceColor={screenColor}
+                    label="Context handoff pending"
+                  />
+                ) : null}
+              </>
             }
             contentContainerStyle={{
               ...(props.fitShortFeedToViewport ? { minHeight: "100%" } : {}),

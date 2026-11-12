@@ -9,6 +9,7 @@ import {
   completeCodexTurnTokenUsage,
   getCodexTurnAccumulator,
   makeCodexTurnTokenUsageState,
+  readCodexTurnTokenUsage,
 } from "./CodexTurnTokenUsage.ts";
 
 const breakdown = (input: number, cached: number, output: number) => ({
@@ -31,11 +32,19 @@ describe("billable native turn usage", () => {
     const first = update(breakdown(1010, 505, 102), breakdown(10, 5, 2));
     accumulateCodexTurnTokenUsage(state, "turn", first);
     accumulateCodexTurnTokenUsage(state, "turn", first);
+    expect(readCodexTurnTokenUsage(state, "turn")).toMatchObject({
+      usageStatus: "partial",
+      outputTokens: 2,
+    });
     accumulateCodexTurnTokenUsage(
       state,
       "turn",
       update(breakdown(1030, 515, 108), breakdown(20, 10, 6)),
     );
+    expect(readCodexTurnTokenUsage(state, "turn")).toMatchObject({
+      usageStatus: "partial",
+      outputTokens: 8,
+    });
     expect(completeCodexTurnTokenUsage(state, "turn", true)).toEqual({
       usageStatus: "complete",
       usageScope: "main_agent",

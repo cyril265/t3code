@@ -9,6 +9,7 @@ import { WorkLogBlock } from "./WorkLog";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import type { WorktreeSetupSnapshot } from "@t3tools/contracts";
 import { deriveTimelineMinimapItems } from "./timelineMinimapItems";
+import { LiveTurnTokenUsage } from "./LiveTurnTokenUsage";
 import {
   type AssistantCitation,
   type EnvironmentId,
@@ -1253,6 +1254,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
       onGrow={onFooterGrow}
     >
       {footer}
+      {citationThreadRef ? <LiveTurnTokenUsage threadRef={citationThreadRef} /> : null}
       {unmatchedPendingApprovals.length > 0 ? (
         <TimelineRowCtx value={sharedState}>
           <div className="messages-timeline-row-frame">

@@ -4576,7 +4576,21 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
         event("session.step.ended", { ...step("msg_unseen"), finish: "stop", cost: 0, tokens }),
         event("session.execution.succeeded", { sessionID: SESSION }),
       ]);
+      const liveOutput: Array<readonly [number, number | undefined]> = [];
       const turn = yield* runtime.events.pipe(
+        Stream.tap((event) =>
+          Effect.sync(() => {
+            if (
+              event.type === "provider_turn.updated" &&
+              event.providerTurn.status === "running" &&
+              event.providerTurn.turnTokenUsage?.outputTokens !== undefined
+            )
+              liveOutput.push([
+                event.providerTurn.turnTokenUsage.outputTokens,
+                event.providerTurn.turnTokenUsage.elapsedMs,
+              ]);
+          }),
+        ),
         Stream.filter(
           (event) =>
             event.type === "provider_turn.updated" && event.providerTurn.completedAt !== null,
@@ -4590,6 +4604,10 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
         settled?.type === "provider_turn.updated" ? settled.providerTurn.turnTokenUsage : undefined;
       assert.deepInclude(usage, { usageStatus: "complete", inputTokens: 20, outputTokens: 2 });
       assert.notProperty(usage, "models");
+      assert.deepEqual(liveOutput, [
+        [1, 0],
+        [2, 0],
+      ]);
     }).pipe(Effect.scoped),
   );
 

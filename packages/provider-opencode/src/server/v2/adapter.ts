@@ -2700,7 +2700,22 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
           turn.usage.cacheWrite += tokens.cache.write;
           turn.usage.output += tokens.output + tokens.reasoning;
           turn.usage.reasoning += tokens.reasoning;
-          return;
+          const now = yield* DateTime.now;
+          return yield* emitProviderTurn(state, turn, {
+            ...turn.providerTurn,
+            turnTokenUsage: {
+              ...turnTokenUsage(turn, "running"),
+              ...(turn.providerTurn.startedAt === null
+                ? {}
+                : {
+                    elapsedMs: Math.max(
+                      0,
+                      DateTime.toEpochMillis(now) -
+                        DateTime.toEpochMillis(turn.providerTurn.startedAt),
+                    ),
+                  }),
+            },
+          });
         }
         case "session.retry.scheduled":
           return yield* updateRetry(state, turn, event.data, event.data.at - event.created);

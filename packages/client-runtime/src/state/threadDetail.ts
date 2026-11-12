@@ -41,6 +41,7 @@ import {
 } from "./threadRequests.ts";
 import { arrayElementsEqual, parseThreadKey, threadKey } from "./entities.ts";
 import { getProjectionArrayReplacementIndex } from "./orchestrationV2Projection.ts";
+import { activeTokenRateTurn } from "./turnTokenRate.ts";
 
 const EMPTY_VISIBLE_TURN_ITEMS: OrchestrationV2ThreadProjection["visibleTurnItems"] = Object.freeze(
   [],
@@ -277,6 +278,13 @@ export function createEnvironmentThreadDetailAtoms<E>(
       return previousValue;
     }).pipe(Atom.setIdleTTL(0), Atom.withLabel(`environment-thread:${key}`));
   });
+
+  const activeTokenRateTurnAtomFamily = Atom.family((key: string) =>
+    Atom.make((get) => {
+      const thread = get(threadAtomFamily(key));
+      return thread === null ? null : activeTokenRateTurn(thread.projection);
+    }).pipe(Atom.setIdleTTL(0), Atom.withLabel(`environment-thread-token-rate:${key}`)),
+  );
 
   // Streamed assistant and reasoning text replaces an item several times a
   // second. Readers of the thread's structure (runs, requests, which items
@@ -589,6 +597,8 @@ export function createEnvironmentThreadDetailAtoms<E>(
       checkpointSummariesAtomFamily(threadKey(ref)),
     stateAtom: (ref: ScopedThreadRef) => threadStateValueAtomFamily(threadKey(ref)),
     threadAtom: (ref: ScopedThreadRef) => threadAtomFamily(threadKey(ref)),
+    activeTokenRateTurnAtom: (ref: ScopedThreadRef) =>
+      activeTokenRateTurnAtomFamily(threadKey(ref)),
     quietThreadAtom: (ref: ScopedThreadRef) => quietThreadAtomFamily(threadKey(ref)),
     visibleTurnItemsAtom: (ref: ScopedThreadRef) => visibleTurnItemsAtomFamily(threadKey(ref)),
     quietVisibleTurnItemsAtom: (ref: ScopedThreadRef) =>

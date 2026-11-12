@@ -403,6 +403,10 @@
       "types": "./src/state/turnItemPresentation.ts",
       "default": "./src/state/turnItemPresentation.ts"
     },
+    "./state/turn-token-rate": {
+      "types": "./src/state/turnTokenRate.ts",
+      "default": "./src/state/turnTokenRate.ts"
+    },
     "./state/vcs": {
       "types": "./src/state/vcs.ts",
       "default": "./src/state/vcs.ts"

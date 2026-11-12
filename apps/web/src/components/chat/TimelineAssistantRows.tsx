@@ -1,6 +1,7 @@
 import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
 import { type RunId } from "@t3tools/contracts";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
+import { formatTurnTokenRate } from "@t3tools/client-runtime/state/turn-token-rate";
 import { memo, use, useState } from "react";
 import { type ChatMessage, type TurnDiffSummary } from "../../types";
 import ChatMarkdown from "../ChatMarkdown";
@@ -199,7 +200,37 @@ function AssistantMessageMeta({
           </TooltipPopup>
         </Tooltip>
       )}
+      {!message.streaming && projectedItem?.item.type === "assistant_message" ? (
+        <AssistantTokenRate projectedItem={projectedItem} />
+      ) : null}
     </div>
+  );
+}
+
+function AssistantTokenRate({
+  projectedItem,
+}: {
+  readonly projectedItem: NonNullable<Extract<TimelineRow, { kind: "message" }>["projectedItem"]>;
+}) {
+  const ctx = use(TimelineRowCtx);
+  const support = useV2ItemSupport({
+    environmentId: ctx.activeThreadEnvironmentId,
+    sourceThreadId: projectedItem.sourceThreadId,
+    sourceItemId: projectedItem.sourceItemId,
+  });
+  const label = formatTurnTokenRate(support.providerTurn);
+  if (label === null) return null;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span tabIndex={0} className="text-muted-foreground" />}>
+        {label}
+      </TooltipTrigger>
+      <TooltipPopup>
+        Average output tokens per second over this provider turn, including reasoning, tool calls,
+        and waits.
+      </TooltipPopup>
+    </Tooltip>
   );
 }
 

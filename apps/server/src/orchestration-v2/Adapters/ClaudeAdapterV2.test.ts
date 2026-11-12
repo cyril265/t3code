@@ -7885,6 +7885,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
           attachments: [],
         }),
       );
+      yield* TestClock.adjust("2 seconds");
       // Some Anthropic-compatible proxies report zero usage at message_start
       // and the real counts on the final message_delta.
       const frames = [
@@ -7917,12 +7918,39 @@ describe("ClaudeAdapterV2 background wake turns", () => {
           delta: { stop_reason: "end_turn", stop_sequence: null },
           usage: { input_tokens: null, output_tokens: 12 },
         }),
+        usageSnapshotFrame("msg_second", "00000000-0000-4000-8000-000000000674", {
+          ...zeroUsage,
+          output_tokens: 18,
+        }),
+        usageSnapshotFrame("msg_second", "00000000-0000-4000-8000-000000000675", {
+          ...zeroUsage,
+          output_tokens: 18,
+        }),
         makeResultFrame({ uuid: "00000000-0000-4000-8000-000000000673", result: "Done." }),
       ];
       for (const frame of frames) yield* Queue.offer(harness.sdkMessages, frame);
       const terminal = yield* Queue.take(harness.terminalReceipts);
       assert.equal(terminal.status, "completed");
       assert.deepEqual(reportedContextTokens(harness.events), [38_123]);
+      assert.deepEqual(
+        harness.events.flatMap((event) =>
+          event.type === "provider_turn.updated" &&
+          event.providerTurn.status === "running" &&
+          event.providerTurn.turnTokenUsage !== undefined
+            ? [
+                [
+                  event.providerTurn.turnTokenUsage.outputTokens,
+                  event.providerTurn.turnTokenUsage.elapsedMs,
+                ],
+              ]
+            : [],
+        ),
+        [
+          [184, 2_000],
+          [196, 2_000],
+          [202, 2_000],
+        ],
+      );
     }).pipe(
       Effect.provide(
         Layer.mergeAll(

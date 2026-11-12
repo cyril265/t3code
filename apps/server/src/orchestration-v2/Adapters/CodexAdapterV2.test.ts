@@ -2227,6 +2227,12 @@ describe("CodexAdapterV2 post-settle continuation", () => {
           assert.equal(contextReport.providerTurn.providerThreadId, harness.providerThread.id);
           assert.equal(contextReport.providerTurn.tokenUsage?.usedTokens, 15);
           assert.equal(contextReport.providerTurn.tokenUsage?.maxTokens, 200_000);
+          assert.deepInclude(contextReport.providerTurn.turnTokenUsage, {
+            usageStatus: "partial",
+            usageScope: "main_agent",
+            outputTokens: 5,
+            elapsedMs: 0,
+          });
         }
         const completed = harness.events.find(
           (event) =>

@@ -134,15 +134,13 @@ export function accumulateCodexTurnTokenUsage(
 }
 
 /** `model` is the thread model Codex last reported, which a reroute replaces. */
-export function completeCodexTurnTokenUsage(
+export function readCodexTurnTokenUsage(
   state: CodexTurnTokenUsageState,
   turnId: string,
-  completed: boolean,
+  completed = false,
   model?: string,
 ): TurnTokenUsage {
   const usage = state.byTurnId.get(turnId);
-  state.byTurnId.delete(turnId);
-  if (state.activeTurnId === turnId) state.activeTurnId = undefined;
   const models = model === undefined ? {} : { models: [model] };
   if (!usage?.observed) {
     return {
@@ -167,4 +165,16 @@ export function completeCodexTurnTokenUsage(
     hasSubagents: usage.hasSubagents,
     ...models,
   };
+}
+
+export function completeCodexTurnTokenUsage(
+  state: CodexTurnTokenUsageState,
+  turnId: string,
+  completed: boolean,
+  model?: string,
+): TurnTokenUsage {
+  const usage = readCodexTurnTokenUsage(state, turnId, completed, model);
+  state.byTurnId.delete(turnId);
+  if (state.activeTurnId === turnId) state.activeTurnId = undefined;
+  return usage;
 }
