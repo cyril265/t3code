@@ -1,7 +1,11 @@
 import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
 import { MessageId, type RunId, type TurnItemId } from "@t3tools/contracts";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
+<<<<<<< HEAD
 import { agentWorkingDirectories } from "@t3tools/client-runtime/workspace-basename-lookup";
+=======
+import { formatTurnTokenRate } from "@t3tools/client-runtime/state/turn-token-rate";
+>>>>>>> adaa3cf3f5 (feat: show live output token counts and average tok/s)
 import { memo, use, useState } from "react";
 import { type ChatMessage, type TurnDiffSummary } from "../../types";
 import ChatMarkdown from "../ChatMarkdown";
@@ -260,10 +264,14 @@ function AssistantMessageMeta({
           </TooltipPopup>
         </Tooltip>
       )}
+      {!message.streaming && projectedItem?.item.type === "assistant_message" ? (
+        <AssistantTokenRate projectedItem={projectedItem} />
+      ) : null}
     </div>
   );
 }
 
+<<<<<<< HEAD
 function AssistantReplyButton({ message, itemId }: { message: ChatMessage; itemId: TurnItemId }) {
   const ctx = use(TimelineRowCtx);
   const { threadRef, onReplyToResponse } = ctx;
@@ -306,10 +314,36 @@ function AssistantReplyButton({ message, itemId }: { message: ChatMessage; itemI
         <ReplyIcon className="size-3" />
       </TooltipTrigger>
       <TooltipPopup side="top">Reply to this response</TooltipPopup>
+=======
+function AssistantTokenRate({
+  projectedItem,
+}: {
+  readonly projectedItem: NonNullable<Extract<TimelineRow, { kind: "message" }>["projectedItem"]>;
+}) {
+  const ctx = use(TimelineRowCtx);
+  const support = useV2ItemSupport({
+    environmentId: ctx.activeThreadEnvironmentId,
+    sourceThreadId: projectedItem.sourceThreadId,
+    sourceItemId: projectedItem.sourceItemId,
+  });
+  const label = formatTurnTokenRate(support.providerTurn);
+  if (label === null) return null;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span tabIndex={0} className="text-muted-foreground" />}>
+        {label}
+      </TooltipTrigger>
+      <TooltipPopup>
+        Average output tokens per second over this provider turn, including reasoning, tool calls,
+        and waits.
+      </TooltipPopup>
+>>>>>>> adaa3cf3f5 (feat: show live output token counts and average tok/s)
     </Tooltip>
   );
 }
 
+<<<<<<< HEAD
 function AssistantStatusBadge({ status }: { status: string }) {
   return (
     <span className="rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
@@ -318,6 +352,8 @@ function AssistantStatusBadge({ status }: { status: string }) {
   );
 }
 
+=======
+>>>>>>> adaa3cf3f5 (feat: show live output token counts and average tok/s)
 function AssistantCopyButton({
   message,
   showCopyButton,

@@ -3100,11 +3100,79 @@ describe("CodexAdapterV2 post-settle continuation", () => {
           }),
         );
         yield* harness.firstTerminal;
+<<<<<<< HEAD
         const surfaced = harness.events.filter((event) => {
           const serialized = JSON.stringify(event);
           return serialized.includes("example_mcp") && serialized.includes("failed to start");
         });
         assert.isNotEmpty(surfaced);
+=======
+        const requests = harness.events.flatMap((event) =>
+          event.type === "runtime_request.updated" ? [event.runtimeRequest] : [],
+        );
+        assert.lengthOf(requests, 1);
+        assert.equal(requests[0]?.status, "pending");
+        assert.deepEqual(requests[0]?.responseCapability, { type: "message" });
+        const questionItem = harness.events.find(
+          (event) =>
+            event.type === "turn_item.updated" && event.turnItem.type === "user_input_request",
+        );
+        assert.equal(questionItem?.type, "turn_item.updated");
+        if (
+          questionItem?.type === "turn_item.updated" &&
+          questionItem.turnItem.type === "user_input_request"
+        ) {
+          assert.deepEqual(
+            questionItem.turnItem.questions[0]?.options.map((option) => option.label),
+            ["main", "dev"],
+          );
+          assert.equal(questionItem.turnItem.responseMode, "message");
+        }
+        const questionNode = harness.events.find(
+          (event) => event.type === "node.updated" && event.node.id === requests[0]?.nodeId,
+        );
+        assert.equal(
+          questionNode?.type === "node.updated" && questionNode.node.countsForRun,
+          false,
+        );
+        const contextReport = harness.events.find(
+          (event) =>
+            event.type === "provider_turn.updated" && event.providerTurn.tokenUsage !== undefined,
+        );
+        assert.equal(contextReport?.type, "provider_turn.updated");
+        if (contextReport?.type === "provider_turn.updated") {
+          assert.equal(
+            contextReport.providerTurn.runAttemptId,
+            RunAttemptId.make("async-question-attempt"),
+          );
+          assert.equal(contextReport.providerTurn.providerThreadId, harness.providerThread.id);
+          assert.equal(contextReport.providerTurn.tokenUsage?.usedTokens, 15);
+          assert.equal(contextReport.providerTurn.tokenUsage?.maxTokens, 200_000);
+          assert.deepInclude(contextReport.providerTurn.turnTokenUsage, {
+            usageStatus: "partial",
+            usageScope: "main_agent",
+            outputTokens: 5,
+            elapsedMs: 0,
+          });
+        }
+        const completed = harness.events.find(
+          (event) =>
+            event.type === "provider_turn.updated" && event.providerTurn.status === "completed",
+        );
+        assert.equal(completed?.type, "provider_turn.updated");
+        if (completed?.type === "provider_turn.updated") {
+          assert.deepEqual(completed.providerTurn.turnTokenUsage, {
+            usageStatus: "complete",
+            usageScope: "main_agent",
+            hasSubagents: false,
+            inputTokens: 10,
+            cachedInputTokens: 2,
+            outputTokens: 5,
+            reasoningTokens: 1,
+          });
+        }
+        assert.isEmpty(assistantMessages(harness.events));
+>>>>>>> adaa3cf3f5 (feat: show live output token counts and average tok/s)
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
