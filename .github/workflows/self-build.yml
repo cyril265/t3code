@@ -1,6 +1,9 @@
 name: Self-build
 
 on:
+  push:
+    branches: [self-build]
+    paths-ignore: [".github/**", "docs/**", "**/*.md"]
   schedule:
     - cron: "4,19,34,49 * * * *"
   workflow_dispatch:
@@ -29,6 +32,8 @@ defaults:
 
 jobs:
   resolve:
+    # The build's own pushes of resolved commits carry the self-build committer; rebuilding them would loop.
+    if: github.event_name != 'push' || github.event.head_commit.committer.name != 'self-build'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -47,7 +52,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           INPUT_TAG: ${{ inputs.tag }}
-          RELEASE: ${{ inputs.release }}
+          RELEASE: ${{ inputs.release || github.event_name == 'push' }}
         run: |
           upstream_latest="$(gh release view --repo pingdotgg/t3code --json tagName --jq .tagName)"
           tag="${INPUT_TAG:-$upstream_latest}"
