@@ -5450,6 +5450,7 @@ interface ActiveClaudeTurnContext {
     usage: ClaudeMessageUsage | null;
   } | null;
   compactionTokens: number | undefined;
+  readonly outputTokensByMessage: Map<string, number>;
   readonly toolCalls: Map<string, ActiveClaudeToolCall>;
   // A successful status can precede the boundary that supplies its token counts.
   compaction: Extract<OrchestrationV2TurnItem, { type: "compaction" }> | null;
@@ -6792,6 +6793,19 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           // arrives after generation, so it leaves the cache expiry unknown.
           if (requestStarted && context.streamUsage !== null) context.streamUsage.requestedAt = now;
           const maxTokens = claudeContextWindow(context.input.modelSelection);
+          let outputGrew = false;
+          if (typeof usage !== "number" && context.streamUsage !== null) {
+            const messageId = context.streamUsage.messageId;
+            const previous = context.outputTokensByMessage.get(messageId) ?? 0;
+            if (Number.isFinite(usage.output_tokens) && usage.output_tokens >= 0) {
+              const next = Math.max(previous, usage.output_tokens);
+              context.outputTokensByMessage.set(messageId, next);
+              outputGrew = next > previous;
+            }
+          }
+          const hasContext = typeof usage === "number" || claudeMessageInputTokens(usage) > 0;
+          if (!hasContext && !outputGrew) return;
+          if (hasContext && typeof usage !== "number") context.compactionTokens = undefined;
           const tokenUsage =
             typeof usage === "number"
               ? {
@@ -6807,10 +6821,13 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   context.autoCompactWindow,
                   context.streamUsage?.requestedAt,
                 );
+<<<<<<< HEAD
           if ("inputTokens" in tokenUsage) {
             if (tokenUsage.inputTokens <= 0) return;
             context.compactionTokens = undefined;
           }
+=======
+>>>>>>> a3d861571e (feat: show live output token counts and average tok/s)
           yield* emitProviderEvent({
             type: "provider_turn.updated",
             driver: CLAUDE_PROVIDER,
@@ -6829,8 +6846,26 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               status: "running",
               startedAt: context.startedAt,
               completedAt: null,
-              tokenUsage,
               ...(context.executedModel === undefined ? {} : { model: context.executedModel }),
+              ...(hasContext ? { tokenUsage } : {}),
+              ...(context.outputTokensByMessage.size === 0
+                ? {}
+                : {
+                    turnTokenUsage: {
+                      usageScope: "main_agent" as const,
+                      usageStatus: "partial" as const,
+                      outputTokens: [...context.outputTokensByMessage.values()].reduce(
+                        (sum, count) => sum + count,
+                        0,
+                      ),
+                      elapsedMs: Math.max(
+                        0,
+                        DateTime.toEpochMillis(now) - DateTime.toEpochMillis(context.startedAt),
+                      ),
+                      hasSubagents:
+                        context.subagentsByTaskId.size > 0 || context.subagentsByToolUseId.size > 0,
+                    },
+                  }),
             },
           });
         });
@@ -11845,15 +11880,21 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 yield* emitContextUsage(context, snapshotUsage);
               } else if (
                 stream.usage !== null &&
-                claudeMessageInputTokens(stream.usage) <= 0 &&
-                claudeMessageInputTokens(snapshotUsage) > 0
+                ((claudeMessageInputTokens(stream.usage) <= 0 &&
+                  claudeMessageInputTokens(snapshotUsage) > 0) ||
+                  snapshotUsage.output_tokens > stream.usage.output_tokens)
               ) {
                 stream.usage = {
+<<<<<<< HEAD
                   ...snapshotUsage,
                   output_tokens: Math.max(
                     optionalClaudeUsageTokenCount(snapshotUsage.output_tokens) ?? 0,
                     optionalClaudeUsageTokenCount(stream.usage.output_tokens) ?? 0,
                   ),
+=======
+                  ...(claudeMessageInputTokens(stream.usage) <= 0 ? snapshotUsage : stream.usage),
+                  output_tokens: Math.max(snapshotUsage.output_tokens, stream.usage.output_tokens),
+>>>>>>> a3d861571e (feat: show live output token counts and average tok/s)
                 };
                 yield* emitContextUsage(context, stream.usage);
               }
@@ -14148,6 +14189,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               },
               streamUsage: null,
               compactionTokens: undefined,
+              outputTokensByMessage: new Map(),
               toolCalls: new Map(),
               compaction: null,
               ignoredTaskIds: new Set(),
