@@ -62,6 +62,74 @@ const layerTest = Layer.mergeAll(
   ),
 );
 
+it.effect.each([true, false])(
+  "keeps workspace-switching sessions attached only when supported (%s)",
+  (supported) =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const projections = yield* ProjectionStore.ProjectionStoreV2;
+      const outbox = yield* EffectOutbox.EffectOutboxV2;
+      const now = yield* DateTime.now;
+      const threadId = ThreadId.make("thread:workspace-switch");
+      const sessionId = ProviderSessionId.make("session:workspace-switch");
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        commandId: CommandId.make("create-workspace-switch"),
+        threadId,
+        projectId: ProjectId.make("project:workspace-switch"),
+        title: "Workspace switch",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+        createdBy: "user",
+        creationSource: "web",
+      });
+      yield* projections.apply({
+        id: EventId.make("workspace-switch:session"),
+        type: "provider-session.attached",
+        threadId,
+        occurredAt: now,
+        payload: {
+          id: sessionId,
+          driver: adapter.driver,
+          providerInstanceId: instanceId,
+          status: "ready",
+          cwd: "/repo",
+          model: modelSelection.model,
+          capabilities: {
+            ...CodexProviderCapabilitiesV2,
+            sessions: {
+              ...CodexProviderCapabilitiesV2.sessions,
+              supportsWorkspaceSwitchInSession: supported,
+            },
+          },
+          createdAt: now,
+          updatedAt: now,
+          lastError: null,
+        },
+      });
+      for (const [index, worktreePath] of ["/repo-worktree", null].entries()) {
+        const commandId = CommandId.make(`workspace-switch:${index}`);
+        yield* orchestrator.dispatch({
+          type: "thread.metadata.update",
+          commandId,
+          threadId,
+          worktreePath,
+        });
+        assert.equal((yield* projections.getThread(threadId)).worktreePath, worktreePath);
+        const sessions = (yield* projections.getThreadProviderContext(threadId)).providerSessions;
+        assert.equal(sessions.length, supported ? 1 : 0);
+        const effects = yield* outbox.listByCommandId(commandId);
+        assert.equal(
+          effects.filter((effect) => effect.request.type === "provider-session.detach").length,
+          !supported && index === 0 ? 1 : 0,
+        );
+      }
+    }).pipe(Effect.provide(layerTest)),
+);
+
 it.effect.each(
   (["provider.switch", "thread.model-selection.set"] as const).flatMap((type) =>
     [
@@ -639,7 +707,13 @@ it.effect(
           status: "ready",
           cwd: "/repo",
           model: "gpt-6",
-          capabilities: CodexProviderCapabilitiesV2,
+          capabilities: {
+            ...CodexProviderCapabilitiesV2,
+            sessions: {
+              ...CodexProviderCapabilitiesV2.sessions,
+              supportsWorkspaceSwitchInSession: false,
+            },
+          },
           createdAt: now,
           updatedAt: now,
           lastError: null,

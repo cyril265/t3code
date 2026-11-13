@@ -259,6 +259,7 @@ export type OrchestrationV2ContextTransfer = typeof OrchestrationV2ContextTransf
 
 export const OrchestrationV2SessionCapabilities = Schema.Struct({
   supportsMultipleProviderThreadsPerSession: Schema.Boolean,
+  supportsWorkspaceSwitchInSession: Schema.optional(Schema.Boolean),
   supportsModelSwitchInSession: Schema.Boolean,
   supportsProviderSwitchingViaHandoff: Schema.Boolean,
   supportsRuntimeModeSwitchInSession: Schema.Boolean,

@@ -37,6 +37,8 @@ export class ContextHandoffBackgroundWorkError extends Schema.TaggedError<Contex
 
 export const MAX_PROVIDER_FAILURE_MESSAGE_LENGTH = 4_096;
 const MAX_PROVIDER_FAILURE_CODE_LENGTH = 128;
+/** The provider stayed in its previous directory, so the thread's directory override is restored to match. */
+export const WORKSPACE_CHANGE_FAILED_CODE = "workspace_change_failed";
 
 const DEFAULT_PROVIDER_FAILURE_MESSAGE = "Provider turn failed.";
 
@@ -107,6 +109,7 @@ function curatedCauseMessages(cause: unknown): {
           };
         case "AcpModelSelectionError":
         case "ClaudeBackgroundWorkBlocksQueryReplacementError":
+        case "ClaudeWorkspaceChangeError":
         case "ClaudeAppendSystemPromptFileError":
         case "ClaudeAppendSystemPromptMissingValueError":
         case "ClaudeSettingsLaunchArgError":

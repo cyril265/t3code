@@ -12,6 +12,12 @@ your model and mode selections, unless the destination project has its own model
 Its branch and workspace mode come from your configured defaults. To continue in
 an existing worktree, use **New thread in this worktree** from the branch toolbar.
 
+To keep the current conversation but work somewhere else, ask the agent to create a new
+worktree for it, or to change its working directory to any existing folder, including one
+outside the project or without Git. Ask it to return to the project directory to undo the
+change. The move applies from the next turn, and Codex and Claude keep their running session.
+Files stay where they are. Claude may ask you to trust the destination folder first.
+
 On mobile, **New thread** starts in the current thread's project, or else in the
 last project you opened or chose on that device. If neither is available, the
 project picker opens. Turn off **Settings → General → Use last project** to

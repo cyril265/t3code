@@ -149,6 +149,10 @@ export const layer: Layer.Layer<
                       currentSession?.cwd ??
                       "<unresolved-workspace>",
                     available: targetInstance.value.enabled,
+                    supportsWorkspaceSwitchInSession:
+                      negotiatedCapabilities?.sessions.supportsWorkspaceSwitchInSession ??
+                      targetInstance.value.capabilities.sessions.supportsWorkspaceSwitchInSession ??
+                      false,
                   },
                   ...(selectionTransition === undefined ? {} : { selectionTransition }),
                 });

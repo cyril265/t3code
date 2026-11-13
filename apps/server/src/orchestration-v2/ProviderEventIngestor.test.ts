@@ -5,6 +5,7 @@ import {
   CheckpointId,
   CheckpointRef,
   CheckpointScopeId,
+  EventId,
   MessageId,
   GitCommandError,
   type ModelSelection,
@@ -45,13 +46,18 @@ import * as EventSink from "./EventSink.ts";
 import * as EventStore from "./EventStore.ts";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ProjectionStore from "./ProjectionStore.ts";
+import * as ProjectStore from "./ProjectStore.ts";
 import * as ProviderEventIngestor from "./ProviderEventIngestor.ts";
 import * as ProviderUsageAnalytics from "../telemetry/ProviderUsageAnalytics.ts";
 import * as ThreadCommandExecutor from "./ThreadCommandExecutor.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
-import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
+import {
+  makeProviderFailure,
+  WORKSPACE_CHANGE_FAILED_CODE,
+} from "@t3tools/provider-core/server/failure";
+import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
 import {
   makeProviderEventRoutingState,
   type ProviderEventRouteIdentity,
@@ -60,9 +66,11 @@ import {
 } from "./RunExecutionService.ts";
 
 const layerTestDatabase = SqlitePersistence.layerMemory;
-const layerTestStores = Layer.merge(EventStore.layer, ProjectionStore.layer).pipe(
-  Layer.provide(layerTestDatabase),
-);
+const layerTestStores = Layer.mergeAll(
+  EventStore.layer,
+  ProjectionStore.layer,
+  ProjectStore.layer,
+).pipe(Layer.provide(layerTestDatabase));
 
 const layerTestEventSink = EventSink.layer.pipe(
   Layer.provide(Layer.mergeAll(layerTestStores, layerTestDatabase)),
@@ -1549,6 +1557,105 @@ layer("ProviderEventIngestorV2", (it) => {
       assert.equal(errorItem.providerThreadId, providerThreadId);
       assert.equal(errorItem.providerTurnId, providerTurnId);
     }),
+  );
+
+  it.effect.each([
+    { previousCwd: "/repo", restored: null },
+    { previousCwd: "/worktrees/previous", restored: "/worktrees/previous" },
+  ])(
+    "points the thread back at the provider's directory after a refused move ($previousCwd)",
+    ({ previousCwd, restored }) =>
+      Effect.gen(function* () {
+        const now = yield* DateTime.now;
+        const eventSink = yield* EventSink.EventSinkV2;
+        const projectionStore = yield* ProjectionStore.ProjectionStoreV2;
+        const projects = yield* ProjectStore.ProjectStoreV2;
+        const ingestor = yield* ProviderEventIngestor.ProviderEventIngestorV2;
+        const idAllocator = yield* IdAllocator.IdAllocatorV2;
+        const created = yield* threadCreatedEvent(now);
+        if (created.type !== "thread.created") return assert.fail("expected a thread fixture");
+        const { projectId } = created.payload;
+        yield* projects.apply({
+          sequence: 1,
+          eventId: EventId.make(`event:refused-move:${projectId}`),
+          aggregateKind: "project",
+          aggregateId: projectId,
+          occurredAt: DateTime.formatIso(now),
+          commandId: null,
+          causationEventId: null,
+          correlationId: null,
+          metadata: {},
+          type: "project.created",
+          payload: {
+            projectId,
+            title: "Refused move",
+            workspaceRoot: "/repo",
+            defaultModelSelection: modelSelection,
+            scripts: [],
+            createdAt: DateTime.formatIso(now),
+            updatedAt: DateTime.formatIso(now),
+          },
+        });
+        yield* eventSink.write({
+          events: [{ ...created, payload: { ...created.payload, worktreePath: "/tmp/untrusted" } }],
+        });
+        const providerSessionId = yield* idAllocator.allocate.providerSession({
+          providerInstanceId: modelSelection.instanceId,
+          threadId: created.threadId,
+        });
+        const ingest = (event: ProviderAdapter.ProviderAdapterV2Event) =>
+          ingestor.ingestNormalized({
+            providerSessionId,
+            providerInstanceId: modelSelection.instanceId,
+            threadId: created.threadId,
+            event,
+          });
+        yield* eventSink.write({
+          events: [
+            {
+              id: yield* idAllocator.allocate.event({
+                threadId: created.threadId,
+                providerSessionId,
+              }),
+              type: "provider-session.attached",
+              threadId: created.threadId,
+              occurredAt: now,
+              payload: {
+                id: providerSessionId,
+                driver: CODEX_DRIVER,
+                providerInstanceId: modelSelection.instanceId,
+                status: "ready",
+                cwd: previousCwd,
+                model: modelSelection.model,
+                capabilities: CodexProviderCapabilitiesV2,
+                createdAt: now,
+                updatedAt: now,
+                lastError: null,
+              },
+            },
+          ],
+        });
+        yield* ingest({
+          type: "turn.terminal",
+          driver: CODEX_DRIVER,
+          providerThreadId: idAllocator.derive.providerThread({
+            driver: CODEX_DRIVER,
+            nativeThreadId: "native-thread-refused-move",
+          }),
+          providerTurnId: idAllocator.derive.providerTurn({
+            driver: CODEX_DRIVER,
+            nativeTurnId: "native-turn-refused-move",
+          }),
+          runOrdinal: 1,
+          failureItemOrdinal: 101,
+          status: "failed",
+          failure: makeProviderFailure({ code: WORKSPACE_CHANGE_FAILED_CODE }),
+          threadDisposition: "reusable",
+        });
+
+        const thread = yield* projectionStore.getThread(created.threadId);
+        assert.equal(thread.worktreePath, restored);
+      }),
   );
 
   it.effect("stores tool image bytes only where a tool-output-image asset serves them", () =>

@@ -21,6 +21,7 @@ import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SqlError from "effect/sql/SqlError";
 
@@ -35,9 +36,13 @@ import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
+import * as ProjectStore from "./ProjectStore.ts";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
-import { makeProviderFailureTurnItem } from "@t3tools/provider-core/server/failure";
+import {
+  makeProviderFailureTurnItem,
+  WORKSPACE_CHANGE_FAILED_CODE,
+} from "@t3tools/provider-core/server/failure";
 import * as ThreadCommandExecutor from "./ThreadCommandExecutor.ts";
 import { stripUnservedToolOutputImageBytes } from "./toolOutputImageBytes.ts";
 import { boundFileChangeForStorage } from "./WireProjection.ts";
@@ -242,6 +247,7 @@ export const layer: Layer.Layer<
   | GitVcsDriver.GitVcsDriver
   | IdAllocator.IdAllocatorV2
   | ProjectionStore.ProjectionStoreV2
+  | ProjectStore.ProjectStoreV2
   | ThreadCommandExecutor.ThreadCommandExecutor
   | ProviderInstanceRegistry.ProviderInstanceRegistry
 > = Layer.effect(
@@ -250,6 +256,7 @@ export const layer: Layer.Layer<
     const eventSink = yield* EventSink.EventSinkV2;
     const git = yield* GitVcsDriver.GitVcsDriver;
     const projections = yield* ProjectionStore.ProjectionStoreV2;
+    const projects = yield* ProjectStore.ProjectStoreV2;
     const idAllocator = yield* IdAllocator.IdAllocatorV2;
     const threadCommands = yield* ThreadCommandExecutor.ThreadCommandExecutor;
     const analytics = yield* ProviderTurnAnalytics;
@@ -380,6 +387,30 @@ export const layer: Layer.Layer<
             return yield* eventSink.write({ events: [event] }).pipe(retryLockTimeout);
           }),
         );
+      },
+    );
+
+    /** A provider that refused a directory change stays where it was; point the thread back there so the next turn doesn't retry it. */
+    const restoreThreadDirectory = Effect.fn("ProviderEventIngestor.restoreThreadDirectory")(
+      function* (input: ProviderEventIngestInput) {
+        const { thread, providerSessions } = yield* projections.getThreadRecords(input.threadId, [
+          "providerSessions",
+        ]);
+        const session = providerSessions.find((entry) => entry.id === input.providerSessionId);
+        if (session === undefined) return [];
+        const project = yield* projects.get(thread.projectId);
+        const worktreePath = Option.exists(project, (entry) => entry.workspaceRoot === session.cwd)
+          ? null
+          : session.cwd;
+        if (worktreePath === thread.worktreePath) return [];
+        const now = yield* DateTime.now;
+        return [
+          yield* makeDomainEvent(input, {
+            type: "thread.metadata-updated",
+            payload: { ...thread, worktreePath, updatedAt: now },
+            occurredAt: now,
+          }),
+        ];
       },
     );
 
@@ -662,6 +693,9 @@ export const layer: Layer.Layer<
                 : input.event.failure;
               return [
                 ...dismissed,
+                ...(failure.code === WORKSPACE_CHANGE_FAILED_CODE
+                  ? yield* restoreThreadDirectory(input)
+                  : []),
                 yield* makeDomainEvent(input, {
                   type: "turn-item.updated",
                   payload: makeProviderFailureTurnItem({

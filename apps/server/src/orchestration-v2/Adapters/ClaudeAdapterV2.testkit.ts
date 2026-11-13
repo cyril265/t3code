@@ -436,12 +436,17 @@ async function waitForReplayDelay(afterMs: number, signal: AbortSignal): Promise
 function stableClaudeQueryOptions(
   options: ClaudeAdapterV2.ClaudeAgentSdkQueryOptions,
 ): ClaudeAdapterV2.ClaudeAgentSdkQueryOptions {
+  // Every query blocks the native worktree tools; fixtures record only the per-query extras.
+  const disallowedTools = options.disallowedTools?.filter(
+    (tool) =>
+      !(ClaudeAdapterV2.CLAUDE_NATIVE_WORKTREE_TOOLS as ReadonlyArray<string>).includes(tool),
+  );
   const stable = {
     model: options.model,
     tools: options.tools,
     permissionMode: options.permissionMode,
     ...(options.allowedTools === undefined ? {} : { allowedTools: options.allowedTools }),
-    ...(options.disallowedTools === undefined ? {} : { disallowedTools: options.disallowedTools }),
+    ...(disallowedTools === undefined || disallowedTools.length === 0 ? {} : { disallowedTools }),
     ...(options.settings === undefined ? {} : { settings: options.settings }),
     ...(options.allowDangerouslySkipPermissions === true
       ? { allowDangerouslySkipPermissions: true }

@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 
 import { TrimmedNonEmptyString } from "./baseSchemas.ts";
 
-/** Uses the managed worktree folder; handoff detaches the provider, ending this turn and resuming there next run. */
+/** Uses the managed worktree folder; supported providers keep their process for the next turn. */
 export const WorktreeMcpHandoffInput = Schema.Struct({
   branch: TrimmedNonEmptyString,
   baseRef: Schema.optional(
@@ -28,6 +28,19 @@ export const WorktreeMcpHandoffInput = Schema.Struct({
   ),
 });
 export type WorktreeMcpHandoffInput = typeof WorktreeMcpHandoffInput.Type;
+
+export const ChangeWorkingDirectoryMcpInput = Schema.Struct({
+  path: Schema.NullOr(TrimmedNonEmptyString).annotate({
+    description:
+      "Existing directory on this environment. Relative paths use this thread's current directory; ~ uses the environment's home. Null restores the project directory.",
+  }),
+  continuationPrompt: Schema.optional(
+    TrimmedNonEmptyString.check(Schema.isMaxLength(120_000)).annotate({
+      description: "Work to run in the new directory next turn. Omitted: thread waits.",
+    }),
+  ),
+});
+export type ChangeWorkingDirectoryMcpInput = typeof ChangeWorkingDirectoryMcpInput.Type;
 
 export const WorktreeMcpSetupScriptStatus = Schema.Union([
   Schema.Struct({
@@ -63,6 +76,14 @@ export const WorktreeMcpContinuationStatus = Schema.Union([
 ]);
 export type WorktreeMcpContinuationStatus = typeof WorktreeMcpContinuationStatus.Type;
 
+export const ChangeWorkingDirectoryMcpResult = Schema.Struct({
+  cwd: TrimmedNonEmptyString,
+  previousCwd: TrimmedNonEmptyString,
+  continuation: WorktreeMcpContinuationStatus,
+  note: Schema.String,
+});
+export type ChangeWorkingDirectoryMcpResult = typeof ChangeWorkingDirectoryMcpResult.Type;
+
 export const WorktreeMcpHandoffResult = Schema.Struct({
   worktreePath: TrimmedNonEmptyString,
   branch: TrimmedNonEmptyString,
@@ -92,7 +113,6 @@ export class WorktreeMcpFailure extends Schema.TaggedError<WorktreeMcpFailure>()
       "capability_denied",
       "thread_not_found",
       "project_not_found",
-      "already_in_worktree",
       "handoff_in_progress",
       "invalid_request",
       "operation_failed",

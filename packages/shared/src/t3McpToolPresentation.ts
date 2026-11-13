@@ -42,6 +42,7 @@ export type T3McpToolSummaryAction =
   | "question-respond"
   | "secret-request"
   | "worktree-handoff"
+  | "working-directory-change"
   | "worktree-list"
   | "worktree-status"
   | "project-list"
@@ -183,6 +184,10 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
   t3_worktree_handoff: tool(
     ["Hand off", "Handing off", "Handed off", "thread to a git worktree"],
     "worktree-handoff",
+  ),
+  t3_change_working_directory: tool(
+    ["Change", "Changing", "Changed", "the thread working directory"],
+    "working-directory-change",
   ),
   t3_worktree_status: tool(["Get", "Getting", "Got", "thread worktree status"], "worktree-status"),
   preview_status: tool(["Get", "Getting", "Got", "preview browser status"], "browser", "browser"),

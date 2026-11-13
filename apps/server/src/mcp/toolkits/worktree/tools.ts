@@ -1,4 +1,6 @@
 import {
+  ChangeWorkingDirectoryMcpInput,
+  ChangeWorkingDirectoryMcpResult,
   WorktreeMcpFailure,
   OrchestratorMcpEnvironmentTarget,
   OrchestratorMcpFailure,
@@ -25,9 +27,26 @@ const dependencies = [
 
 const WorktreeToolFailure = Schema.Union([WorktreeMcpFailure, OrchestratorMcpFailure]);
 
+const ChangeWorkingDirectoryTool = Tool.make("t3_change_working_directory", {
+  description:
+    "Change THIS thread's working directory to any existing directory, Git or not, keeping this conversation. Relative paths use the current directory; ~ is home; path null restores the project directory. Call last and end your turn; the next turn runs there. `continuationPrompt` resumes automatically; omitted, the thread waits. Files stay in place.",
+
+  parameters: ChangeWorkingDirectoryMcpInput,
+  success: ChangeWorkingDirectoryMcpResult,
+  failure: WorktreeToolFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Change working directory")
+  .annotate(Tool.Readonly, false)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, false)
+  .annotate(Tool.OpenWorld, true);
+
 const WorktreeHandoffTool = Tool.make("t3_worktree_handoff", {
   description:
-    "Move THIS thread into a new git worktree on a new branch. Runs the setup script by default. A separate agent in a worktree: `t3_thread_launch` with `workspaceStrategy`. Call last in your turn. The move ends the live session. `continuationPrompt` resumes work there next turn. Without it, the thread waits. The worktree stays after the thread is deleted. Fails if this thread has a worktree.",
+    "Create a git worktree on a new branch and move THIS thread into it, keeping this conversation. Works from any directory. Runs setup by default. Call last and end your turn; the next turn runs there. `continuationPrompt` resumes automatically; omitted, the thread waits. The worktree stays after the thread is deleted. A separate agent: `t3_thread_launch` with `workspaceStrategy`.",
+
   parameters: WorktreeMcpHandoffInput,
   success: WorktreeMcpHandoffResult,
   failure: WorktreeToolFailure,
@@ -83,6 +102,7 @@ const WorktreeListTool = Tool.make("t3_worktree_list", {
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Destructive, false);
 export const WorktreeToolkit = Toolkit.make(
+  ChangeWorkingDirectoryTool,
   WorktreeHandoffTool,
   WorktreeStatusTool,
   WorktreeListTool,
