@@ -321,6 +321,9 @@ export function summarizeT3ToolCalls(
         quantity(countEntities(entityIds("worktreePath")), "worktree"),
       );
       break;
+    case "working-directory-change":
+      label = phrase("Changed", "change", `working directory ${times}`);
+      break;
     case "worktree-list":
       label = phrase("Listed", "list", `workspace branches ${times}`);
       break;

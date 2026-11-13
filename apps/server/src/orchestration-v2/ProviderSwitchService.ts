@@ -150,6 +150,10 @@ export const layer: Layer.Layer<
                     interactionMode: projection.thread.interactionMode,
                     workspace,
                     available: targetInstance.value.enabled,
+                    supportsWorkspaceSwitchInSession:
+                      negotiatedCapabilities?.sessions.supportsWorkspaceSwitchInSession ??
+                      targetInstance.value.capabilities.sessions.supportsWorkspaceSwitchInSession ??
+                      false,
                   },
                   ...(selectionTransition === undefined ? {} : { selectionTransition }),
                 });
