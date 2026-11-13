@@ -4,9 +4,36 @@ Use a separate thread for each task. Choose **New worktree** when a task needs i
 
 ## Start a thread
 
+<<<<<<< HEAD
 - **Web and desktop**: **New thread** opens the project picker when you have multiple open projects (unless the sidebar is filtered to one project). `Shift`-click to start in the current project. To reuse an existing worktree, choose **New thread in this worktree** from the branch toolbar.
 - **Mobile**: **New thread** uses the current, filtered, or last-opened project. Disable **Settings → General → Use last project** to pick every time.
 - **Defaults**: New threads inherit your last model and mode unless the project sets its own model default.
+=======
+On web and desktop, **New thread** opens the project picker when you have more than one
+open project in the default or project-grouped sidebar. Archived projects don't count. **Shift-click** to start in
+the current project, or use a project's own new-thread action. A new thread carries
+your model and mode selections, unless the destination project has its own model default.
+Its branch and workspace mode come from your configured defaults. To continue in
+an existing worktree, use **New thread in this worktree** from the branch toolbar.
+While the sidebar is filtered to one project, the sidebar's **New thread** button
+starts the thread in that project instead of asking which project to use.
+
+To keep the current conversation but work somewhere else, ask the agent to create a new
+worktree for it, or to change its working directory to any existing folder, including one
+outside the project or without Git. Ask it to return to the project directory to undo the
+change. The move applies from the next turn, and Codex and Claude keep their running session.
+Files stay where they are. Claude may ask you to trust the destination folder first.
+
+On mobile, **New thread** starts in the current thread's project, or else in the
+project the thread list is filtered to, or else in the last project you opened
+or chose on that device. If none is available, the project picker opens. Turn
+off **Settings → General → Use last project** to choose a project every time.
+When you pick a project that is on more than one machine, the thread starts on
+a connected one if any is connected.
+
+When you change a new thread's project, T3 Code stays in the current environment
+if that project exists there. Otherwise it selects an environment that has it.
+>>>>>>> 6e395381af (feat: move a thread to another directory or a new worktree without a new session)
 
 ### Start without a project
 

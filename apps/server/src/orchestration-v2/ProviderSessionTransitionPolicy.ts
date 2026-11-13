@@ -27,6 +27,7 @@ export interface ProviderSessionTransitionState {
 
 export interface ProviderSessionTransitionTarget extends ProviderSessionTransitionState {
   readonly available: boolean;
+  readonly supportsWorkspaceSwitchInSession?: boolean;
 }
 
 export function decideProviderSessionTransition(input: {
@@ -70,7 +71,11 @@ export function decideProviderSessionTransition(input: {
         break;
     }
   }
-  if (instanceChanged || runtimeChanged || workspaceChanged) {
+  if (
+    instanceChanged ||
+    runtimeChanged ||
+    (workspaceChanged && !target.supportsWorkspaceSwitchInSession)
+  ) {
     return { type: "restart_and_resume" };
   }
 
