@@ -117,6 +117,7 @@ const layerProviderEventIngestorProvided = ProviderEventIngestor.layer.pipe(
       layerEventSink,
       IdAllocator.layer,
       ProjectionStore.layer,
+      ProjectStore.layer,
       ThreadCommandExecutor.layer,
       GitVcsDriver.layer,
     ),

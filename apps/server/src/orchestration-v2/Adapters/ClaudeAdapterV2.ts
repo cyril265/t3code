@@ -157,6 +157,7 @@ import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/process/ChildProcess";
@@ -228,8 +229,15 @@ import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import {
   makeProviderFailure,
   makeProviderRetryTurnItem,
+<<<<<<< HEAD
   PROVIDER_RETRY_BUDGET_MS,
+<<<<<<< HEAD
   providerProcessExitGuidance,
+=======
+=======
+  WORKSPACE_CHANGE_FAILED_CODE,
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
+>>>>>>> 43cd4a621a (feat: move a thread to another directory or a new worktree without a new session)
 } from "@t3tools/provider-core/server/failure";
 import { turnScopedSelectionTransition } from "@t3tools/provider-core/server/selectionTransition";
 import { providerMessageTextWithAttachmentPaths } from "@t3tools/provider-core/server/attachmentPrompt";
@@ -571,6 +579,7 @@ export function makeClaudeDescendantTracker(
 
 export const ClaudeProviderCapabilitiesV2 = {
   sessions: {
+    supportsWorkspaceSwitchInSession: true,
     supportsMultipleProviderThreadsPerSession: false,
     supportsModelSwitchInSession: true,
     supportsProviderSwitchingViaHandoff: true,
@@ -734,7 +743,15 @@ export interface ClaudeAgentSdkQuerySession {
   readonly setPermissionMode: (
     mode: PermissionMode,
   ) => Effect.Effect<void, ClaudeAgentSdkQueryRunnerError>;
+<<<<<<< HEAD
   readonly renameSession: (title: string) => Effect.Effect<void, ClaudeAgentSdkQueryRunnerError>;
+=======
+  readonly setCwd?: (input: {
+    readonly path: string;
+    readonly trustAccepted?: boolean;
+    readonly trustedDirectory?: string;
+  }) => Effect.Effect<ClaudeCwdChangeResult, ClaudeAgentSdkQueryRunnerError>;
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
   readonly stopTask: (taskId: string) => Effect.Effect<void, ClaudeAgentSdkQueryRunnerError>;
   readonly backgroundTasks: (
     toolUseId: string,
@@ -764,6 +781,31 @@ export interface ClaudeAgentSdkQuerySession {
 }
 
 type ClaudeQueryStreamExit = Exit.Exit<void, ClaudeAgentSdkQueryRunnerError>;
+
+const ClaudeCwdChangeResult = Schema.Union([
+  Schema.Struct({ status: Schema.Literal("ok"), cwd: Schema.String }),
+  Schema.Struct({ status: Schema.Literal("needs_trust"), directory: Schema.String }),
+  Schema.Struct({ status: Schema.Literal("rejected"), reason: Schema.String }),
+]);
+type ClaudeCwdChangeResult = typeof ClaudeCwdChangeResult.Type;
+const decodeClaudeCwdChangeResult = Schema.decodeUnknownEffect(ClaudeCwdChangeResult);
+
+export class ClaudeWorkspaceChangeError extends Schema.TaggedError<ClaudeWorkspaceChangeError>()(
+  "ClaudeWorkspaceChangeError",
+  {
+    cwd: Schema.String,
+    reason: Schema.Literals(["unsupported", "trust_declined", "rejected"]),
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    return this.reason === "unsupported"
+      ? "This Claude Code version cannot change directories in a running session. Update Claude Code and retry."
+      : this.reason === "trust_declined"
+        ? "Claude's directory change was cancelled because the destination was not trusted."
+        : "Claude could not change to the thread's working directory. No prompt was sent.";
+  }
+}
 
 export class ClaudeAgentSdkQueryRunnerError extends Schema.TaggedError<ClaudeAgentSdkQueryRunnerError>()(
   "ClaudeAgentSdkQueryRunnerError",
@@ -963,11 +1005,15 @@ function closeClaudeQuery(queryRuntime: ClaudeQuery) {
   });
 }
 
-// SDK 0.3.316 types `mcp_call` and `list_permission_rules` but has no Query method for them; its own readMcpResource sends control requests this way.
+// The SDK omits public methods for these CLI controls; readMcpResource uses the same transport.
 async function sendClaudeControlRequest(
   queryRuntime: ClaudeQuery,
   request: {
+<<<<<<< HEAD
     readonly subtype: "mcp_call" | "list_permission_rules" | "rename_session";
+=======
+    readonly subtype: "mcp_call" | "list_permission_rules" | "set_cwd";
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
     readonly [key: string]: unknown;
   },
 ): Promise<unknown> {
@@ -1999,6 +2045,7 @@ export const layerQueryRunner: Layer.Layer<
 
     return ClaudeAgentSdkQueryRunner.of({
       allocateSessionId: random.uuidV4(),
+<<<<<<< HEAD
       open: Effect.fn("ClaudeAgentSdkQueryRunner.open")(function* (
         input: ClaudeAgentSdkQueryOpenInput,
       ) {
@@ -2012,6 +2059,507 @@ export const layerQueryRunner: Layer.Layer<
               if (resume !== undefined) return yield* openQuery(input);
               const sessionId = yield* random.uuidV4();
               return yield* openQuery({ ...input, options: { ...options, sessionId } });
+=======
+      open: Effect.fn("ClaudeAgentSdkQueryRunner.open")(
+        function* (input: ClaudeAgentSdkQueryOpenInput) {
+          const protocolLogger = makeClaudeAgentSdkProtocolLogger({
+            nativeEventLogger,
+            threadId: input.threadId,
+            providerSessionId: input.providerSessionId,
+          });
+          const logProtocolEvent = (event: ClaudeAgentSdkProtocolLogEvent) =>
+            protocolLogger === undefined ? Effect.void : protocolLogger(event);
+          // A failed open shuts down its queue before retrying, so the old CLI cannot take the prompt.
+          const promptQueue = yield* Queue.unbounded<SDKUserMessage>();
+          const prompt = Stream.fromQueue(promptQueue).pipe(
+            Stream.catchCause((cause) =>
+              Cause.hasInterruptsOnly(cause) ? Stream.empty : Stream.failCause(cause),
+            ),
+            Stream.toAsyncIterable,
+          );
+          // Send MCP credentials over stdin to keep them out of SDK argv and inherited command environments.
+          const { mcpServers, ...sdkOptions } = input.options;
+          // Jobs the agent starts inherit the thread, so port discovery can attribute their servers.
+          let resumeSessionAt = sdkOptions.resumeSessionAt;
+          if (input.resume && sdkOptions.resume !== undefined) {
+            const messages = yield* runClaudeWorker({
+              method: "getSessionMessages",
+              sessionId: sdkOptions.resume,
+              options: sdkOptions.cwd === undefined ? {} : { dir: sdkOptions.cwd },
+              environment: sdkOptions.env ?? hostEnvironment,
+            }).pipe(
+              Effect.flatMap(decodeClaudeHistoryMessages),
+              Effect.mapError((cause) => queryRunnerError(cause, "getSessionMessages")),
+              Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+              Effect.provideService(Path.Path, path),
+            );
+            const boundary =
+              resumeSessionAt === undefined
+                ? messages.length
+                : messages.findIndex((message) => message.uuid === resumeSessionAt) + 1;
+            resumeSessionAt = claudeResumeSessionAt(messages.slice(0, boundary)) ?? resumeSessionAt;
+          }
+          const queryOptions = {
+            ...sdkOptions,
+            ...(resumeSessionAt === undefined ? {} : { resumeSessionAt }),
+            env: {
+              ...(sdkOptions.env ?? hostEnvironment),
+              ...(input.resume
+                ? {
+                    CLAUDE_CODE_RESUME_INTERRUPTED_TURN: "1",
+                    CLAUDE_CODE_RESUME_REASON: "user_resume",
+                  }
+                : {}),
+              [PortScanner.AGENT_THREAD_ENV]: input.threadId,
+            },
+          };
+          // The SDK can prepend a scope wrapper to native binaries; script entries run through node.
+          const binaryPath = queryOptions.pathToClaudeCodeExecutable;
+          const launch =
+            binaryPath === undefined ||
+            CLAUDE_SCRIPT_EXTENSIONS.some((ext) => binaryPath.endsWith(ext))
+              ? undefined
+              : yield* agentScope.wrap({
+                  command: binaryPath,
+                  args: [],
+                  name: "claude",
+                  threadId: input.threadId,
+                  env: queryOptions.env,
+                });
+          const options =
+            launch === undefined || launch.args.length === 0
+              ? queryOptions
+              : {
+                  ...queryOptions,
+                  pathToClaudeCodeExecutable: launch.command,
+                  executableArgs: [...launch.args, ...(queryOptions.executableArgs ?? [])],
+                };
+          const unit = launch?.unit;
+          const stopScope =
+            unit === undefined ? undefined : () => void runFork(agentScope.stop(unit));
+          // Only a CLI that fails before its first message explains itself on
+          // stderr. The known root refusal becomes a curated failure; any other
+          // stderr can hold private text, so it stays out of turn failures.
+          let stderrTail = "";
+          let stderrClosed: Promise<void> = Promise.resolve();
+          let answered = false;
+          let conversationMissing = false;
+          const appendStderr = (text: string) => {
+            if (answered) return;
+            stderrTail = (stderrTail + text).slice(-CLAUDE_STDERR_TAIL_LENGTH);
+          };
+          let refreshDescendants: Effect.Effect<void> = Effect.void;
+          const spawnProcess =
+            options.spawnClaudeCodeProcess ??
+            ((spawnOptions: ClaudeSpawnOptions) => {
+              if (platform !== "win32") {
+                // Node can report "exit" before it has read the stderr the CLI wrote.
+                let stderrDone = () => {};
+                stderrClosed = new Promise((resolve) => (stderrDone = resolve));
+                const child = spawnClaudeProcessGroup(
+                  spawnOptions,
+                  stopScope,
+                  appendStderr,
+                  stderrDone,
+                  providerProcesses.register,
+                );
+                if (unit === undefined && child.pid !== undefined) {
+                  const tracker = trackDescendants(child.pid);
+                  const polling = runFork(
+                    tracker.refresh.pipe(Effect.repeat(Schedule.spaced(CLAUDE_DESCENDANT_POLL))),
+                  );
+                  child.once("exit", () =>
+                    runFork(Fiber.interrupt(polling).pipe(Effect.andThen(tracker.stop))),
+                  );
+                  refreshDescendants = tracker.refresh;
+                }
+                return child;
+              }
+              const child = SpawnWorker.spawnPiped(spawnOptions.command, spawnOptions.args, {
+                cwd: spawnOptions.cwd,
+                env: spawnOptions.env,
+                signal: spawnOptions.signal,
+                windowsHide: true,
+              });
+              child.stderr
+                .setEncoding("utf8")
+                .on("data", (chunk: string) => options.stderr?.(chunk));
+              return child;
+            });
+          let spawnedProcess: ClaudeSpawnedProcess | undefined;
+          let processExited = false;
+          let processExit: Promise<void> | undefined;
+          const spawnClaudeCodeProcess = (spawnOptions: ClaudeSpawnOptions) => {
+            const child = spawnProcess(spawnOptions);
+            spawnedProcess = child;
+            // A spawn that fails emits only "error".
+            const releaseAgent = portDiscovery.trackAgent();
+            child.once("exit", releaseAgent);
+            child.on("error", releaseAgent);
+            processExited = child.exitCode !== null || child.signalCode != null;
+            processExit = new Promise<void>((resolve) => {
+              if (processExited) resolve();
+              else
+                child.once("exit", () => {
+                  processExited = true;
+                  resolve();
+                });
+            });
+            return child;
+          };
+          const queryRuntime = yield* Effect.uninterruptibleMask((restore) =>
+            Effect.try({
+              try: () =>
+                withoutClaudeCanUseToolShadowedWarning(() =>
+                  query({
+                    prompt,
+                    options: { ...options, spawnClaudeCodeProcess },
+                  }),
+                ),
+              catch: (cause) => queryRunnerError(cause, "query"),
+            }).pipe(
+              Effect.tap((queryRuntime) =>
+                restore(
+                  Effect.gen(function* () {
+                    if (mcpServers !== undefined) {
+                      const timedOut = (phase: ClaudeMcpRegistrationTimeoutError["phase"]) => () =>
+                        Effect.logWarning("orchestration-v2.claude-mcp-registration-timeout", {
+                          threadId: input.threadId,
+                          providerSessionId: input.providerSessionId,
+                          phase,
+                        }).pipe(
+                          Effect.andThen(
+                            Effect.fail(
+                              queryRunnerError(
+                                new ClaudeMcpRegistrationTimeoutError({ phase }),
+                                phase,
+                              ),
+                            ),
+                          ),
+                        );
+                      // The SDK leaves query() boot unbounded, and it takes about a minute on a host
+                      // with CPUs 12x oversubscribed, so it gets its own, longer deadline.
+                      yield* Effect.promise(() =>
+                        queryRuntime.initializationResult().catch(() => undefined),
+                      ).pipe(
+                        Effect.timeoutOrElse({
+                          duration: CLAUDE_BOOT_TIMEOUT,
+                          orElse: timedOut("initialize"),
+                        }),
+                      );
+                      // Errors and mcp_status can echo headers; log only server names.
+                      const failed = yield* Effect.tryPromise({
+                        try: () => queryRuntime.setMcpServers(mcpServers),
+                        catch: (cause) => queryRunnerError(cause, "setMcpServers"),
+                      }).pipe(
+                        Effect.map((result) => Object.keys(result.errors)),
+                        Effect.orElseSucceed(() => Object.keys(mcpServers)),
+                        Effect.timeoutOrElse({
+                          duration: CLAUDE_MCP_REGISTRATION_TIMEOUT,
+                          orElse: timedOut("setMcpServers"),
+                        }),
+                      );
+                      if (failed.length > 0) {
+                        yield* Effect.logWarning(
+                          "orchestration-v2.claude-mcp-servers-unavailable",
+                          {
+                            threadId: input.threadId,
+                            servers: failed,
+                          },
+                        );
+                      }
+                    }
+                    yield* logProtocolEvent({
+                      direction: "outgoing",
+                      stage: "decoded",
+                      payload: {
+                        type: "query.open",
+                        options: loggedClaudeQueryOptions(input.options),
+                      },
+                    });
+                  }),
+                ).pipe(
+                  Effect.onError(() =>
+                    Queue.shutdown(promptQueue).pipe(
+                      // SDK disposal can return before process exit; await the owned child's exit before retrying.
+                      Effect.andThen(
+                        Effect.tryPromise({
+                          try: async () => {
+                            if (spawnedProcess !== undefined && !processExited) {
+                              spawnedProcess.kill("SIGKILL");
+                            }
+                            await processExit;
+                          },
+                          catch: (cause) => queryRunnerError(cause, "close"),
+                        }).pipe(Effect.timeout("10 seconds")),
+                      ),
+                      Effect.ensuring(
+                        Effect.tryPromise({
+                          try: () => queryRuntime[Symbol.asyncDispose](),
+                          catch: (cause) => queryRunnerError(cause, "close"),
+                        }).pipe(Effect.orDie),
+                      ),
+                      Effect.orDie,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          return {
+            messages: Stream.fromAsyncIterable(
+              claudeQueryMessages(queryRuntime),
+              (cause) => cause,
+            ).pipe(
+              Stream.catch((cause) =>
+                Stream.fromEffect(
+                  Effect.gen(function* () {
+                    if (!answered) {
+                      yield* Effect.promise(() => stderrClosed).pipe(
+                        Effect.timeoutOption(CLAUDE_STDERR_DRAIN_TIMEOUT),
+                      );
+                    }
+                    const refusedRoot = !answered && stderrTail.includes(CLAUDE_ROOT_REFUSAL);
+                    return yield* queryRunnerError(
+                      refusedRoot
+                        ? new ClaudeCodeRootRefusalError({ cause })
+                        : conversationMissing ||
+                            (!answered && stderrTail.includes(CLAUDE_CONVERSATION_NOT_FOUND))
+                          ? new ClaudeConversationNotFoundError({ cause })
+                          : cause,
+                      "fromAsyncIterable",
+                    );
+                  }),
+                ),
+              ),
+              Stream.tap((message) =>
+                Effect.sync(() => {
+                  answered = true;
+                  if (
+                    message.type === "result" &&
+                    message.subtype !== "success" &&
+                    message.errors.some((error) => error.startsWith(CLAUDE_CONVERSATION_NOT_FOUND))
+                  ) {
+                    conversationMissing = true;
+                  }
+                }),
+              ),
+              Stream.tap((message) =>
+                logProtocolEvent({
+                  direction: "incoming",
+                  stage: "decoded",
+                  payload: message,
+                }),
+              ),
+            ),
+            offer: (message, onQueued) =>
+              Effect.uninterruptibleMask((restore) =>
+                restore(Queue.offer(promptQueue, message)).pipe(
+                  Effect.tap(() => Effect.sync(() => onQueued?.())),
+                ),
+              ).pipe(
+                Effect.asVoid,
+                Effect.tap(() =>
+                  logProtocolEvent({
+                    direction: "outgoing",
+                    stage: "decoded",
+                    payload: {
+                      type: "prompt.offer",
+                      message,
+                    },
+                  }),
+                ),
+              ),
+            setModel: (model) =>
+              Effect.tryPromise({
+                try: () => queryRuntime.setModel(model),
+                catch: (cause) => queryRunnerError(cause, "setModel"),
+              }).pipe(
+                Effect.tap(() =>
+                  logProtocolEvent({
+                    direction: "outgoing",
+                    stage: "decoded",
+                    payload: {
+                      type: "query.set_model",
+                      model,
+                    },
+                  }),
+                ),
+              ),
+            applyFlagSettings: (settings) =>
+              Effect.tryPromise({
+                try: () => queryRuntime.applyFlagSettings(settings),
+                catch: (cause) => queryRunnerError(cause, "applyFlagSettings"),
+              }).pipe(
+                Effect.tap(() =>
+                  logProtocolEvent({
+                    direction: "outgoing",
+                    stage: "decoded",
+                    payload: {
+                      type: "query.apply_flag_settings",
+                      settings,
+                    },
+                  }),
+                ),
+              ),
+            setPermissionMode: (mode) =>
+              Effect.tryPromise({
+                try: () => queryRuntime.setPermissionMode(mode),
+                catch: (cause) => queryRunnerError(cause, "setPermissionMode"),
+              }).pipe(
+                Effect.tap(() =>
+                  logProtocolEvent({
+                    direction: "outgoing",
+                    stage: "decoded",
+                    payload: {
+                      type: "query.set_permission_mode",
+                      mode,
+                    },
+                  }),
+                ),
+              ),
+<<<<<<< HEAD
+            renameSession: (title) =>
+              Effect.tryPromise({
+                try: () =>
+                  sendClaudeControlRequest(queryRuntime, {
+                    subtype: "rename_session",
+                    title,
+                    source: "host",
+                  }),
+                catch: (cause) => queryRunnerError(cause, "renameSession"),
+              }).pipe(
+                Effect.asVoid,
+                Effect.tap(() =>
+                  logProtocolEvent({
+                    direction: "outgoing",
+                    stage: "decoded",
+                    payload: {
+                      type: "query.rename_session",
+                      title,
+                    },
+                  }),
+                ),
+=======
+            setCwd: (input) =>
+              Effect.tryPromise({
+                try: () =>
+                  sendClaudeControlRequest(queryRuntime, {
+                    subtype: "set_cwd",
+                    path: input.path,
+                    ...(input.trustAccepted === undefined
+                      ? {}
+                      : { trust_accepted: input.trustAccepted }),
+                    ...(input.trustedDirectory === undefined
+                      ? {}
+                      : { trusted_directory: input.trustedDirectory }),
+                  }),
+                catch: (cause) => queryRunnerError(cause, "setCwd"),
+              }).pipe(
+                Effect.flatMap(decodeClaudeCwdChangeResult),
+                Effect.mapError((cause) => queryRunnerError(cause, "setCwd")),
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
+              ),
+            stopTask: (taskId) =>
+              Effect.tryPromise({
+                try: () => queryRuntime.stopTask(taskId),
+                catch: (cause) => queryRunnerError(cause, "stopTask"),
+              }).pipe(
+                Effect.tap(() =>
+                  logProtocolEvent({
+                    direction: "outgoing",
+                    stage: "decoded",
+                    payload: { type: "query.stop_task", taskId },
+                  }),
+                ),
+              ),
+            backgroundTasks: (toolUseId) =>
+              Effect.tryPromise({
+                try: () => queryRuntime.backgroundTasks(toolUseId),
+                catch: (cause) => queryRunnerError(cause, "backgroundTasks"),
+              }).pipe(
+                Effect.tap(() =>
+                  logProtocolEvent({
+                    direction: "outgoing",
+                    stage: "decoded",
+                    payload: { type: "query.background_tasks", toolUseId },
+                  }),
+                ),
+              ),
+            mcpServerStatus: Effect.tryPromise({
+              try: () => queryRuntime.mcpServerStatus(),
+              catch: (cause) => queryRunnerError(cause, "mcpServerStatus"),
+            }),
+            readMcpResource: ({ server, uri }) =>
+              Effect.tryPromise({
+                try: () => queryRuntime.readMcpResource(server, uri),
+                catch: (cause) => queryRunnerError(cause, "readMcpResource"),
+              }),
+            callMcpTool: (call) =>
+              Effect.tryPromise({
+                try: () =>
+                  sendClaudeControlRequest(queryRuntime, {
+                    subtype: "mcp_call",
+                    tool: call.tool,
+                    arguments: call.arguments,
+                    result_not_for_model: true,
+                  }),
+                catch: (cause) => queryRunnerError(cause, "callMcpTool"),
+              }),
+            listPermissionRules: Effect.tryPromise({
+              try: () =>
+                sendClaudeControlRequest(queryRuntime, { subtype: "list_permission_rules" }),
+              catch: (cause) => queryRunnerError(cause, "listPermissionRules"),
+            }).pipe(
+              Effect.flatMap(decodeClaudePermissionRules),
+              // A settings file Claude couldn't parse was skipped, so its rules are missing from the list.
+              Effect.filterOrFail(
+                ({ state }) => (state.errors ?? []).length === 0,
+                ({ state }) => new Error(`Claude skipped ${state.errors?.length} settings file(s)`),
+              ),
+              Effect.map(({ state }) => state.rules),
+              Effect.mapError((cause) => queryRunnerError(cause, "listPermissionRules")),
+            ),
+            interrupt: Effect.tryPromise({
+              try: () => queryRuntime.interrupt(),
+              catch: (cause) => queryRunnerError(cause, "interrupt"),
+            }).pipe(
+              Effect.tap(() =>
+                logProtocolEvent({
+                  direction: "outgoing",
+                  stage: "decoded",
+                  payload: {
+                    type: "query.interrupt",
+                  },
+                }),
+              ),
+            ),
+            // A job started since the last poll is recorded before the CLI is told to exit.
+            close: Effect.suspend(() => (processExited ? Effect.void : refreshDescendants)).pipe(
+              Effect.andThen(Queue.shutdown(promptQueue)),
+              Effect.andThen(closeClaudeQuery(queryRuntime)),
+              Effect.tap(() =>
+                logProtocolEvent({
+                  direction: "outgoing",
+                  stage: "decoded",
+                  payload: {
+                    type: "query.close",
+                  },
+                }),
+              ),
+            ),
+          } satisfies ClaudeAgentSdkQuerySession;
+        },
+        // Fresh IDs may already have a metadata-only transcript; only resumed opens can reuse their ID.
+        (effect, input) =>
+          effect.pipe(
+            Effect.retry({
+              times: 1,
+              while: (error) =>
+                input.options.resume !== undefined &&
+                isClaudeMcpRegistrationTimeoutError(error.cause),
+>>>>>>> 43cd4a621a (feat: move a thread to another directory or a new worktree without a new session)
             }),
           ),
         );
@@ -2247,6 +2795,9 @@ const subagentDeviceInstructions: HookCallback = () =>
     },
   });
 
+// They move Claude without T3 knowing; threads move through t3_worktree_handoff and t3_change_working_directory.
+export const CLAUDE_NATIVE_WORKTREE_TOOLS = ["EnterWorktree", "ExitWorktree"] as const;
+
 export function makeClaudeQueryOptions(input: {
   readonly modelSelection: ModelSelection;
   readonly modelCatalog?: ClaudeModelCatalog;
@@ -2386,7 +2937,7 @@ export function makeClaudeQueryOptions(input: {
     ...threadIdentity,
     ...(input.resumeSessionAt === undefined ? {} : { resumeSessionAt: input.resumeSessionAt }),
     ...(input.allowedTools === undefined ? {} : { allowedTools: [...input.allowedTools] }),
-    ...(input.disallowedTools === undefined ? {} : { disallowedTools: [...input.disallowedTools] }),
+    disallowedTools: [...CLAUDE_NATIVE_WORKTREE_TOOLS, ...(input.disallowedTools ?? [])],
     ...(input.canUseTool === undefined ? {} : { canUseTool: input.canUseTool }),
     ...(input.allowDangerouslySkipPermissions === true
       ? { allowDangerouslySkipPermissions: true }
@@ -5184,6 +5735,7 @@ interface ActiveClaudeTurnContext {
   // MCP app notes this turn's prompt carries, recorded as delivered only if the turn completes.
   appContextOffered?: ReadonlyMap<string, string> | undefined;
   promptStarted: boolean;
+  awaitingWorkspacePrompt: boolean;
   nativeWakeStarted: boolean;
   gatedFramesBeforeEcho: number;
   readonly heldRootFrames: Array<SDKMessage>;
@@ -5240,7 +5792,7 @@ interface ActiveClaudeSubagent {
 interface ClaudeLiveQueryContext {
   readonly queryPolicy: ClaudeRuntimeQueryPolicy;
   readonly nativeThreadId: string;
-  readonly settingsCwd: string | null;
+  settingsCwd: string | null;
   readonly launchArgSettings: ClaudeSdkSettings | undefined;
   readonly query: ClaudeAgentSdkQuerySession;
   readonly queryPolicyKey: string;
@@ -12304,6 +12856,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             return;
           }
           if (claudeEchoedPromptUuids(message).includes(context.promptUuid)) {
+            context.awaitingWorkspacePrompt = false;
             if (
               liveQuery.promptEchoMode === "unknown" ||
               liveQuery.promptEchoMode === "acknowledged"
@@ -12324,6 +12877,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             }
             if (lifecycle.state === "started") {
               context.promptStarted = true;
+              context.awaitingWorkspacePrompt = false;
             }
             // Previously recorded prompt uuids complete without starting a turn.
             if (lifecycle.state === "completed" && !context.promptStarted) {
@@ -12342,6 +12896,14 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               });
               return;
             }
+          }
+          // set_cwd emits an empty local-command result before the new prompt starts.
+          if (
+            context.awaitingWorkspacePrompt &&
+            message.type === "result" &&
+            message.num_turns === 0
+          ) {
+            return;
           }
           if (!isClaudePromptEchoGatedFrame(message)) {
             if (
@@ -13410,6 +13972,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               const used = turnInput.providerThread.nativeMetadata?.claudeAttachmentBudget;
               pdfBudgets.set(nativeThreadId, makeClaudeAttachmentBudget(used));
             }
+<<<<<<< HEAD
             if (!appliedSessionTitles.has(nativeThreadId)) {
               const recordedTitle = turnInput.providerThread.nativeMetadata?.title;
               if (recordedTitle !== undefined && recordedTitle !== null) {
@@ -13424,18 +13987,31 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 queryPolicyForTurn(turnInput),
               ],
               { concurrency: "unbounded" },
+=======
+            const promptScope = yield* Scope.fork(sessionScope);
+            let promptDeferred = false;
+            yield* Effect.addFinalizer(() =>
+              promptDeferred ? Effect.void : Scope.close(promptScope, Exit.void),
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
             );
             const pdfReservation = yield* reserveClaudePdfBudget(
               pdfBudgets.get(nativeThreadId)!,
               persistAttachmentBudget(nativeThreadId),
+<<<<<<< HEAD
             );
             const promptText = applyClaudePromptEffortPrefix(
               turnInput.message.text,
               compileClaudeModelSelection(turnInput.modelSelection, modelCatalog).promptEffort,
             );
+<<<<<<< HEAD
             const appContext = turnInput.appContext ?? [];
             const delivered = deliveredAppContext.get(nativeThreadId);
             let appContextSent = false;
+=======
+=======
+            ).pipe(Effect.provideService(Scope.Scope, promptScope));
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
+>>>>>>> 43cd4a621a (feat: move a thread to another directory or a new worktree without a new session)
             const userMessage =
               promptUuid === null
                 ? null
@@ -13479,7 +14055,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             const querySession = yield* openQuery(turnInput, nativeThreadId, queryPolicy);
             yield* applySessionTitle(querySession.query, nativeThreadId, turnInput.appThread.title);
             const autoCompactWindow = yield* resolveAutoCompactWindow(
-              querySession.settingsCwd,
+              turnInput.runtimePolicy.cwd,
               turnInput.modelSelection,
               querySession.launchArgSettings,
             );
@@ -13540,6 +14116,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   ? "confirmed"
                   : "pending",
               promptStarted: false,
+              awaitingWorkspacePrompt: false,
               nativeWakeStarted: false,
               gatedFramesBeforeEcho: 0,
               heldRootFrames: [],
@@ -13649,7 +14226,135 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   );
             if (userMessage !== null && !turnInput.resume) {
               yield* attachTurn;
+<<<<<<< HEAD
               yield* offerUserMessage;
+=======
+              const sendPrompt = Effect.gen(function* () {
+                if (
+                  (yield* Ref.get(activeTurn)) !== context ||
+                  (yield* Ref.get(queryContext)) !== querySession ||
+                  querySession.stopping
+                ) {
+                  return yield* Effect.interrupt;
+                }
+                yield* startUserTurnForWakeReports(nativeThreadId);
+                yield* Effect.uninterruptibleMask((restore) =>
+                  restore(
+                    querySession.query.offer(userMessage, () => {
+                      pdfReservation.commit();
+                    }),
+                  ).pipe(
+                    Effect.tap(() =>
+                      Effect.sync(() => {
+                        pdfReservation.commit();
+                      }),
+                    ),
+                  ),
+                );
+              });
+              const nextCwd = turnInput.runtimePolicy.cwd;
+              if (nextCwd !== null && querySession.settingsCwd !== nextCwd) {
+                context.awaitingWorkspacePrompt = true;
+                const move = Effect.gen(function* () {
+                  const setCwd = querySession.query.setCwd;
+                  if (setCwd === undefined) {
+                    return yield* new ClaudeWorkspaceChangeError({
+                      cwd: nextCwd,
+                      reason: "unsupported",
+                    });
+                  }
+                  let result = yield* setCwd({ path: nextCwd });
+                  if (result.status === "needs_trust") {
+                    const decision = yield* canUseToolEffect(
+                      "Cd",
+                      { path: result.directory },
+                      {
+                        toolUseID: `workspace-trust:${turnInput.attemptId}`,
+                        requestId: `workspace-trust:${turnInput.attemptId}`,
+                        signal: yield* Effect.abortSignal,
+                        title: `Trust project configuration and switch Claude to ${result.directory}`,
+                      },
+                      { startToolCall: false },
+                    );
+                    if (decision.behavior !== "allow") {
+                      return yield* new ClaudeWorkspaceChangeError({
+                        cwd: nextCwd,
+                        reason: "trust_declined",
+                      });
+                    }
+                    result = yield* setCwd({
+                      path: nextCwd,
+                      trustAccepted: true,
+                      trustedDirectory: result.directory,
+                    });
+                  }
+                  if (result.status !== "ok") {
+                    return yield* new ClaudeWorkspaceChangeError({
+                      cwd: nextCwd,
+                      reason: "rejected",
+                    });
+                  }
+                  querySession.settingsCwd = nextCwd;
+                  yield* emitProviderEvent({
+                    type: "provider_session.updated",
+                    driver: CLAUDE_PROVIDER,
+                    providerSession: {
+                      ...session,
+                      // T3's path, not Claude's canonical one: a failed move restores the thread to this.
+                      cwd: nextCwd,
+                      updatedAt: yield* DateTime.now,
+                    },
+                  });
+                }).pipe(
+                  Effect.mapError((cause) =>
+                    cause._tag === "ClaudeWorkspaceChangeError"
+                      ? cause
+                      : new ClaudeWorkspaceChangeError({
+                          cwd: nextCwd,
+                          reason: "rejected",
+                          cause,
+                        }),
+                  ),
+                );
+                // Trust replies use the same effect worker as turn start, so return before waiting.
+                yield* Effect.uninterruptible(
+                  Effect.gen(function* () {
+                    yield* move.pipe(
+                      Effect.andThen(sendPrompt),
+                      Effect.catchCause((cause) =>
+                        Effect.gen(function* () {
+                          if (
+                            Cause.hasInterruptsOnly(cause) ||
+                            (yield* Ref.get(activeTurn)) !== context
+                          )
+                            return;
+                          yield* finalizeActiveTurn({
+                            context,
+                            status: "failed",
+                            completedAt: yield* DateTime.now,
+                            failure: makeProviderFailure({
+                              cause,
+                              ...(Option.exists(
+                                Cause.findErrorOption(cause),
+                                (error) => error._tag === "ClaudeWorkspaceChangeError",
+                              )
+                                ? { code: WORKSPACE_CHANGE_FAILED_CODE }
+                                : {}),
+                            }),
+                          });
+                        }),
+                      ),
+                      Effect.provideService(Scope.Scope, promptScope),
+                      Effect.ensuring(Scope.close(promptScope, Exit.void)),
+                      Effect.forkIn(sessionScope),
+                    );
+                    promptDeferred = true;
+                  }),
+                );
+                return;
+              }
+              yield* sendPrompt;
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
               return;
             }
             // Transcript reads suspend replay; hold SDK frames until the buffer is applied to preserve order.
@@ -13974,6 +14679,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 detail: `Claude provider turn ${turnInput.providerTurnId} is not the active turn.`,
               });
             }
+<<<<<<< HEAD
             // Claude echoes this uuid once it accepts the steer.
             const steerUuid = yield* random.uuidV4().pipe(
               Effect.filterOrFail(isClaudePromptUuid),
@@ -13986,6 +14692,14 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   }),
               ),
             );
+=======
+            if (existing.settingsCwd !== currentTurn.input.runtimePolicy.cwd) {
+              return yield* new ProviderAdapter.ProviderAdapterProtocolError({
+                driver: CLAUDE_PROVIDER,
+                detail: "Claude is changing workspaces; queue this message for the next turn.",
+              });
+            }
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
             const pdfReservation = yield* reserveClaudePdfBudget(
               pdfBudgets.get(existing.nativeThreadId) ??
                 makeClaudeAttachmentBudget({
