@@ -1,4 +1,6 @@
 import {
+  type ChangeWorkingDirectoryMcpInput,
+  type ChangeWorkingDirectoryMcpResult,
   CommandId,
   type GitCommandError,
   type TaskFolderError,
@@ -13,6 +15,8 @@ import {
   type VcsListRefsInput,
   type VcsListRefsResult,
 } from "@t3tools/contracts";
+import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
@@ -21,6 +25,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 
 import * as GitWorkflowService from "../git/GitWorkflowService.ts";
@@ -35,6 +40,10 @@ import type { McpInvocationScope, McpThreadInvocationScope } from "./McpInvocati
 export class WorktreeMcpService extends Context.Service<
   WorktreeMcpService,
   {
+    readonly changeWorkingDirectory: (
+      scope: McpInvocationScope,
+      input: ChangeWorkingDirectoryMcpInput,
+    ) => Effect.Effect<ChangeWorkingDirectoryMcpResult, WorktreeMcpFailure>;
     readonly handoff: (
       scope: McpInvocationScope,
       input: WorktreeMcpHandoffInput,
@@ -71,6 +80,7 @@ const asOperationFailed = (prefix: string) =>
 const make = Effect.gen(function* () {
   const random = yield* SecureRandom.SecureRandom;
   const fileSystem = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
   const threadManagement = yield* ThreadManagementService.ThreadManagementService;
   const projects = yield* ProjectService.ProjectService;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
@@ -89,7 +99,7 @@ const make = Effect.gen(function* () {
       ? Effect.fail(
           failure(
             "thread_credential_required",
-            "Worktree handoff and status act as the calling T3 thread, so they need an agent running inside T3 Code.",
+            "Worktree and directory tools act as the calling T3 thread, so they need an agent running inside T3 Code.",
           ),
         )
       : Effect.succeed(scope as McpThreadInvocationScope);
@@ -162,16 +172,7 @@ const make = Effect.gen(function* () {
     scope: McpThreadInvocationScope,
     input: WorktreeMcpHandoffInput,
   ) {
-    const alreadyInWorktree = (worktreePath: string) =>
-      failure(
-        "already_in_worktree",
-        `Thread '${scope.thread.threadId}' is already attached to worktree '${worktreePath}'.`,
-      );
-
     const projection = yield* loadThread(scope);
-    if (projection.thread.worktreePath !== null) {
-      return yield* alreadyInWorktree(projection.thread.worktreePath);
-    }
     if (projection.thread.archivedAt !== null) {
       return yield* failure(
         "invalid_request",
@@ -265,7 +266,7 @@ const make = Effect.gen(function* () {
 
     const ids = yield* handoffIds(scope);
 
-    // Mask interruption after worktree creation through setup; binding can detach and interrupt the caller.
+    // Mask interruption after worktree creation through setup; binding can detach providers without live directory switching.
     return yield* Effect.uninterruptibleMask((restore) =>
       Effect.gen(function* () {
         const worktree = yield* restore(
@@ -351,10 +352,13 @@ const make = Effect.gen(function* () {
         ).pipe(Effect.ignoreCause({ log: true }));
 
         const recheckAndBind = Effect.gen(function* () {
-          // A concurrent UI binding may have landed during git work; do not orphan a second worktree.
+          // A concurrent directory change may have landed during git work; do not orphan the new worktree.
           const recheck = yield* loadThread(scope);
-          if (recheck.thread.worktreePath !== null) {
-            return yield* alreadyInWorktree(recheck.thread.worktreePath);
+          if (recheck.thread.worktreePath !== projection.thread.worktreePath) {
+            return yield* failure(
+              "invalid_request",
+              `Thread '${scope.thread.threadId}' changed directories while the worktree was being created; the handoff was rolled back.`,
+            );
           }
           if (recheck.thread.archivedAt !== null) {
             return yield* failure(
@@ -369,6 +373,7 @@ const make = Effect.gen(function* () {
               threadId: scope.thread.threadId,
               branch: worktree.refName,
               worktreePath,
+<<<<<<< HEAD
               expectedWorktreePath: null,
               // Binding detaches the session and ends the caller; a later send could lose the race.
               ...(input.continuationPrompt === undefined
@@ -379,6 +384,9 @@ const make = Effect.gen(function* () {
                       text: input.continuationPrompt,
                     },
                   }),
+=======
+              expectedWorktreePath: projection.thread.worktreePath,
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
             })
             .pipe(
               Effect.catchCause((cause) =>
@@ -399,6 +407,7 @@ const make = Effect.gen(function* () {
           ),
         );
 
+<<<<<<< HEAD
         const bound = yield* recheckAndBind;
         const continuation: WorktreeMcpContinuationStatus =
           input.continuationPrompt === undefined
@@ -411,6 +420,35 @@ const make = Effect.gen(function* () {
                   ? "started"
                   : "queued",
               };
+=======
+        // Queue continuation immediately after binding; a detaching provider terminates the caller, so relaunch needs a durable message.
+        const queueContinuation: Effect.Effect<WorktreeMcpContinuationStatus, WorktreeMcpFailure> =
+          Effect.suspend(() =>
+            input.continuationPrompt === undefined
+              ? Effect.succeed<WorktreeMcpContinuationStatus>({ status: "skipped" })
+              : threadManagement
+                  .sendToThread({
+                    projectId: projection.thread.projectId,
+                    commandId: ids.continuationCommandId,
+                    threadId: scope.thread.threadId,
+                    messageId: ids.continuationMessageId,
+                    text: input.continuationPrompt,
+                    attachments: [],
+                    mode: "queue",
+                    createdBy: "agent",
+                    creationSource: "mcp",
+                  })
+                  .pipe(
+                    Effect.map((sendResult): WorktreeMcpContinuationStatus => ({
+                      status: "scheduled",
+                      delivery: sendResult.delivery,
+                    })),
+                    reportFailed("worktree handoff continuation failed to queue"),
+                  ),
+          );
+
+        const continuation = yield* recheckAndBind.pipe(Effect.andThen(queueContinuation));
+>>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
 
         yield* vcsStatusBroadcaster
           .refreshStatus(worktreePath)
@@ -459,6 +497,7 @@ const make = Effect.gen(function* () {
           continuation,
           note: `${
             continuation.status === "scheduled"
+<<<<<<< HEAD
               ? "Handoff recorded. Changing the workspace detaches this provider session, so the current turn ends shortly after this call; the queued continuation prompt then starts the next turn inside the worktree with the conversation preserved. The worktree is not removed automatically when the thread is deleted."
               : "Handoff recorded. Changing the workspace detaches this provider session, so the current turn ends shortly after this call; the conversation continues inside the worktree when the thread receives its next message. Pass continuationPrompt to resume automatically. The worktree is not removed automatically when the thread is deleted."
           }${
@@ -466,6 +505,10 @@ const make = Effect.gen(function* () {
               ? " Project setup scripts do not run for a handoff from a thread below Full access."
               : ""
           }`,
+=======
+              ? "Worktree recorded. End this turn now; the queued continuation runs in the worktree with the conversation preserved. The worktree stays after this thread is deleted."
+              : "Worktree recorded. End this turn now; the next message runs in the worktree with the conversation preserved. The worktree stays after this thread is deleted.",
+>>>>>>> 5551ee94ad (feat: move a thread to another directory or a new worktree without a new session)
         };
         return result;
       }),
@@ -498,6 +541,94 @@ const make = Effect.gen(function* () {
     },
   );
 
+  const changeWorkingDirectory = Effect.fn("WorktreeMcpService.changeWorkingDirectory")(function* (
+    callerScope: McpInvocationScope,
+    input: ChangeWorkingDirectoryMcpInput,
+  ) {
+    yield* requireCapability(callerScope);
+    const scope = yield* requireThreadScope(callerScope);
+    const projection = yield* loadThread(scope);
+    if (projection.thread.archivedAt !== null) {
+      return yield* failure("invalid_request", "An archived thread cannot change directories.");
+    }
+    const project = yield* loadProject(scope, projection.thread.projectId);
+    const projectRoot = yield* fileSystem
+      .realPath(project.workspaceRoot)
+      .pipe(Effect.orElseSucceed(() => path.resolve(project.workspaceRoot)));
+    const previousCwd = projection.thread.worktreePath ?? projectRoot;
+    const requested =
+      input.path === null
+        ? projectRoot
+        : path.resolve(previousCwd, expandHomePath(input.path, yield* HostProcess.HomeDirectory));
+    const cwd = yield* fileSystem
+      .realPath(requested)
+      .pipe(asOperationFailed("Unable to resolve the working directory"));
+    const stat = yield* fileSystem
+      .stat(cwd)
+      .pipe(asOperationFailed("Unable to read the working directory"));
+    if (stat.type !== "Directory") {
+      return yield* failure(
+        "invalid_request",
+        "The working directory must be an existing directory.",
+      );
+    }
+    const branch = yield* gitWorkflow.localStatus({ cwd }).pipe(
+      Effect.map((status) => (status.isRepo ? status.refName : null)),
+      Effect.orElseSucceed(() => null),
+    );
+    const ids = yield* handoffIds(scope);
+    // Providers without live directory switching detach on binding; still record the continuation.
+    const continuation = yield* Effect.uninterruptible(
+      threadManagement
+        .dispatch({
+          type: "thread.metadata.update",
+          commandId: ids.commandId,
+          threadId: scope.thread.threadId,
+          branch,
+          // Legacy name: this is the per-thread cwd override that runtimes and clients read.
+          worktreePath: cwd === projectRoot ? null : cwd,
+          expectedWorktreePath: projection.thread.worktreePath,
+        })
+        .pipe(
+          asOperationFailed("Unable to change the thread directory"),
+          Effect.andThen(() =>
+            input.continuationPrompt === undefined
+              ? Effect.succeed<WorktreeMcpContinuationStatus>({ status: "skipped" })
+              : threadManagement
+                  .sendToThread({
+                    projectId: project.id,
+                    commandId: ids.continuationCommandId,
+                    threadId: scope.thread.threadId,
+                    messageId: ids.continuationMessageId,
+                    text: input.continuationPrompt,
+                    attachments: [],
+                    mode: "queue",
+                    createdBy: "agent",
+                    creationSource: "mcp",
+                  })
+                  .pipe(
+                    Effect.map((result): WorktreeMcpContinuationStatus => ({
+                      status: "scheduled",
+                      delivery: result.delivery,
+                    })),
+                    Effect.catchCause((cause) =>
+                      Effect.succeed<WorktreeMcpContinuationStatus>({
+                        status: "failed",
+                        detail: errorMessage(Cause.squash(cause)),
+                      }),
+                    ),
+                  ),
+          ),
+        ),
+    );
+    return {
+      cwd,
+      previousCwd,
+      continuation,
+      note: "Working directory recorded. End this turn now; the next turn runs there with the conversation preserved. Files stay in place.",
+    } satisfies ChangeWorkingDirectoryMcpResult;
+  });
+
   const status: WorktreeMcpService["Service"]["status"] = Effect.fn("WorktreeMcpService.status")(
     function* (callerScope) {
       yield* requireCapability(callerScope);
@@ -529,7 +660,7 @@ const make = Effect.gen(function* () {
     return yield* gitWorkflow.listRefs({ ...refs, cwd });
   });
 
-  return WorktreeMcpService.of({ handoff, status, listRefs });
+  return WorktreeMcpService.of({ changeWorkingDirectory, handoff, status, listRefs });
 });
 
 export const layer: Layer.Layer<
@@ -537,6 +668,7 @@ export const layer: Layer.Layer<
   never,
   | SecureRandom.SecureRandom
   | FileSystem.FileSystem
+  | Path.Path
   | ThreadManagementService.ThreadManagementService
   | ProjectService.ProjectService
   | ServerSettings.ServerSettingsService

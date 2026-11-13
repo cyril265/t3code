@@ -25,6 +25,12 @@ an existing worktree, use **New thread in this worktree** from the branch toolba
 While the sidebar is filtered to one project, the sidebar's **New thread** button
 starts the thread in that project instead of asking which project to use.
 
+To keep the current conversation but work somewhere else, ask the agent to create a new
+worktree for it, or to change its working directory to any existing folder, including one
+outside the project or without Git. Ask it to return to the project directory to undo the
+change. The move applies from the next turn, and Codex and Claude keep their running session.
+Files stay where they are. Claude may ask you to trust the destination folder first.
+
 On mobile, **New thread** starts in the current thread's project, or else in the
 project the thread list is filtered to, or else in the last project you opened
 or chose on that device. If none is available, the project picker opens. Turn

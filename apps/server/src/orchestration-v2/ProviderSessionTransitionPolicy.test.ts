@@ -61,6 +61,18 @@ it("restarts compatible instances for workspace or runtime changes", () => {
     }),
     { type: "restart_and_resume" },
   );
+  assert.deepEqual(
+    decideProviderSessionTransition({
+      current: base,
+      target: {
+        ...base,
+        workspace: "/other",
+        available: true,
+        supportsWorkspaceSwitchInSession: true,
+      },
+    }),
+    { type: "reuse" },
+  );
 });
 
 it("preserves handoff and missing-classification outcomes across workspace changes", () => {

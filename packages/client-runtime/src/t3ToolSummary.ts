@@ -1372,6 +1372,239 @@ export function summarizeT3ToolCalls(
       }
       break;
     }
+<<<<<<< HEAD
+=======
+    case "delegate":
+      label = phrase("Delegated", "delegate", quantity(countEntities(entityIds("taskId")), "task"));
+      break;
+    case "thread-read":
+    case "thread-wait": {
+      const targets = threadIds.every((value) => value !== undefined)
+        ? quantity(new Set(threadIds).size, "thread")
+        : `threads ${times}`;
+      label =
+        action === "thread-read"
+          ? phrase("Read", "read", targets)
+          : phrase("Waited on", "wait on", targets);
+      break;
+    }
+    case "thread-list":
+      label = phrase("Listed", "list", `threads ${times}`);
+      break;
+    case "thread-interrupt":
+      label = phrase(
+        "Requested interrupts for",
+        "interrupt",
+        quantity(countEntities(threadIds), "thread"),
+      );
+      break;
+    case "workflow-stop":
+      label = phrase(
+        "Requested stops for",
+        "stop",
+        quantity(countEntities(entityIds("subagentId")), "workflow"),
+      );
+      break;
+    case "task-status":
+      label = phrase("Checked", "check", `task status ${times}`);
+      break;
+    case "background-wait":
+      label = phrase("Updated", "update", `background waits ${times}`);
+      break;
+    case "task-cancel":
+      label = phrase(
+        "Requested cancellation of",
+        "cancel",
+        quantity(countEntities(entityIds("taskId")), "task"),
+      );
+      break;
+    case "schedule-create":
+      label = phrase(
+        "Scheduled",
+        "schedule",
+        quantity(countEntities(entityIds("scheduledTaskId")), "task"),
+      );
+      break;
+    case "schedule-list":
+      label = phrase("Listed", "list", `scheduled tasks ${times}`);
+      break;
+    case "schedule-update":
+      label = phrase(
+        "Updated",
+        "update",
+        quantity(countEntities(entityIds("scheduledTaskId")), "scheduled task"),
+      );
+      break;
+    case "schedule-delete":
+      label = phrase(
+        "Requested deletion of",
+        "delete",
+        quantity(countEntities(entityIds("scheduledTaskId")), "scheduled task"),
+      );
+      break;
+    case "schedule-run":
+      label = phrase("Requested", "request", quantity(selected.length, "scheduled task run"));
+      break;
+    case "thread-configuration":
+      label = phrase("Checked", "check", `thread configuration ${times}`);
+      break;
+    case "thread-configure":
+      label = phrase("Set", "set", `thread model ${times}`);
+      break;
+    case "thread-fork":
+      label = phrase("Requested", "request", quantity(selected.length, "thread fork"));
+      break;
+    case "thread-merge":
+      label = phrase("Requested", "request", quantity(selected.length, "context merge"));
+      break;
+    case "thread-search":
+      label = phrase("Searched", "search", `threads ${times}`);
+      break;
+    case "thread-transfers":
+      label = phrase("Checked", "check", `thread transfers ${times}`);
+      break;
+    case "thread-organize":
+      label = phrase("Organized", "organize", `threads ${times}`);
+      break;
+    case "thread-update":
+      label = phrase("Updated", "update", quantity(countEntities(threadIds), "thread"));
+      break;
+    case "queue-list":
+      label = phrase("Listed", "list", `queued messages ${times}`);
+      break;
+    case "queue-read":
+      label = phrase(
+        "Read",
+        "read",
+        quantity(countEntities(entityIds("queuedRunId")), "queued message"),
+      );
+      break;
+    case "queue-edit":
+      label = phrase(
+        "Edited",
+        "edit",
+        quantity(countEntities(entityIds("queuedRunId")), "queued message"),
+      );
+      break;
+    case "queue-cancel":
+      label = phrase(
+        "Requested cancellation of",
+        "cancel",
+        quantity(countEntities(entityIds("queuedRunId")), "queued run"),
+      );
+      break;
+    case "queue-reorder":
+      label = phrase(
+        "Reordered",
+        "reorder",
+        quantity(countEntities(entityIds("queuedRunId")), "queued run"),
+      );
+      break;
+    case "queue-steer":
+      label = phrase(
+        "Requested steering with",
+        "steer with",
+        quantity(countEntities(entityIds("queuedRunId")), "queued message"),
+      );
+      break;
+    case "question-list":
+      label = phrase("Listed", "list", `pending questions ${times}`);
+      break;
+    case "question-read":
+      label = phrase(
+        "Read",
+        "read",
+        quantity(countEntities(entityIds("requestId")), "pending question request"),
+      );
+      break;
+    case "question-respond":
+      label = phrase(
+        "Answered",
+        "answer",
+        quantity(countEntities(entityIds("requestId")), "pending question request"),
+      );
+      break;
+    case "secret-request":
+      label = phrase("Asked for", "ask for", quantity(selected.length, "secret"));
+      break;
+    case "worktree-handoff":
+      label = phrase(
+        "Handed off to",
+        "hand off to",
+        quantity(countEntities(entityIds("worktreePath")), "worktree"),
+      );
+      break;
+    case "working-directory-change":
+      label = phrase("Changed", "change", `working directory ${times}`);
+      break;
+    case "worktree-list":
+      label = phrase("Listed", "list", `workspace branches ${times}`);
+      break;
+    case "worktree-status":
+      label = phrase("Checked", "check", `worktree status ${times}`);
+      break;
+    case "project-list":
+      label = phrase("Listed", "list", `projects ${times}`);
+      break;
+    case "project-read":
+      label = phrase("Read", "read", quantity(countEntities(projectIds), "project"));
+      break;
+    case "project-create":
+      label = phrase("Registered", "register", quantity(countEntities(projectIds), "project"));
+      break;
+    case "project-update":
+      label = phrase("Updated", "update", quantity(countEntities(projectIds), "project"));
+      break;
+    case "project-delete":
+      label = phrase("Deleted", "delete", quantity(countEntities(projectIds), "project"));
+      break;
+    case "project-clone":
+      label = phrase(
+        "Cloned",
+        "clone",
+        quantity(countEntities(entityIds("cwd")), "repository", "repositories"),
+      );
+      break;
+    case "environment-read":
+      label = phrase("Checked", "check", `environment preferences ${times}`);
+      break;
+    case "environment-update":
+      label = phrase("Updated", "update", `environment preferences ${times}`);
+      break;
+    case "theme-read":
+      label = phrase("Checked", "check", `themes ${times}`);
+      break;
+    case "theme-set":
+      label = phrase("Set", "set", `the theme ${times}`);
+      break;
+    case "environment-links":
+      label = phrase("Listed", "list", `linked environments ${times}`);
+      break;
+    case "environment-link":
+      label = phrase("Asked to link", "ask to link", quantity(selected.length, "environment"));
+      break;
+    case "environment-unlink":
+      label = phrase(
+        "Forgot",
+        "forget",
+        quantity(countEntities(entityIds("environmentId")), "linked environment"),
+      );
+      break;
+    case "attachment-prepare":
+      label = phrase(
+        "Prepared",
+        "prepare",
+        quantity(countEntities(entityIds("attachmentId")), "attachment upload"),
+      );
+      break;
+    case "attachment-discard":
+      label = phrase(
+        "Discarded",
+        "discard",
+        quantity(countEntities(entityIds("attachmentId")), "pending attachment"),
+      );
+      break;
+>>>>>>> 43cd4a621a (feat: move a thread to another directory or a new worktree without a new session)
     case "attachment-send": {
       const messages = new Map<string, (typeof selected)[number]>();
       selected.forEach((call, index) =>
