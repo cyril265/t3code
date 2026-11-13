@@ -348,6 +348,7 @@ const CODEX_CLIENT_CAPABILITIES = {
 
 export const CodexProviderCapabilitiesV2 = {
   sessions: {
+    supportsWorkspaceSwitchInSession: true,
     supportsMultipleProviderThreadsPerSession: true,
     supportsModelSwitchInSession: true,
     supportsProviderSwitchingViaHandoff: true,
