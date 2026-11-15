@@ -1,4 +1,5 @@
 import type {
+  OrchestrationV2ProviderTurnTokenUsage,
   ProviderInstanceId,
   ServerProvider,
   ServerProviderUsageLimits,
@@ -59,6 +60,11 @@ export interface ThreadDetailsUsageInput {
   readonly providers: readonly ServerProvider[];
   readonly sources: UsageLimitSourceSnapshots;
   readonly contextWindow: ContextWindowSnapshot | null;
+  /** When the thread's last provider turn ended; null while it works. */
+  readonly idleSince: number | null;
+  readonly working: boolean;
+  /** The last provider turn's usage: its prompt cache expiry and the cache it re-billed. */
+  readonly latestTokenUsage: OrchestrationV2ProviderTurnTokenUsage | null;
 }
 
 type UsageTone = "error" | "warning" | null;
@@ -85,8 +91,16 @@ export function ThreadDetailsUsage({
   model,
   providers,
   sources,
+<<<<<<< HEAD
 }: Omit<ThreadDetailsUsageInput, "contextWindow">) {
   const gt = useGT();
+<<<<<<< HEAD
+=======
+  const m = useMessages();
+=======
+}: Pick<ThreadDetailsUsageInput, "providerInstanceId" | "providers" | "sources">) {
+>>>>>>> 7a864c1eee (feat: show idle time and prompt cache misses in thread details)
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
   const nowMinute = useNowMinute();
   const now = Date.parse(`${nowMinute}:00Z`);
 <<<<<<< HEAD
@@ -164,6 +178,7 @@ export function ThreadDetailsUsage({
   );
 }
 
+<<<<<<< HEAD
 function InstanceRows({
   limits,
   now,
@@ -191,6 +206,52 @@ function InstanceRows({
 
 /** The thread's context window. The bar fills as context is used; the tick marks auto-compaction. */
 export function ThreadDetailsContext({ usage }: { readonly usage: ContextWindowSnapshot }) {
+=======
+// Pi's bar for a miss worth showing.
+const CACHE_MISS_MIN_TOKENS = 20_000;
+const CACHE_MISS_MIN_COST_USD = 0.1;
+
+type CacheMiss = NonNullable<OrchestrationV2ProviderTurnTokenUsage["cacheMiss"]>;
+
+const formatIdle = (ms: number) => (ms < 60_000 ? "<1m" : formatDuration(ms));
+
+/** The thread's context window, how long it has been idle, and the latest turn's prompt cache miss. */
+export function ThreadDetailsContext({
+  contextWindow: usage,
+  idleSince,
+  working,
+  latestTokenUsage,
+}: Pick<ThreadDetailsUsageInput, "contextWindow" | "idleSince" | "working" | "latestTokenUsage">) {
+  const cacheMiss = latestTokenUsage?.cacheMiss;
+  const shownMiss =
+    cacheMiss !== undefined &&
+    (cacheMiss.tokens >= CACHE_MISS_MIN_TOKENS ||
+      (cacheMiss.costUsd ?? 0) >= CACHE_MISS_MIN_COST_USD)
+      ? cacheMiss
+      : null;
+  return (
+    <ThreadDetailsSection
+      headingId="thread-details-context-heading"
+      title="Context window"
+      showHeading={false}
+    >
+      <div className="grid grid-cols-[auto_minmax(3rem,1fr)_auto] gap-x-3 text-xs">
+        {usage ? <ContextRow usage={usage} /> : null}
+        {working || idleSince !== null ? (
+          <IdleRow
+            since={working ? null : idleSince}
+            promptCacheExpiresAt={latestTokenUsage?.promptCacheExpiresAt ?? null}
+            miss={shownMiss}
+          />
+        ) : null}
+      </div>
+    </ThreadDetailsSection>
+  );
+}
+
+/** The bar fills as context is used; the tick marks auto-compaction. */
+function ContextRow({ usage }: { readonly usage: ContextWindowSnapshot }) {
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
   const maxTokens = usage.maxTokens != null && usage.maxTokens > 0 ? usage.maxTokens : null;
   const used =
     maxTokens !== null && usage.usedPercentage !== null
@@ -206,6 +267,7 @@ export function ThreadDetailsContext({ usage }: { readonly usage: ContextWindowS
   const locale = useLocale();
   const usedTokens = formatContextWindowTokens(usage.usedTokens);
   return (
+<<<<<<< HEAD
     <ThreadDetailsSection
       headingId="thread-details-context-heading"
       title={gt("Context window")}
@@ -253,6 +315,98 @@ export function ThreadDetailsContext({ usage }: { readonly usage: ContextWindowS
         />
       </div>
     </ThreadDetailsSection>
+=======
+    <UsageRow
+      label="Context"
+      fill={used}
+      tone={used === null ? null : used >= 90 ? "error" : used >= 80 ? "warning" : null}
+      tick={tick}
+      muted
+      value={
+        maxTokens !== null ? `${usedTokens} / ${formatContextWindowTokens(maxTokens)}` : usedTokens
+      }
+      ariaValue={used !== null ? `${used}% used` : `${usedTokens} tokens used`}
+      tooltip={
+        <>
+          <span className="text-foreground">
+            {used !== null ? `Context: ${used}% used` : `Context: ${usedTokens} tokens used`}
+          </span>
+          {maxTokens !== null ? (
+            <span className="text-muted-foreground">
+              {usage.usedTokens.toLocaleString("en-US")} of {maxTokens.toLocaleString("en-US")}{" "}
+              tokens
+            </span>
+          ) : null}
+          {threshold !== null && threshold > 0 ? (
+            <span className="text-muted-foreground">
+              {formatContextWindowCompactionMessage(threshold)}
+            </span>
+          ) : null}
+        </>
+      }
+    />
+  );
+}
+
+/** Idle time on the right, so it never moves; the latest turn's cache miss sits in the bar column. */
+function IdleRow({
+  since,
+  promptCacheExpiresAt,
+  miss,
+}: {
+  /** Null while the agent works. */
+  readonly since: number | null;
+  readonly promptCacheExpiresAt: string | null;
+  readonly miss: CacheMiss | null;
+}) {
+  const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
+  const nowMinute = useNowMinute();
+  const now = Date.parse(`${nowMinute}:00Z`);
+  const idle = since === null ? "working" : formatIdle(now - since);
+  const missTokens = miss === null ? null : formatContextWindowTokens(miss.tokens);
+  const missCost =
+    miss?.costUsd !== undefined && miss.costUsd >= 0.01 ? `$${miss.costUsd.toFixed(2)}` : null;
+  const missReason =
+    miss === null
+      ? ""
+      : miss.modelChanged
+        ? " after model switch"
+        : miss.expected
+          ? ` after ${formatIdle(miss.idleMs)} idle`
+          : "";
+  return (
+    <UsageRow
+      label="Idle"
+      fill={null}
+      tone={null}
+      detail={
+        miss === null
+          ? null
+          : {
+              text: `miss ${missTokens}${missCost === null ? "" : ` · ${missCost}`}`,
+              tone: miss.expected ? null : "warning",
+            }
+      }
+      value={idle}
+      tooltip={
+        <>
+          <span className="text-foreground">{since === null ? "Working" : `Idle for ${idle}`}</span>
+          {since !== null && promptCacheExpiresAt !== null ? (
+            <span className="text-muted-foreground">
+              Prompt cache {Date.parse(promptCacheExpiresAt) > now ? "expires" : "expired"} at{" "}
+              {formatUpcomingTimestamp(promptCacheExpiresAt, timestampFormat, now)}
+            </span>
+          ) : null}
+          {miss !== null ? (
+            <span className="text-foreground">
+              Cache miss{missReason}: {missTokens} tokens re-billed
+              {missCost === null ? "" : ` (~${missCost})`}
+            </span>
+          ) : null}
+        </>
+      }
+    />
+>>>>>>> 7a864c1eee (feat: show idle time and prompt cache misses in thread details)
   );
 }
 
@@ -454,8 +608,9 @@ function UsageRow({
   fill,
   tone,
   tick = null,
+  detail = null,
   value,
-  ariaValue = value,
+  ariaValue = detail === null ? value : `${detail.text}, ${value}`,
   tooltip,
   muted = false,
   opensUsage = false,
@@ -466,6 +621,8 @@ function UsageRow({
   readonly tone: UsageTone;
   /** A marker on the bar, from 0 to 100. */
   readonly tick?: number | null;
+  /** Text in the bar column of a row without a bar. */
+  readonly detail?: { readonly text: string; readonly tone: UsageTone } | null;
   readonly value: string;
   readonly ariaValue?: string;
   readonly tooltip: ReactNode;
@@ -518,11 +675,25 @@ function UsageRow({
             ) : null}
           </span>
         ) : null}
+        {fill === null && detail !== null ? (
+          <span
+            className={cn(
+              "truncate font-medium tabular-nums",
+              detail.tone === "error"
+                ? "text-error-foreground"
+                : detail.tone === "warning"
+                  ? "text-warning-foreground"
+                  : "text-muted-foreground",
+            )}
+          >
+            {detail.text}
+          </span>
+        ) : null}
         <span
           className={cn(
             // Text-only rows span the bar column so they never widen the shared value column.
             "text-end font-medium tabular-nums",
-            fill === null && "col-span-2",
+            fill === null && detail === null && "col-span-2",
             tone === "error"
               ? "text-error-foreground"
               : tone === "warning"
