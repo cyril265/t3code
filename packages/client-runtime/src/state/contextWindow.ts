@@ -76,6 +76,22 @@ export function latestProviderTurnTokenUsage(
   );
 }
 
+/** The provider thread's newest turn, whose end starts the idle time and whose usage carries its cache miss. */
+export function latestProviderTurn<
+  T extends Pick<OrchestrationV2ProviderTurn, "providerThreadId" | "ordinal">,
+>(
+  turns: ReadonlyArray<T>,
+  providerThread: Pick<OrchestrationV2ProviderThread, "id"> | null | undefined,
+): T | null {
+  if (providerThread == null) return null;
+  let latest: T | null = null;
+  for (const turn of turns) {
+    if (turn.providerThreadId !== providerThread.id) continue;
+    if (latest === null || turn.ordinal > latest.ordinal) latest = turn;
+  }
+  return latest;
+}
+
 export function deriveLatestContextWindowSnapshot(
   entries: ReadonlyArray<{
     readonly item: ThreadStructureTurnItem;

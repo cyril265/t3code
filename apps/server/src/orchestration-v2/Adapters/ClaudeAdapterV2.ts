@@ -328,6 +328,7 @@ export function claudeProviderTurnTokenUsage(
     maxTokens,
     inputTokens,
     cachedInputTokens: usage.cache_read_input_tokens ?? 0,
+    cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
     outputTokens,
     reasoningOutputTokens: 0,
     ...(promptCacheTtlMs === undefined ? {} : { promptCacheTtlMs }),
@@ -10681,7 +10682,17 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             if (event.type === "message_start") {
               reasoning.messageId = event.message.id;
               reasoning.streamBlocks.clear();
+<<<<<<< HEAD
               context.assistant.streamBlocks.clear();
+=======
+              // The request's first usage sample must name its model, or a switch reads as an unexpected cache miss.
+              if (event.message.model && event.message.model !== "<synthetic>") {
+                context.executedModel = resolveClaudeReportedModelSlug(
+                  modelCatalog,
+                  event.message.model,
+                );
+              }
+>>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
               const usage: ClaudeMessageUsage | undefined = event.message.usage;
               context.streamUsage =
                 usage === undefined ? null : { messageId: event.message.id, usage };

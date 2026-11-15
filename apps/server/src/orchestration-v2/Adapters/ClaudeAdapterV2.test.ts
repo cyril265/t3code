@@ -943,6 +943,7 @@ describe("ClaudeAdapterV2 context usage", () => {
       {
         input_tokens: 1,
         output_tokens: 1,
+        cache_creation_input_tokens: 300,
         cache_creation: { ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 300 },
       },
       null,
@@ -951,6 +952,7 @@ describe("ClaudeAdapterV2 context usage", () => {
       DateTime.makeUnsafe("2026-08-29T00:00:00.000Z"),
     );
     assert.strictEqual(usage.promptCacheExpiresAt, "2026-08-29T00:05:00.000Z");
+    assert.strictEqual(usage.cacheWriteTokens, 300);
   });
 });
 

@@ -460,6 +460,7 @@ it.effect("records accepted billed turn usage once without billing the context w
   }).pipe(Effect.provide(layerTest.pipe(Layer.provide(layerAnalytics))));
 });
 
+<<<<<<< HEAD
 it.effect(
   "reports invalid provider questions as typed errors and still ingests valid questions",
   () =>
@@ -528,6 +529,89 @@ it.effect(
         validEvent.turnItem,
       ]);
     }).pipe(Effect.provide(layerTest)),
+=======
+it.effect("stamps an unexpected prompt cache miss per turn and across a restart", () =>
+  Effect.gen(function* () {
+    const now = yield* DateTime.now;
+    const eventSink = yield* EventSink.EventSinkV2;
+    const ingestor = yield* ProviderEventIngestor.ProviderEventIngestorV2;
+    const idAllocator = yield* IdAllocator.IdAllocatorV2;
+    const threadEvent = yield* threadCreatedEvent(now);
+    yield* eventSink.write({ events: [threadEvent] });
+    const providerSessionId = yield* idAllocator.allocate.providerSession({
+      providerInstanceId: modelSelection.instanceId,
+      threadId: threadEvent.threadId,
+    });
+    const providerThreadId = idAllocator.derive.providerThread({
+      driver: CODEX_DRIVER,
+      nativeThreadId: "cache-thread",
+    });
+    const atMinute = (minute: number) => DateTime.formatIso(DateTime.add(now, { minutes: minute }));
+    const sample = (
+      using: ProviderEventIngestor.ProviderEventIngestorV2["Service"],
+      ordinal: number,
+      minute: number,
+      inputTokens: number,
+      cachedInputTokens: number,
+    ) =>
+      using
+        .ingestNormalized({
+          providerSessionId,
+          providerInstanceId: modelSelection.instanceId,
+          threadId: threadEvent.threadId,
+          event: {
+            type: "provider_turn.updated",
+            driver: CODEX_DRIVER,
+            providerTurn: {
+              id: idAllocator.derive.providerTurn({
+                driver: CODEX_DRIVER,
+                nativeTurnId: `cache-turn-${ordinal}`,
+              }),
+              providerThreadId,
+              nodeId: NodeId.make(`node:cache-turn-${ordinal}`),
+              runAttemptId: null,
+              nativeTurnRef: null,
+              ordinal,
+              status: "running",
+              startedAt: DateTime.add(now, { minutes: minute }),
+              completedAt: null,
+              model: modelSelection.model,
+              tokenUsage: {
+                usedTokens: inputTokens,
+                inputTokens,
+                cachedInputTokens,
+                cacheWriteTokens: inputTokens - cachedInputTokens,
+                updatedAt: atMinute(minute + 0.25),
+              },
+            },
+          },
+        })
+        .pipe(
+          Effect.map((stored) =>
+            stored.flatMap(({ event }) =>
+              event.type === "provider-turn.updated" ? [event.payload.tokenUsage?.cacheMiss] : [],
+            ),
+          ),
+        );
+
+    yield* sample(ingestor, 1, 0, 50_000, 0);
+    // Idle runs from the previous report to the next turn's start, not to its own report.
+    const unexpected = { idleMs: 45_000, modelChanged: false, expected: false };
+    assert.deepEqual(yield* sample(ingestor, 2, 1, 52_000, 10_000), [
+      { tokens: 40_000, ...unexpected },
+    ]);
+
+    const restarted = yield* ProviderEventIngestor.ProviderEventIngestorV2.pipe(
+      Effect.provide(Layer.fresh(ProviderEventIngestor.layer)),
+    );
+    assert.deepEqual(yield* sample(restarted, 3, 2, 54_000, 30_000), [
+      { tokens: 22_000, ...unexpected },
+    ]);
+    assert.deepEqual(yield* sample(restarted, 3, 2.5, 54_000, 30_000), [
+      { tokens: 22_000, ...unexpected },
+    ]);
+  }).pipe(Effect.provide(layerTest)),
+>>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
 );
 
 layer("ProviderEventIngestorV2", (it) => {

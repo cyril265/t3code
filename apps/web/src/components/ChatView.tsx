@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime";
 import { ChildThreadApprovals } from "./chat/ChildThreadApprovals";
 import { workspaceAreaProps } from "../lib/workspaceFocus";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
@@ -345,6 +346,7 @@ import { hasAvailableCompactionProvider } from "./chat/compaction.logic";
 import {
   deriveLatestContextWindowSnapshot,
   hasDismissedResumeCompaction,
+  latestProviderTurn,
   latestProviderTurnTokenUsage,
   shouldOfferResumeCompaction,
 } from "@t3tools/client-runtime/state/context-window";
@@ -1511,6 +1513,14 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadLiveTokenUsage,
     activeProviderThread,
   );
+  const activeLatestProviderTurn = latestProviderTurn(
+    serverProjection?.providerTurns ?? [],
+    activeProviderThread,
+  );
+  const activeIdleSince =
+    isWorking || activeLatestProviderTurn?.completedAt == null
+      ? null
+      : DateTime.toEpochMillis(activeLatestProviderTurn.completedAt);
   const pendingBackgroundTasks = [
     ...deriveThreadPendingBackgroundTasks(serverProjection),
     ...useExternalWaitTasks(environmentId, threadId),
@@ -3981,6 +3991,9 @@ export default function ChatView(props: ChatViewProps) {
                     providers: providerStatuses,
                     sources: serverConfig?.usageLimitSources ?? EMPTY_USAGE_LIMIT_SOURCES,
                     contextWindow: activeContextWindow,
+                    idleSince: activeIdleSince,
+                    working: isWorking,
+                    latestTokenUsage: activeLatestProviderTurn?.tokenUsage ?? null,
                   }}
                 />
 
