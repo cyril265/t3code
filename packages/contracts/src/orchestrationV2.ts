@@ -261,11 +261,22 @@ export const OrchestrationV2ProviderTurnTokenUsage = Schema.Struct({
   maxTokens: Schema.optional(Schema.NullOr(NonNegativeInt)),
   inputTokens: Schema.optional(NonNegativeInt),
   cachedInputTokens: Schema.optional(NonNegativeInt),
+  cacheWriteTokens: Schema.optional(NonNegativeInt),
   outputTokens: Schema.optional(NonNegativeInt),
   reasoningOutputTokens: Schema.optional(NonNegativeInt),
   promptCacheTtlMs: Schema.optional(PositiveInt),
   autoCompactThreshold: Schema.optional(PositiveInt),
   promptCacheExpiresAt: Schema.optional(Schema.String),
+  /** Prompt cache this turn's requests re-billed; idleMs and modelChanged describe its first miss. */
+  cacheMiss: Schema.optional(
+    Schema.Struct({
+      tokens: PositiveInt,
+      costUsd: Schema.optional(Schema.Number.check(Schema.isFinite())),
+      idleMs: NonNegativeInt,
+      modelChanged: Schema.Boolean,
+      expected: Schema.Boolean,
+    }),
+  ),
   updatedAt: Schema.String,
 });
 export type OrchestrationV2ProviderTurnTokenUsage =

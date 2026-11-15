@@ -366,7 +366,8 @@ type PiMessageTokenUsage = Pick<
 
 interface ActivePiTurn {
   readonly turnInput: ProviderAdapter.ProviderAdapterV2TurnInput;
-  readonly providerTurn: OrchestrationV2ProviderTurn;
+  /** Carries the latest assistant message's `provider/model`, matching Pi's model slugs. */
+  providerTurn: OrchestrationV2ProviderTurn;
   readonly startedAt: DateTime.Utc;
   readonly itemOrdinals: Map<string, number>;
   nextItemOrdinal: number;
@@ -381,8 +382,17 @@ interface ActivePiTurn {
   adoptedWake: boolean;
   promptMayBeCommandOnly: boolean;
   latestCompactionAfterTokens: number | null;
+<<<<<<< HEAD
   lastLiveUsedTokens: number | null;
   lastMessageUsage: PiMessageTokenUsage | undefined;
+=======
+  lastLiveUsageKey: string | null;
+  /** The latest request's counters, kept on the final usage as the next request's cache baseline. */
+  requestTokens: Pick<
+    OrchestrationV2ProviderTurnTokenUsage,
+    "inputTokens" | "cachedInputTokens" | "cacheWriteTokens" | "outputTokens"
+  >;
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
   settleProbeGeneration: number;
   /** An extension may start compaction immediately after Pi emits agent_settled. */
   settleWhenIdle: boolean;
@@ -1050,8 +1060,14 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           nonNegativeInteger(contextUsage, "tokens") ?? fallbackUsedTokens ?? undefined;
         if (usedTokens === undefined || maxTokens === undefined || maxTokens === 0)
           return undefined;
+<<<<<<< HEAD
         // Stats `tokens` are whole-session totals; the breakdown comes from the turn's last message.
         return { usedTokens, maxTokens, ...messageUsage, updatedAt: DateTime.formatIso(updatedAt) };
+=======
+
+        // Stats token counts are session totals, not this request's, so they stay out.
+        return { usedTokens, maxTokens, updatedAt: DateTime.formatIso(updatedAt) };
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
       };
 
       const readTokenUsage = (turn: ActivePiTurn, updatedAt: DateTime.Utc) =>
@@ -1080,13 +1096,41 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           if (
             usedTokens === undefined ||
             usedTokens === 0 ||
-            usedTokens === turn.lastLiveUsedTokens ||
             contextWindow === null ||
             contextWindow === 0
           ) {
             return;
           }
+<<<<<<< HEAD
           turn.lastLiveUsedTokens = usedTokens;
+=======
+          const uncachedInputTokens = nonNegativeInteger(usage, "input");
+          const cachedInputTokens = nonNegativeInteger(usage, "cacheRead");
+          const cacheWriteTokens = nonNegativeInteger(usage, "cacheWrite");
+          const outputTokens = nonNegativeInteger(usage, "output");
+          // Two requests can share a total, so only identical counters are a repeated sample.
+          const usageKey = [
+            usedTokens,
+            uncachedInputTokens,
+            cachedInputTokens,
+            cacheWriteTokens,
+            outputTokens,
+          ].join(":");
+          if (usageKey === turn.lastLiveUsageKey) return;
+          turn.lastLiveUsageKey = usageKey;
+          turn.requestTokens = {
+            // Pi's counters are disjoint; inputTokens is the whole prompt, as for other providers.
+            ...(uncachedInputTokens === undefined
+              ? {}
+              : {
+                  inputTokens:
+                    uncachedInputTokens + (cachedInputTokens ?? 0) + (cacheWriteTokens ?? 0),
+                }),
+            ...(cachedInputTokens === undefined ? {} : { cachedInputTokens }),
+            ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
+            ...(outputTokens === undefined ? {} : { outputTokens }),
+          };
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
           const updatedAt = yield* DateTime.now;
           yield* emit({
             type: "provider_turn.updated",
@@ -1097,7 +1141,11 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
               tokenUsage: {
                 usedTokens,
                 maxTokens: contextWindow,
+<<<<<<< HEAD
                 ...turn.lastMessageUsage,
+=======
+                ...turn.requestTokens,
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
                 updatedAt: DateTime.formatIso(updatedAt),
               },
             },
@@ -2139,8 +2187,14 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
               : { nativeThreadRef: state.providerThread.nativeThreadRef }),
             status: interrupted ? "interrupted" : failure !== null ? "failed" : "completed",
             completedAt,
+<<<<<<< HEAD
             ...(tokenUsage === undefined ? {} : { tokenUsage }),
             ...(turn.reportedModel === undefined ? {} : { model: turn.reportedModel }),
+=======
+            ...(tokenUsage === undefined
+              ? {}
+              : { tokenUsage: { ...turn.requestTokens, ...tokenUsage } }),
+>>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
           },
         });
         yield* updateProviderThread(
@@ -2362,6 +2416,10 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             if (turn !== null && role === "assistant") {
               turn.sawAgentActivity = true;
               turn.messageOrdinal += 1;
+              const provider = recordString(event["message"], "provider");
+              const model = recordString(event["message"], "model");
+              if (provider !== undefined && model !== undefined)
+                turn.providerTurn = { ...turn.providerTurn, model: `${provider}/${model}` };
             }
             const readSteer = role === "user" ? turn?.unreadSteers.shift() : undefined;
             if (turn !== null && readSteer !== undefined) {
@@ -2418,11 +2476,16 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             const message = event["message"];
             if (recordString(message, "role") !== "assistant") return;
             yield* completeOpenStreamItems(turn);
+<<<<<<< HEAD
             const reportedProvider = recordString(message, "provider");
             const reportedModelId = recordString(message, "model");
             if (reportedProvider && reportedModelId) {
               turn.reportedModel = `${reportedProvider}/${reportedModelId}`;
             }
+=======
+            // Older Pi sends usage only here; one sample per model request keeps cache misses visible.
+            yield* reportLiveUsage(turn, recordField(message, "usage"));
+>>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
             if (recordString(message, "stopReason") === "error" && turn.failure === null) {
               turn.failure = makeProviderFailure({
                 message: recordString(message, "errorMessage") ?? "Pi reported a model error.",
@@ -3584,8 +3647,13 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
               promptMayBeCommandOnly:
                 compactCommand !== null || (payload?.message.trimStart().startsWith("/") ?? false),
               latestCompactionAfterTokens: null,
+<<<<<<< HEAD
               lastLiveUsedTokens: null,
               lastMessageUsage: undefined,
+=======
+              lastLiveUsageKey: null,
+              requestTokens: {},
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
               settleProbeGeneration: 0,
               settleWhenIdle: false,
               compactionCancelled: false,

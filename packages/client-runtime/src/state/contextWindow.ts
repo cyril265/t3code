@@ -76,6 +76,7 @@ export function latestProviderTurnTokenUsage(
   );
 }
 
+<<<<<<< HEAD
 type CompactionItem = Extract<ThreadStructureTurnItem, { readonly type: "compaction" }>;
 
 // A retired provider thread's items say nothing about the active conversation.
@@ -122,6 +123,22 @@ function compactionSnapshot(
     cost: null,
     updatedAt,
   };
+=======
+/** The provider thread's newest turn, whose end starts the idle time and whose usage carries its cache miss. */
+export function latestProviderTurn<
+  T extends Pick<OrchestrationV2ProviderTurn, "providerThreadId" | "ordinal">,
+>(
+  turns: ReadonlyArray<T>,
+  providerThread: Pick<OrchestrationV2ProviderThread, "id"> | null | undefined,
+): T | null {
+  if (providerThread == null) return null;
+  let latest: T | null = null;
+  for (const turn of turns) {
+    if (turn.providerThreadId !== providerThread.id) continue;
+    if (latest === null || turn.ordinal > latest.ordinal) latest = turn;
+  }
+  return latest;
+>>>>>>> 7a864c1eee (feat: show idle time and prompt cache misses in thread details)
 }
 
 export function deriveLatestContextWindowSnapshot(

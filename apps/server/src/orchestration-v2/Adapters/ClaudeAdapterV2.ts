@@ -355,7 +355,12 @@ export function claudeProviderTurnTokenUsage(
     usedTokens: inputTokens + outputTokens,
     maxTokens,
     inputTokens,
+<<<<<<< HEAD
     cachedInputTokens,
+=======
+    cachedInputTokens: usage.cache_read_input_tokens ?? 0,
+    cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
     outputTokens,
     reasoningOutputTokens: 0,
     ...(promptCacheTtlMs === undefined ? {} : { promptCacheTtlMs }),
@@ -12311,10 +12316,27 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             if (event.type === "message_start") {
               reasoning.messageId = event.message.id;
               reasoning.streamBlocks.clear();
+<<<<<<< HEAD
               context.assistant.streamBlocks.clear();
+<<<<<<< HEAD
               const usage: ClaudeMessageUsage = event.message.usage ?? {};
               context.streamUsage = { messageId: event.message.id, usage };
               yield* emitContextUsage(context, usage, true);
+=======
+=======
+              // The request's first usage sample must name its model, or a switch reads as an unexpected cache miss.
+              if (event.message.model && event.message.model !== "<synthetic>") {
+                context.executedModel = resolveClaudeReportedModelSlug(
+                  modelCatalog,
+                  event.message.model,
+                );
+              }
+>>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
+              const usage: ClaudeMessageUsage | undefined = event.message.usage;
+              context.streamUsage =
+                usage === undefined ? null : { messageId: event.message.id, usage };
+              if (usage !== undefined) yield* emitContextUsage(context, usage, true);
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
             } else if (event.type === "message_delta") {
               const usage: typeof event.usage | null | undefined = event.usage;
               const stream = context.streamUsage;
