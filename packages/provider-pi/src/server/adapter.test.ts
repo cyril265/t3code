@@ -2621,6 +2621,93 @@ describe("PiAdapterV2", () => {
     }).pipe(Effect.scoped, Effect.provide(layerTest)),
   );
 
+  it.effect(
+    "reports each message's whole prompt, cache counts and model, and keeps them at turn end",
+    () =>
+      Effect.gen(function* () {
+        const fake = yield* makeFakePi;
+        fake.queueState({
+          sessionFile: FAKE_SESSION_FILE,
+          model: { provider: "anthropic", id: "large", contextWindow: 1_000_000 },
+        });
+        const { runtime, takeEvent } = yield* openRuntime(fake);
+        const providerThread = yield* runtime.ensureThread({
+          threadId: THREAD_ID,
+          modelSelection: modelSelection("default"),
+          runtimePolicy,
+        });
+        yield* startTurn(runtime, providerThread);
+        yield* fake.takeRequest("prompt");
+        yield* fake.emit({ type: "agent_start" });
+        yield* fake.emit({
+          type: "message_start",
+          message: { role: "assistant", provider: "anthropic", model: "large" },
+        });
+        yield* fake.emit({
+          type: "message_end",
+          message: {
+            role: "assistant",
+            usage: {
+              input: 10,
+              cacheRead: 9_000,
+              cacheWrite: 1_000,
+              output: 50,
+              totalTokens: 10_060,
+            },
+          },
+        });
+        const updated = yield* takeEvent(
+          (event) =>
+            event.type === "provider_turn.updated" && event.providerTurn.tokenUsage !== undefined,
+        );
+        if (updated.type !== "provider_turn.updated") return;
+        assert.equal(updated.providerTurn.model, "anthropic/large");
+        assert.deepInclude(updated.providerTurn.tokenUsage, {
+          usedTokens: 10_060,
+          inputTokens: 10_010,
+          cachedInputTokens: 9_000,
+          cacheWriteTokens: 1_000,
+        });
+
+        // A second request with the same total but other counters is its own sample.
+        yield* fake.emit({
+          type: "message_end",
+          message: {
+            role: "assistant",
+            usage: {
+              input: 3_010,
+              cacheRead: 2_000,
+              cacheWrite: 5_000,
+              output: 50,
+              totalTokens: 10_060,
+            },
+          },
+        });
+        const requestCounters = {
+          inputTokens: 10_010,
+          cachedInputTokens: 2_000,
+          cacheWriteTokens: 5_000,
+        };
+        const second = yield* takeEvent(
+          (event) =>
+            event.type === "provider_turn.updated" && event.providerTurn.tokenUsage !== undefined,
+        );
+        if (second.type !== "provider_turn.updated") return;
+        assert.deepInclude(second.providerTurn.tokenUsage, requestCounters);
+
+        // The final usage is the next request's cache baseline after a restart.
+        fake.queueStats({ contextUsage: { contextWindow: 1_000_000, tokens: 10_100 } });
+        fake.queueState({ isStreaming: false });
+        yield* fake.emit({ type: "agent_settled" });
+        const completed = yield* takeEvent(
+          (event) =>
+            event.type === "provider_turn.updated" && event.providerTurn.status === "completed",
+        );
+        if (completed.type !== "provider_turn.updated") return;
+        assert.deepInclude(completed.providerTurn.tokenUsage, requestCounters);
+      }).pipe(Effect.scoped, Effect.provide(layerTest)),
+  );
+
   it.effect("adopts the run's provider thread identity instead of minting a second row", () =>
     Effect.gen(function* () {
       const fake = yield* makeFakePi;
