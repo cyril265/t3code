@@ -328,8 +328,11 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
 
               {visible.usage ? <ThreadDetailsUsage {...props.usage} /> : null}
 
-              {visible.context && props.usage.contextWindow ? (
-                <ThreadDetailsContext usage={props.usage.contextWindow} />
+              {visible.context &&
+              (props.usage.contextWindow !== null ||
+                props.usage.idleSince !== null ||
+                props.usage.working) ? (
+                <ThreadDetailsContext {...props.usage} />
               ) : null}
 
               {/* Shown only when no section above has content, so an emptied card can be refilled. */}

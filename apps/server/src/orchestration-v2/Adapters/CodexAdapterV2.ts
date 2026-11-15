@@ -307,6 +307,9 @@ export function codexProviderTurnTokenUsage(
     maxTokens: tokenUsage.modelContextWindow ?? null,
     inputTokens: Math.max(0, tokenUsage.last.inputTokens),
     cachedInputTokens: Math.max(0, tokenUsage.last.cachedInputTokens),
+    ...(tokenUsage.last.cacheWriteInputTokens === undefined
+      ? {}
+      : { cacheWriteTokens: Math.max(0, tokenUsage.last.cacheWriteInputTokens) }),
     outputTokens: Math.max(0, tokenUsage.last.outputTokens),
     reasoningOutputTokens: Math.max(0, tokenUsage.last.reasoningOutputTokens),
     updatedAt,
@@ -2371,13 +2374,24 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
         // A reroute names one turn; until new settings arrive, the thread's model is unknown.
         const reroutedTurnModels = new Map<string, string>();
         const reroutedThreads = new Set<string>();
-        const reportedTurnModel = (nativeThreadId: string, nativeTurnId: string) => {
-          const rerouted = reroutedTurnModels.get(nativeTurnId);
-          reroutedTurnModels.delete(nativeTurnId);
-          if (rerouted !== undefined) return rerouted;
-          return reroutedThreads.has(nativeThreadId)
+        const peekTurnModel = (nativeThreadId: string, nativeTurnId: string) =>
+          reroutedTurnModels.get(nativeTurnId) ??
+          (reroutedThreads.has(nativeThreadId)
             ? undefined
-            : subagentSelections.get(nativeThreadId)?.model;
+            : subagentSelections.get(nativeThreadId)?.model);
+        const reportedTurnModel = (nativeThreadId: string, nativeTurnId: string) => {
+          const model = peekTurnModel(nativeThreadId, nativeTurnId);
+          reroutedTurnModels.delete(nativeTurnId);
+          return model;
+        };
+        const providerTurnModel = (context: ActiveCodexTurnContext, nativeTurnId: string) => {
+          const nativeThreadId = context.providerThread.nativeThreadRef?.nativeId ?? "";
+          const model =
+            peekTurnModel(nativeThreadId, nativeTurnId) ??
+            (context.subagent === null && !reroutedThreads.has(nativeThreadId)
+              ? context.input.modelSelection.model
+              : undefined);
+          return model === undefined ? {} : { model };
         };
         const pendingSubagentTurns = yield* Ref.make(
           new Map<string, ReadonlyArray<PendingCodexSubagentTurnStarted>>(),
@@ -5414,6 +5428,7 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                 status: "running",
                 startedAt: context.startedAt,
                 completedAt: null,
+                ...providerTurnModel(context, payload.turnId),
                 tokenUsage: codexProviderTurnTokenUsage(
                   payload.tokenUsage,
                   DateTime.formatIso(now),
@@ -7337,6 +7352,7 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                 status: input.status,
                 startedAt: input.context.startedAt,
                 completedAt: input.completedAt,
+                ...providerTurnModel(input.context, input.nativeTurnId),
                 turnTokenUsage: completeCodexTurnTokenUsage(
                   usageStateForThread(
                     input.context.providerThread.nativeThreadRef?.nativeId ??

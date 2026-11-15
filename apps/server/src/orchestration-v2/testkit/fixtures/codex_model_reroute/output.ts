@@ -18,4 +18,5 @@ export function assertCodexModelRerouteOutput(
   // The reroute names the first turn only; without new settings the second turn's model is unknown.
   assert.deepEqual(first?.turnTokenUsage?.models, ["gpt-6-astra"]);
   assert.notProperty(second?.turnTokenUsage, "models");
+  assert.equal(first?.model, "gpt-6-astra");
 }

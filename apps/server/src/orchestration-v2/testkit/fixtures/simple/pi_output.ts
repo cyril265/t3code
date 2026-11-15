@@ -24,15 +24,20 @@ function lastPiResponseData(transcript: ProviderReplayTranscript, command: strin
   return field(frame, "data");
 }
 
+<<<<<<< HEAD
 /**
  * Settled Pi usage takes the context size from each turn's get_session_stats response and the
  * input breakdown from the turn's last streamed message usage, since stats tokens are session totals.
  */
+=======
+/** Settled Pi usage takes context from each recorded get_session_stats response (its token totals are the session's) and request counters from the latest assistant usage before it. */
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
 export function assertPiSettledTokenUsage(
   result: OrchestratorV2ScenarioResult,
   transcript: ProviderReplayTranscript,
 ) {
   const expected: Array<Record<string, unknown>> = [];
+<<<<<<< HEAD
   let messageUsage: unknown;
   for (const entry of transcript.entries) {
     if (entry.type !== "emit_inbound") continue;
@@ -53,6 +58,34 @@ export function assertPiSettledTokenUsage(
         cachedInputTokens: count("cacheRead"),
         outputTokens: count("output"),
       });
+=======
+  let requestTokens: Record<string, unknown> = {};
+  for (const entry of transcript.entries) {
+    if (entry.type !== "emit_inbound") continue;
+    const frame = entry.frame;
+    const usage =
+      field(frame, "type") === "message_end"
+        ? field(field(frame, "message"), "usage")
+        : field(frame, "usage");
+    const totalTokens = field(usage, "totalTokens");
+    if (typeof totalTokens === "number" && totalTokens > 0) {
+      const counter = (key: string) => field(usage, key) as number;
+      requestTokens = {
+        inputTokens: counter("input") + counter("cacheRead") + counter("cacheWrite"),
+        cachedInputTokens: counter("cacheRead"),
+        cacheWriteTokens: counter("cacheWrite"),
+        outputTokens: counter("output"),
+      };
+    }
+    if (field(frame, "type") === "response" && field(frame, "command") === "get_session_stats") {
+      const contextUsage = field(field(frame, "data"), "contextUsage");
+      expected.push({
+        usedTokens: field(contextUsage, "tokens"),
+        maxTokens: field(contextUsage, "contextWindow"),
+        ...requestTokens,
+      });
+      requestTokens = {};
+>>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
     }
   }
   const turns = projectionFor(result, transcript.scenario).providerTurns;
