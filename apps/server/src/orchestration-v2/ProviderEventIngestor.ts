@@ -4,6 +4,7 @@ import {
   OrchestrationV2DomainEvent,
   OrchestrationV2StoredEvent,
   type OrchestrationV2PlanArtifact,
+  type OrchestrationV2ProviderTurn,
   type OrchestrationV2Run,
   type OrchestrationV2Subagent,
   type OrchestrationV2ThreadProjection,
@@ -34,6 +35,7 @@ import {
 } from "../telemetry/ProviderUsageAnalytics.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
+import * as UsageService from "../usage/UsageService.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProjectStore from "./ProjectStore.ts";
@@ -44,6 +46,14 @@ import {
   WORKSPACE_CHANGE_FAILED_CODE,
 } from "@t3tools/provider-core/server/failure";
 import * as ThreadCommandExecutor from "./ThreadCommandExecutor.ts";
+import {
+  addPromptCacheMiss,
+  promptCacheMiss,
+  promptCacheMissCostUsd,
+  promptCacheSample,
+  type PromptCacheMiss,
+  type PromptCacheSample,
+} from "./promptCacheMiss.ts";
 import { stripUnservedToolOutputImageBytes } from "./toolOutputImageBytes.ts";
 import { boundFileChangeForStorage } from "./WireProjection.ts";
 
@@ -240,6 +250,9 @@ function compactUndefined<T extends Record<string, unknown>>(record: T): T {
 
 const decodeDomainEvent = Schema.decodeUnknownEffect(OrchestrationV2DomainEvent);
 
+// Drivers whose usage counters follow the cache-miss rule's meaning; others report no miss.
+const PROMPT_CACHE_MISS_DRIVERS: ReadonlySet<string> = new Set(["claudeAgent", "codex", "pi"]);
+
 export const layer: Layer.Layer<
   ProviderEventIngestorV2,
   never,
@@ -263,7 +276,17 @@ export const layer: Layer.Layer<
     const agentScope = yield* AgentScope;
     const instances = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
     const scope = yield* Effect.scope;
+    // Optional for runtimes without pricing (tests, replay harness); misses then carry no cost.
+    const usage = yield* Effect.serviceOption(UsageService.UsageService);
     const completedTurnAnalytics = new Set<string>();
+    const promptCaches = new Map<
+      ProviderThreadId,
+      {
+        sample: PromptCacheSample | undefined;
+        turnId: ProviderTurnId | undefined;
+        miss: PromptCacheMiss | undefined;
+      }
+    >();
 
     const makeDomainEvent =
       /* This helper runs for individual orchestration events; the enclosing operation owns the span. */
@@ -299,6 +322,81 @@ export const layer: Layer.Layer<
           }),
         );
       });
+
+    /** After a restart, the provider thread's latest stored usage is the baseline. */
+    const seedPromptCache = Effect.fn("ProviderEventIngestor.seedPromptCache")(function* (
+      threadId: ThreadId,
+      providerThreadId: ProviderThreadId,
+    ) {
+      const records = yield* projections
+        .getThreadRecords(threadId, ["providerTurns"], {
+          providerTurnThreadIds: [providerThreadId],
+          latestProviderTurnUsageOnly: true,
+        })
+        .pipe(Effect.option);
+      const turn = Option.getOrUndefined(records)?.providerTurns[0];
+      return {
+        sample:
+          turn?.tokenUsage === undefined
+            ? undefined
+            : (promptCacheSample(turn.tokenUsage, turn.model) ?? undefined),
+        turnId: turn?.id,
+        miss: turn?.tokenUsage?.cacheMiss,
+      };
+    });
+
+    /* Runs for each usage sample; the enclosing normalize owns the span. */
+    const withPromptCacheMiss = Effect.fnUntraced(function* (
+      threadId: ThreadId,
+      providerTurn: OrchestrationV2ProviderTurn,
+    ) {
+      const tokenUsage = providerTurn.tokenUsage;
+      if (tokenUsage === undefined) return providerTurn;
+      let state = promptCaches.get(providerTurn.providerThreadId);
+      if (state === undefined) {
+        const seeded = yield* seedPromptCache(threadId, providerTurn.providerThreadId);
+        state = promptCaches.get(providerTurn.providerThreadId) ?? seeded;
+        promptCaches.set(providerTurn.providerThreadId, state);
+        if (promptCaches.size > 4096) {
+          const oldest = promptCaches.keys().next().value;
+          if (oldest !== undefined) promptCaches.delete(oldest);
+        }
+      }
+      const newTurn = state.turnId !== providerTurn.id;
+      if (newTurn) {
+        state.turnId = providerTurn.id;
+        state.miss = undefined;
+      }
+      const sample = promptCacheSample(tokenUsage, providerTurn.model);
+      if (sample !== null) {
+        // Codex and older Pi report usage after the response, so a turn's first request began at its start.
+        const startedAt =
+          newTurn && providerTurn.startedAt !== null
+            ? DateTime.formatIso(providerTurn.startedAt)
+            : undefined;
+        const requested =
+          startedAt !== undefined && Date.parse(startedAt) < Date.parse(sample.updatedAt)
+            ? { ...sample, updatedAt: startedAt }
+            : sample;
+        const miss = state.sample === undefined ? null : promptCacheMiss(state.sample, requested);
+        state.sample = sample;
+        if (miss !== null) {
+          const rates =
+            sample.model === undefined || Option.isNone(usage)
+              ? null
+              : yield* usage.value.cachedTokenRates(sample.model);
+          state.miss = addPromptCacheMiss(state.miss, {
+            ...miss,
+            ...(rates === null
+              ? {}
+              : { costUsd: promptCacheMissCostUsd(miss.tokens, sample.cacheWriteTokens, rates) }),
+          });
+        }
+      }
+      return state.miss === undefined
+        ? providerTurn
+        : { ...providerTurn, tokenUsage: { ...tokenUsage, cacheMiss: state.miss } };
+    });
 
     const dismissNativeUserInputs = Effect.fn("ProviderEventIngestor.dismissNativeUserInputs")(
       function* (
@@ -563,7 +661,12 @@ export const layer: Layer.Layer<
                 yield* makeDomainEvent(input, {
                   type: "provider-turn.updated",
                   ...(input.event.threadId === undefined ? {} : { threadId: input.event.threadId }),
-                  payload: input.event.providerTurn,
+                  payload: PROMPT_CACHE_MISS_DRIVERS.has(input.event.driver)
+                    ? yield* withPromptCacheMiss(
+                        input.event.threadId ?? input.threadId,
+                        input.event.providerTurn,
+                      )
+                    : input.event.providerTurn,
                   nodeId: input.event.providerTurn.nodeId,
                 }),
               ];

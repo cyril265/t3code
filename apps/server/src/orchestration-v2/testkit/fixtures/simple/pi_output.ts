@@ -24,32 +24,48 @@ function lastPiResponseData(transcript: ProviderReplayTranscript, command: strin
   return field(frame, "data");
 }
 
-/** Settled Pi usage uses each recorded get_session_stats response in order, not the last streaming total. */
+/** Settled Pi usage takes context from each recorded get_session_stats response (its token totals are the session's) and request counters from the latest assistant usage before it. */
 export function assertPiSettledTokenUsage(
   result: OrchestratorV2ScenarioResult,
   transcript: ProviderReplayTranscript,
 ) {
-  const stats = transcript.entries.flatMap((entry) =>
-    entry.type === "emit_inbound" &&
-    field(entry.frame, "type") === "response" &&
-    field(entry.frame, "command") === "get_session_stats"
-      ? [field(entry.frame, "data")]
-      : [],
-  );
-  const turns = projectionFor(result, transcript.scenario).providerTurns;
-  assert.lengthOf(turns, stats.length);
-  for (const [index, turn] of turns.entries()) {
-    const contextUsage = field(stats[index], "contextUsage");
-    const tokens = field(stats[index], "tokens");
-    const { updatedAt: _updatedAt, ...tokenUsage } = turn.tokenUsage ?? { updatedAt: "" };
-    assert.deepEqual(tokenUsage, {
-      usedTokens: field(contextUsage, "tokens"),
-      maxTokens: field(contextUsage, "contextWindow"),
-      inputTokens: field(tokens, "input"),
-      cachedInputTokens: field(tokens, "cacheRead"),
-      outputTokens: field(tokens, "output"),
-    });
+  const expected: Array<Record<string, unknown>> = [];
+  let requestTokens: Record<string, unknown> = {};
+  for (const entry of transcript.entries) {
+    if (entry.type !== "emit_inbound") continue;
+    const frame = entry.frame;
+    const usage =
+      field(frame, "type") === "message_end"
+        ? field(field(frame, "message"), "usage")
+        : field(frame, "usage");
+    const totalTokens = field(usage, "totalTokens");
+    if (typeof totalTokens === "number" && totalTokens > 0) {
+      const counter = (key: string) => field(usage, key) as number;
+      requestTokens = {
+        inputTokens: counter("input") + counter("cacheRead") + counter("cacheWrite"),
+        cachedInputTokens: counter("cacheRead"),
+        cacheWriteTokens: counter("cacheWrite"),
+        outputTokens: counter("output"),
+      };
+    }
+    if (field(frame, "type") === "response" && field(frame, "command") === "get_session_stats") {
+      const contextUsage = field(field(frame, "data"), "contextUsage");
+      expected.push({
+        usedTokens: field(contextUsage, "tokens"),
+        maxTokens: field(contextUsage, "contextWindow"),
+        ...requestTokens,
+      });
+      requestTokens = {};
+    }
   }
+  const turns = projectionFor(result, transcript.scenario).providerTurns;
+  assert.deepEqual(
+    turns.map((turn) => {
+      const { updatedAt: _updatedAt, ...tokenUsage } = turn.tokenUsage ?? { updatedAt: "" };
+      return tokenUsage;
+    }),
+    expected,
+  );
 }
 
 export function assertPiSimpleOutput(

@@ -7,12 +7,14 @@ import {
   ContextTransferId,
   ProviderDriverKind,
   ProviderInstanceId,
+  ProviderThreadId,
   RunId,
   ThreadId,
 } from "@t3tools/contracts";
 import { makeThreadProjectionFixture } from "../test-fixtures";
 import {
   deriveLatestContextWindowSnapshot,
+  latestProviderTurn,
   latestProviderTurnTokenUsage,
   shouldOfferResumeCompaction,
 } from "@t3tools/client-runtime/state/context-window";
@@ -70,6 +72,19 @@ describe("live provider-turn usage (#8144)", () => {
     expect(formatContextWindowCompactionMessage(snapshot?.autoCompactThreshold)).toBe(
       "Compacts automatically at about 150,000 tokens.",
     );
+  });
+});
+
+describe("latestProviderTurn", () => {
+  it("is the active provider thread's newest turn, so an older turn's cache miss does not linger", () => {
+    const active = ProviderThreadId.make("provider-thread:active");
+    const other = ProviderThreadId.make("provider-thread:other");
+    const turns = [
+      { providerThreadId: active, ordinal: 1 },
+      { providerThreadId: other, ordinal: 5 },
+      { providerThreadId: active, ordinal: 2 },
+    ];
+    expect(latestProviderTurn(turns, { id: active })).toBe(turns[2]);
   });
 });
 
