@@ -233,6 +233,15 @@ jobs:
           path: ${{ runner.temp }}/codex-changes.patch
           if-no-files-found: ignore
 
+      # The Linux CLI jobs build this rebased tree, which is only pushed when Codex changed it.
+      - name: Archive the rebased source
+        run: git archive --format=tar.gz -o "$RUNNER_TEMP/source.tar.gz" HEAD
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: self-build-source
+          path: ${{ runner.temp }}/source.tar.gz
+
       - name: Import signing certificate
         env:
           SELF_SIGN_P12: ${{ secrets.SELF_SIGN_P12 }}
@@ -303,13 +312,99 @@ jobs:
             | python3 .github/scripts/self-build-release-notes.py "$VERSION" "$TAG" "$RUNNER_TEMP/upstream-notes.md" \
               "$RUNNER_TEMP/previous-subjects.txt" "$previous" \
             > "$RUNNER_TEMP/notes.md"
-          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_REF_NAME" --latest="$LATEST" \
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_REF_NAME" --draft \
             --title "T3 Code $VERSION (self-build of $TAG)" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP"/release/*.zip.blockmap "$RUNNER_TEMP"/release/latest-mac.yml
 
-  android-server:
+  # The archives SSH remotes download to run the desktop's own server version.
+  linux-cli:
     needs: [resolve, build]
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-24.04
+            rust_target: x86_64-unknown-linux-gnu
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: self-build-source
+          path: ${{ runner.temp }}/source
+
+      - name: Unpack the rebased source
+        run: tar -xzf "$RUNNER_TEMP/source/source.tar.gz" -C "$GITHUB_WORKSPACE"
+
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/scripts...
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust_target }}
+
+      - uses: ./.github/actions/setup-apt-mirrors
+
+      - name: Install patchelf
+        run: command -v patchelf || { sudo apt-get update && sudo apt-get install -y patchelf; }
+
+      - name: Build the CLI archive
+        run: |
+          cp .env.example .env
+          node scripts/update-release-package-versions.ts "$VERSION"
+          vp run --filter t3 build
+          node scripts/apply-web-brand-assets.ts production apps/server/dist/client
+          node apps/server/scripts/cli.ts build-exe --verbose
+          cargo build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target "${{ matrix.rust_target }}"
+          monitor_dir="$RUNNER_TEMP/cli-resource-monitor/linux-${{ matrix.arch }}"
+          mkdir -p "$monitor_dir"
+          cp "native/resource-monitor/target/${{ matrix.rust_target }}/release/t3-resource-monitor" "$monitor_dir/"
+          node scripts/build-cli-archive.ts --platform linux --arch "${{ matrix.arch }}" --version "$VERSION" \
+            --resource-monitor-dir "$RUNNER_TEMP/cli-resource-monitor" --output-dir release-cli
+
+      - name: Smoke-test the CLI archive
+        run: node scripts/smoke-cli-archive.ts --archive release-cli/* --expect-version "$VERSION"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cli-linux-${{ matrix.arch }}
+          path: release-cli/*
+
+  # The release stays a draft until every archive is attached, so desktops never update to a
+  # version their SSH remotes cannot download.
+  publish:
+    needs: [resolve, build, linux-cli]
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      LATEST: ${{ needs.resolve.outputs.latest }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: cli-linux-*
+          merge-multiple: true
+          path: cli
+
+      - name: Attach the CLI archives and publish the release
+        working-directory: cli
+        run: |
+          sha256sum t3-*.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "v$VERSION" t3-*.tar.gz SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "v$VERSION" --draft=false --latest="$LATEST" --repo "$GITHUB_REPOSITORY"
+
+  android-server:
+    needs: [resolve, publish]
     if: github.ref_name == github.event.repository.default_branch
     uses: ./.github/workflows/android-server.yml
     with:
