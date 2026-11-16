@@ -61,21 +61,20 @@ jobs:
             exit 1
           fi
           major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}" first=$(( BASH_REMATCH[3] * 100 ))
-          # A draft is a build whose Linux archives never got attached: it keeps its number but does not count as built.
-          last=-1 published=-1
-          existing="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName,isDraft --jq '.[] | "\(.tagName) \(.isDraft)"')"
-          while read -r existing_tag draft; do
-            if [[ "$existing_tag" =~ ^v${major}\.${minor}\.([0-9]+)$ ]]; then
+          last=-1
+          # A draft is a build whose Linux archives never got attached; the next build reuses its number.
+          existing_tags="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName')"
+          for existing in $existing_tags; do
+            if [[ "$existing" =~ ^v${major}\.${minor}\.([0-9]+)$ ]]; then
               n=$(( BASH_REMATCH[1] - first ))
               if (( n >= 0 && n < 100 && n > last )); then last=$n; fi
-              if (( n >= 0 && n < 100 && n > published )) && [[ "$draft" == "false" ]]; then published=$n; fi
             fi
-          done <<< "$existing"
+          done
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "latest=$([[ "$tag" == "$upstream_latest" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          if (( published >= 0 )) && [[ "$RELEASE" != "true" ]]; then
+          if (( last >= 0 )) && [[ "$RELEASE" != "true" ]]; then
             echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "$tag is already built as $major.$minor.$(( first + published ))"
+            echo "$tag is already built as $major.$minor.$(( first + last ))"
             exit 0
           fi
           if (( last >= 99 )); then
@@ -303,7 +302,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view "$TAG" --repo pingdotgg/t3code --json body --jq .body > "$RUNNER_TEMP/upstream-notes.md"
-          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName,isDraft --jq '.[] | select(.isDraft | not) | .tagName' \
+          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName' \
             | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; echo "v$VERSION"; } | sort -uV | grep -B1 -x "v$VERSION" | head -1)"
           if [[ "$previous" == "v$VERSION" ]]; then previous=""; fi
           : > "$RUNNER_TEMP/previous-subjects.txt"
@@ -314,7 +313,13 @@ jobs:
             | python3 .github/scripts/self-build-release-notes.py "$VERSION" "$TAG" "$RUNNER_TEMP/upstream-notes.md" \
               "$RUNNER_TEMP/previous-subjects.txt" "$previous" \
             > "$RUNNER_TEMP/notes.md"
-          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_REF_NAME" --draft \
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.draft and .tag_name == \"v$VERSION\") | .id" \
+            | while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
+          # The tag is created when the draft is published, so pin it to the built commit, not the branch tip by then.
+          target="$SOURCE_SHA"
+          if [[ "${CHANGED:-}" == "true" ]]; then target="$(git rev-parse HEAD)"; fi
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$target" --draft \
             --title "T3 Code $VERSION (self-build of $TAG)" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP"/release/*.zip.blockmap "$RUNNER_TEMP"/release/latest-mac.yml
