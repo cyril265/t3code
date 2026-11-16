@@ -383,7 +383,7 @@ jobs:
   # The release stays a draft until every archive is attached, so desktops never update to a
   # version their SSH remotes cannot download.
   publish:
-    needs: [resolve, build, linux-cli]
+    needs: [resolve, linux-cli]
     if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     env:
