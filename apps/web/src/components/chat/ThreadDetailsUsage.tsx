@@ -92,6 +92,13 @@ function limitTone(left: number): UsageTone {
 const limitTone = (left: number): UsageTone =>
   left <= 10 ? "error" : left <= 20 ? "warning" : null;
 
+const toneText = (tone: UsageTone, fallback: string) =>
+  tone === "error"
+    ? "text-error-foreground"
+    : tone === "warning"
+      ? "text-warning-foreground"
+      : fallback;
+
 const withShortLabels = <Window extends { readonly label: string }>(windows: readonly Window[]) => {
   const labels = shortLimitLabels(windows.map((window) => window.label));
   return windows.map((window, index) => [window, labels[index] ?? window.label] as const);
@@ -168,11 +175,7 @@ export function ThreadDetailsUsage({
             <LimitLine>
               <ServedBy {...pool.servedBy} now={now} />
             </LimitLine>
-            <LimitLine>
-              {withShortLabels(pool.servedBy.account.limits.windows).map(([window, shortLabel]) => (
-                <WindowLimit key={window.id} window={window} shortLabel={shortLabel} now={now} />
-              ))}
-            </LimitLine>
+            <WindowLimits windows={pool.servedBy.account.limits.windows} now={now} />
           </>
         ) : pool ? (
 <<<<<<< HEAD
@@ -195,11 +198,7 @@ export function ThreadDetailsUsage({
             opensUsage
           />
         ) : (
-          <LimitLine>
-            {withShortLabels(limits.windows).map(([window, shortLabel]) => (
-              <WindowLimit key={window.id} window={window} shortLabel={shortLabel} now={now} />
-            ))}
-          </LimitLine>
+          <WindowLimits windows={limits.windows} now={now} />
         )}
 >>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       </div>
@@ -436,6 +435,22 @@ function IdleRow({
       }
     />
 >>>>>>> 7a864c1eee (feat: show idle time and prompt cache misses in thread details)
+  );
+}
+
+function WindowLimits({
+  windows,
+  now,
+}: {
+  readonly windows: readonly ServerProviderUsageWindow[];
+  readonly now: number;
+}) {
+  return (
+    <LimitLine>
+      {withShortLabels(windows).map(([window, shortLabel]) => (
+        <WindowLimit key={window.id} window={window} shortLabel={shortLabel} now={now} />
+      ))}
+    </LimitLine>
   );
 }
 
@@ -706,16 +721,7 @@ function LimitItem({
       >
         <span className="truncate text-muted-foreground">{label}</span>
         {value !== null ? (
-          <span
-            className={cn(
-              "font-medium tabular-nums",
-              tone === "error"
-                ? "text-error-foreground"
-                : tone === "warning"
-                  ? "text-warning-foreground"
-                  : "text-foreground/80",
-            )}
-          >
+          <span className={cn("font-medium tabular-nums", toneText(tone, "text-foreground/80"))}>
             {value}
           </span>
         ) : null}
@@ -816,11 +822,7 @@ function UsageRow({
           <span
             className={cn(
               "truncate font-medium tabular-nums",
-              detail.tone === "error"
-                ? "text-error-foreground"
-                : detail.tone === "warning"
-                  ? "text-warning-foreground"
-                  : "text-muted-foreground",
+              toneText(detail.tone, "text-muted-foreground"),
             )}
           >
             {detail.text}
@@ -831,13 +833,7 @@ function UsageRow({
             // Text-only rows span the bar column so they never widen the shared value column.
             "text-end font-medium tabular-nums",
             fill === null && detail === null && "col-span-2",
-            tone === "error"
-              ? "text-error-foreground"
-              : tone === "warning"
-                ? "text-warning-foreground"
-                : fill === null
-                  ? "text-muted-foreground"
-                  : "text-foreground/80",
+            toneText(tone, fill === null ? "text-muted-foreground" : "text-foreground/80"),
           )}
         >
           {value}
