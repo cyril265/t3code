@@ -41,7 +41,8 @@ const ChangeWorkingDirectoryTool = Tool.make("t3_change_working_directory", {
   .annotate(Tool.Readonly, false)
   .annotate(Tool.Destructive, false)
   .annotate(Tool.Idempotent, false)
-  .annotate(Tool.OpenWorld, true);
+  .annotate(Tool.OpenWorld, true)
+  .annotate(McpSchema.EnabledWhen, McpInvocationContext.hiddenFromOutsideClients);
 
 const WorktreeHandoffTool = Tool.make("t3_worktree_handoff", {
   description:
