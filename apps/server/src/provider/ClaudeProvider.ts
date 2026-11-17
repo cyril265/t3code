@@ -25,7 +25,6 @@ import { envTrampoline, supportsEnvChdir } from "@t3tools/shared/envTrampoline";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as SpawnWorker from "../process/SpawnWorker.ts";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
-import { endpointIdentity } from "@t3tools/shared/usageLimits";
 import {
   query as claudeQuery,
   type ModelInfo as ClaudeModelInfo,
@@ -863,15 +862,7 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
   const authMetadata =
     apiProviderAuthMetadata(capabilities.apiProvider) ??
     (customApiEndpoint
-<<<<<<< HEAD
       ? { type: "customEndpoint", label: "Custom API endpoint", ...(endpoint ? { endpoint } : {}) }
-=======
-      ? {
-          type: "customEndpoint",
-          label: "Custom API endpoint",
-          ...(baseUrl ? { endpoint: endpointIdentity(baseUrl) } : {}),
-        }
->>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       : undefined) ??
     claudeAuthMetadata({
       subscriptionType: capabilities.subscriptionType,

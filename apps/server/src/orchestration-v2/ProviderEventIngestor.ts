@@ -35,11 +35,8 @@ import {
 } from "../telemetry/ProviderUsageAnalytics.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
-<<<<<<< HEAD
 import { UsageLimitResetFallback } from "../usage/UsageLimitSources.ts";
-=======
 import * as UsageService from "../usage/UsageService.ts";
->>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
 import * as EventSink from "./EventSink.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProjectStore from "./ProjectStore.ts";

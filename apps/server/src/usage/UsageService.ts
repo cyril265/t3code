@@ -48,15 +48,15 @@ import {
 } from "./usageAggregation.ts";
 =======
 import { canonicalModelFilter, resolveModelAliases, UsageAggregator } from "./usageAggregation.ts";
-<<<<<<< HEAD
-=======
 import {
   createOverrideRateTable,
+  isUnlistedModel,
   lookupRate,
   parseRateTable,
   type RateTable,
   type TokenRates,
 } from "./usagePricing.ts";
+<<<<<<< HEAD
 >>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
 >>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
 import {
@@ -65,6 +65,8 @@ import {
   parseRateTable,
   type RateTable,
 } from "./usagePricing.ts";
+=======
+>>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 import {
   DESKTOP_HOST_SCOPE_ENV,
   listTranscriptFiles,
@@ -298,7 +300,6 @@ export const make = Effect.gen(function* () {
       Effect.catchCause(() => Effect.succeed(null)),
     );
 
-<<<<<<< HEAD
   // Outside ratesLock, which a slow fetch holds: a provisional answer prices with these.
   const loadSavedRates = yield* Effect.cached(
     fileSystem.readFileString(ratesCachePath).pipe(
@@ -312,18 +313,6 @@ export const make = Effect.gen(function* () {
       }),
       Effect.ignoreCause,
     ),
-=======
-  const loadRatesFromDisk = fileSystem.readFileString(ratesCachePath).pipe(
-    Effect.flatMap((raw) => decodeRatesCache(raw)),
-    Effect.map((fromDisk) => {
-      const parsed = parseRateTable(fromDisk.document);
-      if (parsed.size === 0 || ratesFetchedAtMs !== null) return;
-      rates = parsed;
-      ratesFetchedAtMs = fromDisk.fetchedAtMs;
-      ratesStatus = "cached";
-    }),
-    Effect.ignoreCause,
->>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
   );
 
   const loadRates = Effect.fn("UsageService.loadRates")(function* (force: boolean) {
@@ -331,15 +320,6 @@ export const make = Effect.gen(function* () {
     const maxAgeMs = force ? RATES_REFRESH_FLOOR_MS : RATES_TTL_MS;
     yield* loadSavedRates;
     if (ratesFetchedAtMs !== null && now - ratesFetchedAtMs < maxAgeMs) return;
-<<<<<<< HEAD
-=======
-
-    if (ratesFetchedAtMs === null) {
-      yield* loadRatesFromDisk;
-      if (ratesFetchedAtMs !== null && now - ratesFetchedAtMs < maxAgeMs) return;
-    }
-
->>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
     if (ratesLastFailedAtMs !== null && now - ratesLastFailedAtMs < RATES_REFRESH_FLOOR_MS) return;
 
     let fetched = yield* fetchRates(LITELLM_RATES_URL);
@@ -393,7 +373,7 @@ export const make = Effect.gen(function* () {
   const cachedTokenRates = Effect.fn("UsageService.cachedTokenRates")(function* (model: string) {
     if (!ratesDiskRead) {
       ratesDiskRead = true;
-      yield* loadRatesFromDisk;
+      yield* loadSavedRates;
     }
     // Fetching can take ~20 s and backs off after a failure; a later lookup gets the result.
     if (ratesFetchedAtMs === null) yield* Effect.forkDetach(ensureRates(false));
