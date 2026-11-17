@@ -2187,14 +2187,10 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
               : { nativeThreadRef: state.providerThread.nativeThreadRef }),
             status: interrupted ? "interrupted" : failure !== null ? "failed" : "completed",
             completedAt,
-<<<<<<< HEAD
-            ...(tokenUsage === undefined ? {} : { tokenUsage }),
-            ...(turn.reportedModel === undefined ? {} : { model: turn.reportedModel }),
-=======
             ...(tokenUsage === undefined
               ? {}
               : { tokenUsage: { ...turn.requestTokens, ...tokenUsage } }),
->>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
+            ...(turn.reportedModel === undefined ? {} : { model: turn.reportedModel }),
           },
         });
         yield* updateProviderThread(
@@ -2476,16 +2472,13 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             const message = event["message"];
             if (recordString(message, "role") !== "assistant") return;
             yield* completeOpenStreamItems(turn);
-<<<<<<< HEAD
             const reportedProvider = recordString(message, "provider");
             const reportedModelId = recordString(message, "model");
             if (reportedProvider && reportedModelId) {
               turn.reportedModel = `${reportedProvider}/${reportedModelId}`;
             }
-=======
             // Older Pi sends usage only here; one sample per model request keeps cache misses visible.
             yield* reportLiveUsage(turn, recordField(message, "usage"));
->>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
             if (recordString(message, "stopReason") === "error" && turn.failure === null) {
               turn.failure = makeProviderFailure({
                 message: recordString(message, "errorMessage") ?? "Pi reported a model error.",

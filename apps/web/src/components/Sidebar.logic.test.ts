@@ -14,16 +14,7 @@ import {
   deleteSelectedThreadEntries,
   getFallbackThreadIdAfterDelete,
   hasUnseenCompletion,
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-  selectSidebarInboxThreads,
-  isSidebarThreadUnseen,
-=======
   splitSidebarInboxThreads,
->>>>>>> dab6086b87 (refactor(web): simplify the Done block and release a kept thread on its next run)
-  resolveSidebarRowThreadId,
->>>>>>> 1ebca2b0e3 (feat(web): list finished unread threads at the top of the sidebar)
   orderItemsByPreferredIds,
   pinOrderKeyBetween,
   resolveSidebarSweepKeys,

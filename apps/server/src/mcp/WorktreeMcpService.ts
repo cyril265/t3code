@@ -373,8 +373,7 @@ const make = Effect.gen(function* () {
               threadId: scope.thread.threadId,
               branch: worktree.refName,
               worktreePath,
-<<<<<<< HEAD
-              expectedWorktreePath: null,
+              expectedWorktreePath: projection.thread.worktreePath,
               // Binding detaches the session and ends the caller; a later send could lose the race.
               ...(input.continuationPrompt === undefined
                 ? {}
@@ -384,9 +383,6 @@ const make = Effect.gen(function* () {
                       text: input.continuationPrompt,
                     },
                   }),
-=======
-              expectedWorktreePath: projection.thread.worktreePath,
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
             })
             .pipe(
               Effect.catchCause((cause) =>
@@ -407,7 +403,6 @@ const make = Effect.gen(function* () {
           ),
         );
 
-<<<<<<< HEAD
         const bound = yield* recheckAndBind;
         const continuation: WorktreeMcpContinuationStatus =
           input.continuationPrompt === undefined
@@ -420,35 +415,6 @@ const make = Effect.gen(function* () {
                   ? "started"
                   : "queued",
               };
-=======
-        // Queue continuation immediately after binding; a detaching provider terminates the caller, so relaunch needs a durable message.
-        const queueContinuation: Effect.Effect<WorktreeMcpContinuationStatus, WorktreeMcpFailure> =
-          Effect.suspend(() =>
-            input.continuationPrompt === undefined
-              ? Effect.succeed<WorktreeMcpContinuationStatus>({ status: "skipped" })
-              : threadManagement
-                  .sendToThread({
-                    projectId: projection.thread.projectId,
-                    commandId: ids.continuationCommandId,
-                    threadId: scope.thread.threadId,
-                    messageId: ids.continuationMessageId,
-                    text: input.continuationPrompt,
-                    attachments: [],
-                    mode: "queue",
-                    createdBy: "agent",
-                    creationSource: "mcp",
-                  })
-                  .pipe(
-                    Effect.map((sendResult): WorktreeMcpContinuationStatus => ({
-                      status: "scheduled",
-                      delivery: sendResult.delivery,
-                    })),
-                    reportFailed("worktree handoff continuation failed to queue"),
-                  ),
-          );
-
-        const continuation = yield* recheckAndBind.pipe(Effect.andThen(queueContinuation));
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
 
         yield* vcsStatusBroadcaster
           .refreshStatus(worktreePath)

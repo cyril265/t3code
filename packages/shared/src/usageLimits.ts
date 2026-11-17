@@ -250,6 +250,7 @@ function accountKeyResolver(reports: Iterable<AccountReport>) {
 const hubAccountName = (account: { readonly id: string }) => account.id.replace(/\.json$/i, "");
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 function limitAccountKeyResolver(presentations: LimitPresentations) {
   return accountKeyResolver(
     [...presentations.values()].flatMap((presentation) => [
@@ -279,6 +280,8 @@ const hubRowKey = (
 =======
 <<<<<<< HEAD
 >>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
+=======
+>>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 // Source ids are environment-local, so only a remote endpoint names the same hub across environments.
 function hubIdentity(environmentId: EnvironmentId, source: UsageLimitSourceSnapshot): string {
   // The server supplies canonical endpoints; native URL polyfills can misparse IPv6 hosts.
@@ -291,7 +294,8 @@ function hubIdentity(environmentId: EnvironmentId, source: UsageLimitSourceSnaps
     // Each machine resolves these to itself too; shared host classification leaves them out.
     /\.localhost\.*$|^\[::ffff:(?:127\.|7f[\da-f]{2}:)/i.test(host);
   return endpoint && !local ? endpoint : `${environmentId}:${source.id}`;
-=======
+}
+
 const providerKeyResolver = (
   providers: readonly ServerProvider[],
   sources: UsageLimitSourceSnapshots,
@@ -319,7 +323,6 @@ function hubLimitAccount(
     redeem,
     limits: account.usageLimits,
   };
->>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 }
 
 export interface LimitAccount {
@@ -461,6 +464,7 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
       for (const account of source.accounts) {
         if (limitsNotice(account.usageLimits) !== null) continue;
 <<<<<<< HEAD
+<<<<<<< HEAD
         const resolved = resolveKey(account);
         // A resolved account already has an identity; its public key must stay distinct from others'.
         const hub = resolved ? `${environmentId}:${source.id}` : hubIdentity(environmentId, source);
@@ -474,10 +478,11 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
           accentColor: undefined,
           environments: [],
 =======
+=======
+>>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
         const hub = hubLimitAccount(
           source,
           account,
->>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
           sourceLabel,
           account.usageLimits.resetCredits?.nextCreditId
             ? {
@@ -490,7 +495,11 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
               }
             : null,
         );
-        merge(resolveKey(account) ?? hub.key, hub);
+        const resolved = resolveKey(account);
+        // A resolved account already has an identity; its public key must stay distinct from others'.
+        const identity = resolved ? `${environmentId}:${source.id}` : hubIdentity(environmentId, source);
+        const key = `${identity}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
+        merge(resolved ?? key, { ...hub, key });
       }
     }
   }

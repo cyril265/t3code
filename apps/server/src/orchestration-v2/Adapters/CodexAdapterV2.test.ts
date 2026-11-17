@@ -3719,6 +3719,12 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         assert.equal(contextReport.providerTurn.providerThreadId, harness.providerThread.id);
         assert.equal(contextReport.providerTurn.tokenUsage?.usedTokens, 15);
         assert.equal(contextReport.providerTurn.tokenUsage?.maxTokens, 200_000);
+        assert.deepInclude(contextReport.providerTurn.turnTokenUsage, {
+          usageStatus: "partial",
+          usageScope: "main_agent",
+          outputTokens: 5,
+          elapsedMs: 0,
+        });
       }
       const completed = harness.events.find(
         (event) =>
@@ -4293,6 +4299,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         );
         yield* harness.firstTerminal;
 <<<<<<< HEAD
+<<<<<<< HEAD
         const notices = harness.events.flatMap((event) =>
           event.type === "turn_item.updated" && event.turnItem.type === "system_notice"
             ? [[event.turnItem.title, event.turnItem.mcpSignIn?.server ?? null]]
@@ -4304,11 +4311,14 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         ]);
 =======
 <<<<<<< HEAD
+=======
+>>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
         const surfaced = harness.events.filter((event) => {
           const serialized = JSON.stringify(event);
           return serialized.includes("example_mcp") && serialized.includes("failed to start");
         });
         assert.isNotEmpty(surfaced);
+<<<<<<< HEAD
 =======
         const requests = harness.events.flatMap((event) =>
           event.type === "runtime_request.updated" ? [event.runtimeRequest] : [],
@@ -4377,6 +4387,8 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         assert.isEmpty(assistantMessages(harness.events));
 >>>>>>> adaa3cf3f5 (feat: show live output token counts and average tok/s)
 >>>>>>> a3d861571e (feat: show live output token counts and average tok/s)
+=======
+>>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
       }).pipe(
         Effect.provide(
           Layer.mergeAll(

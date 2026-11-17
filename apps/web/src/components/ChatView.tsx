@@ -2691,11 +2691,14 @@ export default function ChatView(props: ChatViewProps) {
     pendingUserInputs.length > 0;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   // A typed /compact queues behind a running turn, so only the immediate compaction waits for idle.
   const compactDisabled = compactThreadUnavailable || isWorking;
 =======
 =======
 >>>>>>> 978ae37a09 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
+=======
+>>>>>>> 67d5aae9de (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
   const compactDisabled = compactThreadUnavailable;
 <<<<<<< HEAD
 >>>>>>> 7c86015596 (fix(web): offer /compact in the slash menu while a turn runs)
@@ -2731,6 +2734,10 @@ export default function ChatView(props: ChatViewProps) {
   const compactDisabled = compactCommandUnavailable || isWorking;
 >>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
 >>>>>>> a5fe74f2a2 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
+=======
+  const compactDisabled = compactCommandUnavailable || isWorking;
+  // The context window is the current conversation's, so a handoff destination never inherits it.
+>>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
   const resumeCompactionTokens =
     activeContextWindow &&
     pendingHandoff === null &&
