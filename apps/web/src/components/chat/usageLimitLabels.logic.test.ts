@@ -4,11 +4,11 @@ import { shortLimitLabels } from "./usageLimitLabels.logic";
 describe("shortLimitLabels", () => {
   it.each([
     ["Claude", ["Session", "Weekly", "Weekly · Fable"], ["5h", "7d", "fable"]],
-    ["OpenCode Go", ["Go · Session", "Go · Weekly", "Go · Monthly"], ["go 5h", "go 7d", "go 30d"]],
+    ["OpenCode Go", ["Go · Session", "Go · Weekly", "Go · Monthly"], ["5h go", "7d go", "30d go"]],
     [
       "Antigravity",
-      ["Gemini · 5-hour", "Gemini · Weekly", "Claude · Weekly"],
-      ["gemini 5h", "gemini 7d", "claude"],
+      ["Gemini · 5-hour", "Claude & GPT (shared) · 5-hour", "Claude & GPT (shared) · Weekly"],
+      ["gemini", "5h claude & gpt (shared)", "7d claude & gpt (shared)"],
     ],
     [
       "Cursor",
