@@ -27,10 +27,14 @@ import {
   paceRemainingPercent,
   remainingPercent,
 } from "@t3tools/shared/usageLimits";
+<<<<<<< HEAD
 import { formatDuration, limitsNotice } from "@t3tools/shared/usageLimitsCopy";
 import { Link } from "@tanstack/react-router";
 import { msg, useGT, useLocale, useMessages } from "gt-react";
 import type { ReactNode } from "react";
+=======
+import { Children, type ReactNode } from "react";
+>>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
 
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { useNowMinute } from "../../hooks/useNowMinute";
@@ -41,12 +45,16 @@ import { formatUpcomingTimestamp } from "../../timestampFormat";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { formatContextWindowCompactionMessage } from "./compaction.logic";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
+<<<<<<< HEAD
 import {
   nextPoolReset,
   poolSources,
   resolveThreadDetailsLimits,
   resolveThreadHttpQuotas,
 } from "./ThreadDetailsUsage.logic";
+=======
+import { shortLimitLabels } from "./usageLimitLabels.logic";
+>>>>>>> b51bd9a490 (feat(web): show usage limits as one compact line)
 
 const PACE_LABEL: Record<LimitPace, string> = {
   ahead: msg("Ahead of pace"),
@@ -83,6 +91,11 @@ function limitTone(left: number): UsageTone {
 =======
 const limitTone = (left: number): UsageTone =>
   left <= 10 ? "error" : left <= 20 ? "warning" : null;
+
+const withShortLabels = <Window extends { readonly label: string }>(windows: readonly Window[]) => {
+  const labels = shortLimitLabels(windows.map((window) => window.label));
+  return windows.map((window, index) => [window, labels[index] ?? window.label] as const);
+};
 
 /** The selected provider's limit windows. Each row reads as room left. */
 >>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
@@ -152,14 +165,26 @@ export function ThreadDetailsUsage({
 =======
         {pool?.servedBy ? (
           <>
-            <ServedByRow {...pool.servedBy} now={now} />
-            {pool.servedBy.account.limits.windows.map((window) => (
-              <LimitRow key={window.id} window={window} now={now} />
-            ))}
+            <LimitLine>
+              <ServedBy {...pool.servedBy} now={now} />
+            </LimitLine>
+            <LimitLine>
+              {withShortLabels(pool.servedBy.account.limits.windows).map(([window, shortLabel]) => (
+                <WindowLimit key={window.id} window={window} shortLabel={shortLabel} now={now} />
+              ))}
+            </LimitLine>
           </>
         ) : pool ? (
+<<<<<<< HEAD
 >>>>>>> 245b0854eb (fix(web): show the CLI Proxy account a thread is running on)
           pool.windows.map((window) => <PoolRow key={window.id} window={window} now={now} />)
+=======
+          <LimitLine>
+            {withShortLabels(pool.windows).map(([window, shortLabel]) => (
+              <PoolLimit key={window.id} window={window} shortLabel={shortLabel} now={now} />
+            ))}
+          </LimitLine>
+>>>>>>> b51bd9a490 (feat(web): show usage limits as one compact line)
         ) : notice ? (
           <UsageRow
             label={gt("Limits", { $context: "usage limits row label" })}
@@ -170,7 +195,11 @@ export function ThreadDetailsUsage({
             opensUsage
           />
         ) : (
-          limits.windows.map((window) => <LimitRow key={window.id} window={window} now={now} />)
+          <LimitLine>
+            {withShortLabels(limits.windows).map(([window, shortLabel]) => (
+              <WindowLimit key={window.id} window={window} shortLabel={shortLabel} now={now} />
+            ))}
+          </LimitLine>
         )}
 >>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       </div>
@@ -410,12 +439,14 @@ function IdleRow({
   );
 }
 
-function LimitRow({
+function WindowLimit({
   window,
+  shortLabel,
   now,
   accountLabel,
 }: {
   readonly window: ServerProviderUsageWindow;
+  readonly shortLabel: string;
   readonly now: number;
   readonly accountLabel?: string;
 }) {
@@ -427,6 +458,7 @@ function LimitRow({
   const timeLeft = paceRemainingPercent(window, now);
   const resetsAt = window.resetsAt ? Date.parse(window.resetsAt) : Number.NaN;
   return (
+<<<<<<< HEAD
     <UsageRow
       label={window.label}
       fill={left}
@@ -438,11 +470,19 @@ function LimitRow({
 >>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       tick={timeLeft}
 =======
+=======
+    <LimitItem
+      label={shortLabel}
+>>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
       tone={limitTone(left)}
 >>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       value={`${left}%`}
+<<<<<<< HEAD
       ariaValue={gt("{left}% left", { left })}
       opensUsage
+=======
+      ariaLabel={`${window.label}: ${left}% left`}
+>>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
       tooltip={
         <>
           <span className="text-foreground">
@@ -468,6 +508,7 @@ function LimitRow({
   );
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly now: number }) {
@@ -536,10 +577,16 @@ function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly n
 =======
 <<<<<<< HEAD
 >>>>>>> 245b0854eb (fix(web): show the CLI Proxy account a thread is running on)
+=======
+<<<<<<< HEAD
+>>>>>>> b51bd9a490 (feat(web): show usage limits as one compact line)
 /** One label, hairline, and value row; the whole row opens the details tooltip. With `opensUsage` it links to the usage page. */
 =======
 =======
 function ServedByRow({
+=======
+function ServedBy({
+>>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
   account,
   at,
   now,
@@ -550,11 +597,11 @@ function ServedByRow({
 }) {
   const name = account.email ?? account.displayName ?? "Proxy account";
   return (
-    <UsageRow
-      label="Account"
-      fill={null}
+    <LimitItem
+      label={name}
+      value={null}
+      ariaLabel={`Account: ${name}`}
       tone={null}
-      value={name}
       tooltip={
         <>
           <span className="text-foreground">
@@ -569,18 +616,29 @@ function ServedByRow({
   );
 }
 
+<<<<<<< HEAD
 >>>>>>> e40588df8b (fix(web): show the CLI Proxy account a thread is running on)
 function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly now: number }) {
+=======
+function PoolLimit({
+  window,
+  shortLabel,
+  now,
+}: {
+  readonly window: LimitPoolWindow;
+  readonly shortLabel: string;
+  readonly now: number;
+}) {
+>>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
   const left = window.remainingPercent;
   const accounts = window.members.length;
   const next = window.resets.find((reset) => reset.at > now);
   return (
-    <UsageRow
-      label={window.label}
-      fill={left}
+    <LimitItem
+      label={shortLabel}
       tone={limitTone(left)}
       value={`${left}%`}
-      ariaValue={`${left}% left`}
+      ariaLabel={`${window.label}: ${left}% left`}
       tooltip={
         <>
           <span className="text-foreground">
@@ -597,6 +655,74 @@ function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly n
         </>
       }
     />
+  );
+}
+
+const HOVER_TARGET =
+  "cursor-default rounded-lg outline-none hover:bg-black/[0.035] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-popup-open:bg-black/[0.035] dark:hover:bg-white/[0.08] dark:data-popup-open:bg-white/[0.08]";
+
+/** Items spread across the line with middots centred between them. */
+function LimitLine({ children }: { readonly children: ReactNode }) {
+  return (
+    <div className="col-span-3 flex min-w-0 items-center justify-between px-1.5">
+      {Children.map(children, (child, index) => (
+        <>
+          {index > 0 ? (
+            <span aria-hidden className="text-muted-foreground/60">
+              ·
+            </span>
+          ) : null}
+          {child}
+        </>
+      ))}
+    </div>
+  );
+}
+
+function LimitItem({
+  label,
+  tone,
+  value,
+  ariaLabel,
+  tooltip,
+}: {
+  readonly label: string;
+  readonly tone: UsageTone;
+  readonly value: string | null;
+  readonly ariaLabel: string;
+  readonly tooltip: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <div
+            tabIndex={0}
+            aria-label={ariaLabel}
+            className={cn("flex h-6 min-w-0 items-center gap-1 px-1", HOVER_TARGET)}
+          />
+        }
+      >
+        <span className="truncate text-muted-foreground">{label}</span>
+        {value !== null ? (
+          <span
+            className={cn(
+              "font-medium tabular-nums",
+              tone === "error"
+                ? "text-error-foreground"
+                : tone === "warning"
+                  ? "text-warning-foreground"
+                  : "text-foreground/80",
+            )}
+          >
+            {value}
+          </span>
+        ) : null}
+      </TooltipTrigger>
+      <TooltipPopup side="top">
+        <div className="flex flex-col gap-0.5">{tooltip}</div>
+      </TooltipPopup>
+    </Tooltip>
   );
 }
 
@@ -642,7 +768,18 @@ function UsageRow({
     <Tooltip>
       <TooltipTrigger
         render={
+<<<<<<< HEAD
           opensUsage ? <Link to="/usage" {...rowProps} /> : <div tabIndex={0} {...rowProps} />
+=======
+          <div
+            tabIndex={0}
+            aria-label={`${label}: ${ariaValue}`}
+            className={cn(
+              "col-span-3 grid h-6 grid-cols-subgrid items-center px-2.5",
+              HOVER_TARGET,
+            )}
+          />
+>>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
         }
       >
         <span className="max-w-28 truncate text-muted-foreground group-hover:text-foreground">
