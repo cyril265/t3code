@@ -790,22 +790,6 @@ export function hasUnseenCompletion(thread: ThreadStatusInput): boolean {
   return completedAt > lastVisitedAt;
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
-export function isSidebarThreadUnseen(
-  thread: ThreadStatusInput,
-  localLastVisitedAt: string | undefined,
-): boolean {
-  const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
-  return hasUnseenCompletion({ ...thread, lastVisitedAt });
-}
-
->>>>>>> 24ded0bf72 (fix(web): keep the Done block steady while streaming and for the open thread)
-=======
->>>>>>> dab6086b87 (refactor(web): simplify the Done block and release a kept thread on its next run)
 /**
  * Splits off finished threads the user has not opened since, newest completion first. The open
  * thread is left out unless `keepRoute`: it was opened from the list and is still on that run.
@@ -831,17 +815,6 @@ export function splitSidebarInboxThreads<T extends ThreadStatusInput>(
   return { inbox, rest };
 }
 
-/** Unopened threads' failures still count as unseen, unlike completions. */
-function hasUnseenFailure(thread: ThreadStatusInput): boolean {
-  if (thread.latestRun?.status !== "failed") return false;
-  if (!thread.lastVisitedAt) return true;
-  const completedAt = Date.parse(thread.latestRun.completedAt ?? "");
-  const lastVisitedAt = Date.parse(thread.lastVisitedAt);
-  if (Number.isNaN(completedAt) || Number.isNaN(lastVisitedAt)) return true;
-  return completedAt > lastVisitedAt;
-}
-
->>>>>>> 1ebca2b0e3 (feat(web): list finished unread threads at the top of the sidebar)
 // Suppress trailing double-click navigation; keyboard and synthetic clicks use detail 0.
 export function isTrailingDoubleClick(detail: number): boolean {
   return detail > 1;

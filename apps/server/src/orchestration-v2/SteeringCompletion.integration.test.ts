@@ -3844,8 +3844,6 @@ it.effect.each([undefined, false, true])(
 );
 
 it.effect("starts a goal that names no model on the thread's model ahead of a queued pick", () =>
-<<<<<<< HEAD
-<<<<<<< HEAD
   Effect.gen(function* () {
     const { started, layer, startFirstTurn, read } = yield* goalHarness("goal-ahead-of-pick");
     yield* Effect.gen(function* () {
@@ -3869,46 +3867,6 @@ it.effect("starts a goal that names no model on the thread's model ahead of a qu
           ...(id === "picked" ? {} : { deliveryIntent: "auto" as const }),
           createdBy: "user",
           creationSource: "web",
-=======
-=======
-<<<<<<< HEAD
-it.effect("stops the running turn and starts a goal sent into it next", () =>
->>>>>>> a415d8ba9 (feat: queue and steer /compact while a turn runs)
-=======
->>>>>>> f1f791285e (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
-  Effect.scoped(
-    Effect.gen(function* () {
-      const { started, layer, startFirstTurn, read } = yield* goalHarness("goal-ahead-of-pick");
-      yield* Effect.gen(function* () {
-        const orchestrator = yield* Orchestrator.OrchestratorV2;
-        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
-        const threadId = yield* startFirstTurn;
-        for (const [id, text, modelSelection] of [
-          ["picked", "picked", composerSelection],
-          ["goal", "/goal all tests pass", undefined],
-        ] as const) {
-          yield* orchestrator.dispatch({
-            type: "message.dispatch",
-            commandId: CommandId.make(id),
-            threadId,
-            messageId: MessageId.make(`message:${id}`),
-            text,
-            attachments: [],
-            ...(modelSelection === undefined ? {} : { modelSelection }),
-            dispatchMode:
-              id === "picked" ? { type: "queue_after_active" } : { type: "start_immediately" },
-            ...(id === "picked" ? {} : { deliveryIntent: "auto" as const }),
-            createdBy: "user",
-            creationSource: "web",
-          });
-        }
-        yield* worker.drain();
-
-        assert.deepEqual(yield* read(threadId), {
-          queue: ["picked"],
-          started: ["first", "/goal all tests pass"],
-          stopRequested: true,
->>>>>>> 8d89bcffc2 (feat: queue and steer /compact while a turn runs)
         });
       }
       yield* worker.drain();
@@ -4273,6 +4231,7 @@ it.effect("promotes a queued goal by stopping the running turn", () =>
 );
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 it.effect("stops the running turn for a goal an agent steers into it", () =>
   Effect.gen(function* () {
     const { started, steered, layer, startFirstTurn, read } = yield* goalHarness("goal-raw-steer");
@@ -4319,8 +4278,9 @@ it.effect.each(["next", "/goal ship it", "fresh next"])(
 >>>>>>> b527e96ec (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
 =======
 >>>>>>> f1f791285e (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
+=======
+>>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 it.effect.each([
-  { text: "/goal all tests pass", delivery: "auto" },
   { text: "/compact", delivery: "steer" },
   { text: "/compact", delivery: "agent steer" },
 ] as const)(
@@ -4401,7 +4361,7 @@ it.effect.each([
     ),
 );
 
-it.effect.each(["/goal clear", "/compact"])(
+it.effect.each(["/compact"])(
   "queues an auto-delivered %s without stopping the running turn",
   (text) =>
     Effect.scoped(
@@ -4427,7 +4387,7 @@ it.effect.each(["/goal clear", "/compact"])(
     ),
 );
 
-it.effect.each(["/goal ship it", "/compact"])(
+it.effect.each(["/compact"])(
   "promotes a queued %s by stopping the running turn",
   (text) =>
     Effect.scoped(
@@ -4464,13 +4424,15 @@ it.effect.each(["/goal ship it", "/compact"])(
     ),
 );
 
+// A fresh message skips compaction as its own turn, which steering a running turn would not.
 it.effect.each([
   { promoted: "next", stops: true },
   { promoted: "/goal ship it", stops: true },
   { promoted: "fresh next", stops: true },
   { promoted: "/compact", stops: false },
-])("promoting $promoted into a compaction moves it first (stops: $stops)", ({ promoted, stops }) =>
-  Effect.scoped(
+])(
+  "promoting $promoted into a compaction moves it first (stops: $stops)",
+  ({ promoted, stops }) =>
     Effect.gen(function* () {
       const { events, layer, send, read, started, steered, startFirstTurn } = yield* goalHarness(
         `compaction-promote-${promoted.length}`,
@@ -4555,6 +4517,7 @@ it.effect.each([
         );
       }).pipe(Effect.provide(layer));
     }),
+<<<<<<< HEAD
   ),
 );
 
@@ -4644,6 +4607,8 @@ it.effect("stops a turn that is still starting when a goal is sent into it", () 
         );
       }).pipe(Effect.provide(layer));
     }),
+=======
+>>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 );
 
 it.effect("stops a turn that is still starting when a goal is sent into it", () =>

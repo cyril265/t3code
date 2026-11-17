@@ -2683,6 +2683,7 @@ export default function ChatView(props: ChatViewProps) {
     pendingApprovals.length > 0 ||
     pendingUserInputs.length > 0;
 <<<<<<< HEAD
+<<<<<<< HEAD
   const compactDisabled = compactThreadUnavailable;
 <<<<<<< HEAD
   const freshSessionAvailable =
@@ -2717,6 +2718,10 @@ export default function ChatView(props: ChatViewProps) {
   const compactDisabled = compactCommandUnavailable || isWorking;
 >>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
 >>>>>>> a5fe74f2a2 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
+=======
+  const compactDisabled = compactCommandUnavailable || isWorking;
+  // The context window is the current conversation's, so a handoff destination never inherits it.
+>>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
   const resumeCompactionTokens =
     activeContextWindow &&
     pendingHandoff === null &&
