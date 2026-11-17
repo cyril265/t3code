@@ -5015,7 +5015,7 @@ it.layer(
         source: "inherited HTTPS endpoint",
         baseUrl: "https://proxy.example/api",
         overrides: [],
-        endpoint: "https://proxy.example/api",
+        endpoint: "https://proxy.example",
       },
       {
         source: "instance HTTP endpoint overriding Anthropic",

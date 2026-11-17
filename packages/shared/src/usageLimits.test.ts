@@ -15,7 +15,6 @@ import {
   cursorUsageWindowDetails,
   collectProviderUsageLimits,
   customEndpointLimitPool,
-  endpointIdentity,
   sameUsageLimitCommandCoverage,
   withUsageLimitsCommands,
   collectLimitAccounts,
@@ -2057,6 +2056,7 @@ describe("custom endpoint limits", () => {
     id: UsageLimitSourceId.make(id),
     kind: "cliproxy" as const,
     label: id,
+    origin: new URL(endpoint).origin,
     endpoint,
     checkedAt: "2026-09-03T11:59:00.000Z",
     accounts: accounts.map((account) => ({
@@ -2097,9 +2097,6 @@ describe("custom endpoint limits", () => {
       source("port", "http://127.0.0.1:9000", [
         { id: "x.json", email: "x@example.com", usedPercent: 0 },
       ]),
-      source("path", "http://127.0.0.1:8317/other", [
-        { id: "y.json", email: "y@example.com", usedPercent: 0 },
-      ]),
     ];
     expect(
       sessionLeft(
@@ -2115,6 +2112,12 @@ describe("custom endpoint limits", () => {
       customEndpointLimitPool(instanceId, [routed("https://gateway.example.com")], [proxy], now),
     ).toBeNull();
     expect(customEndpointLimitPool(instanceId, [routed()], [proxy], now)).toBeNull();
+    const underPath = { ...proxy, endpoint: "http://127.0.0.1:8317/api" };
+    expect(
+      sessionLeft(
+        customEndpointLimitPool(instanceId, [routed("http://127.0.0.1:8317")], [underPath], now),
+      ),
+    ).toEqual([[49, 2]]);
   });
 
   it("counts an account once and uses its freshest reading", () => {
@@ -2179,18 +2182,6 @@ describe("custom endpoint limits", () => {
         { ...kv, usedPercent: null, lastServedAt: "2026-09-03T11:58:00.000Z" },
       ]),
     ).toBeNull();
-  });
-
-  it("matches an endpoint to the same proxy written another way", () => {
-    expect(endpointIdentity("HTTP://127.0.0.1:80/")).toBe(endpointIdentity("http://127.0.0.1"));
-    expect(endpointIdentity("https://Hub.example/a/?x=1#y")).toBe("https://hub.example/a");
-    expect(endpointIdentity("https://hub.example/a")).not.toBe(
-      endpointIdentity("https://hub.example/b"),
-    );
-    expect(endpointIdentity("http://hub.example")).not.toBe(
-      endpointIdentity("https://hub.example"),
-    );
-    expect(endpointIdentity("127.0.0.1:8317")).toBeUndefined();
   });
 
   it("uses a native reading when the proxy cannot read that account", () => {

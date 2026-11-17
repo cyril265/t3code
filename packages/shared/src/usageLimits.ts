@@ -497,7 +497,9 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
         );
         const resolved = resolveKey(account);
         // A resolved account already has an identity; its public key must stay distinct from others'.
-        const identity = resolved ? `${environmentId}:${source.id}` : hubIdentity(environmentId, source);
+        const identity = resolved
+          ? `${environmentId}:${source.id}`
+          : hubIdentity(environmentId, source);
         const key = `${identity}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
         merge(resolved ?? key, { ...hub, key });
       }
@@ -952,6 +954,7 @@ export function withUsageLimitsCommands(
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 /** The hubs an instance sends its requests through: those whose address is its endpoint. */
 export function instanceHubs(
   provider: ServerProvider,
@@ -993,6 +996,8 @@ export function endpointIdentity(url: string): string | undefined {
   return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`;
 }
 
+=======
+>>>>>>> 15d0282bfa (fix: CLI Proxy usage limits match their proxy by origin, as upstream v0.1.10 reports it)
 /**
  * Limits for an instance routed through a usage-limit source, such as Claude Code behind CLI Proxy.
  * `servedBy` is the account the source last relayed a response for, so the one in use now.
@@ -1018,7 +1023,7 @@ export function customEndpointLimitPool(
   const routed = new Map<string, LimitAccount>();
   let served: { key: string | null; at: number } = { key: null, at: 0 };
   for (const source of sources) {
-    if (source.endpoint !== endpoint) continue;
+    if (source.origin !== endpoint) continue;
     for (const account of source.accounts) {
       if (account.driver !== selected.driver) continue;
       const hub = hubLimitAccount(source, account, source.label, null);
