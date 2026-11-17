@@ -146,6 +146,10 @@ jobs:
           echo "UPSTREAM_SHA=$(git rev-parse "upstream-$TAG")" >> "$GITHUB_ENV"
           git log --oneline "upstream-$TAG..HEAD"
 
+      # Codex's sandbox can write the checkout but not RUNNER_TEMP, so it cannot rewrite these copies.
+      - name: Keep the Codex scripts outside the checkout
+        run: cp .github/scripts/self-build-codex.sh .github/scripts/self-build-fence.sh "$RUNNER_TEMP/"
+
       - name: Resolve conflicts with Codex
         if: env.CONFLICTS == 'true'
         env:
@@ -162,7 +166,8 @@ jobs:
             echo "Resolve every conflict marker in those files so T3's $TAG changes and this fork's changes both keep working."
             echo "Change nothing else, and do not commit: leave the edits in the working tree."
           } > "$RUNNER_TEMP/codex-prompt.md"
-          .github/scripts/self-build-codex.sh "$RUNNER_TEMP/codex-prompt.md"
+          "$RUNNER_TEMP/self-build-codex.sh" "$RUNNER_TEMP/codex-prompt.md"
+          "$RUNNER_TEMP/self-build-fence.sh" "$RUNNER_TEMP/conflicts.txt"
           left=""
           while IFS= read -r file; do
             if grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- "$file"; then left+="$file "; fi
@@ -180,7 +185,7 @@ jobs:
           install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
 
       # Fork code can break on a new release without any conflict, e.g. when upstream tightens a lint rule.
-      - name: Type check, fixing errors with Codex
+      - name: Type check and start the server, fixing failures with Codex
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
           GH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
@@ -188,27 +193,38 @@ jobs:
         run: |
           typecheck=(vp run --filter "@t3tools/desktop..." --filter "t3..." typecheck)
           [[ -n "${REBASED_SHA:-}" ]] || echo "REBASED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          # Codex may only change what this fork already changes, so it cannot remove an upstream check.
+          git diff --name-only "upstream-$TAG" HEAD | grep -v '^\.github/' > "$RUNNER_TEMP/fork-files.txt" || true
           for round in 0 1 2; do
-            if "${typecheck[@]}" > "$RUNNER_TEMP/typecheck.log" 2>&1; then
+            if ! "${typecheck[@]}" > "$RUNNER_TEMP/check.log" 2>&1; then
+              check="\`${typecheck[*]}\`"
+              errors="$(grep -E ': error TS[0-9]+:' "$RUNNER_TEMP/check.log" | sort -u | head -n 200 || true)"
+              [[ -n "$errors" ]] || errors="$(tail -n 100 "$RUNNER_TEMP/check.log")"
+            elif ! .github/scripts/self-build-boot-check.sh "$RUNNER_TEMP/check.log"; then
+              check="Starting the server with \`node apps/server/src/bin.ts serve\`"
+              errors="$(tail -n 100 "$RUNNER_TEMP/check.log")"
+            else
               break
             fi
-            errors="$(grep -E ': error TS[0-9]+:' "$RUNNER_TEMP/typecheck.log" | sort -u | head -n 200 || true)"
-            [[ -n "$errors" ]] || errors="$(tail -n 100 "$RUNNER_TEMP/typecheck.log")"
             printf '%s\n' "$errors"
             if (( round == 2 )); then
-              echo "::error::Type check still fails after Codex's fixes" >&2
+              echo "::error::$check still fails after Codex's fixes" >&2
               exit 1
             fi
             {
               echo "This repository is T3 Code $TAG with this fork's own commits rebased on top."
-              echo "Dependencies are installed. \`${typecheck[*]}\` fails with:"
+              echo "Dependencies are installed. $check fails with:"
               echo
               printf '%s\n' "$errors"
               echo
-              echo "Fix these errors so this fork's changes keep working on top of $TAG, following $TAG's own code where they disagree."
-              echo "Change only what the errors need, run the type check yourself if you can, and do not commit: leave the edits in the working tree."
+              echo "Fix this so this fork's changes keep working on top of $TAG, following $TAG's own code where they disagree."
+              echo "Change only these files, which this fork already changes; never change $TAG's own code or checks:"
+              sed 's/^/- /' "$RUNNER_TEMP/fork-files.txt"
+              echo
+              echo "Run the failing check yourself if you can, and do not commit: leave the edits in the working tree."
             } > "$RUNNER_TEMP/codex-prompt.md"
-            .github/scripts/self-build-codex.sh "$RUNNER_TEMP/codex-prompt.md"
+            "$RUNNER_TEMP/self-build-codex.sh" "$RUNNER_TEMP/codex-prompt.md"
+            "$RUNNER_TEMP/self-build-fence.sh" "$RUNNER_TEMP/fork-files.txt"
           done
           if [[ -n "$(git status --porcelain)" ]]; then
             git add -A
@@ -236,12 +252,17 @@ jobs:
 
       # The Linux CLI jobs build this rebased tree, which is only pushed when Codex changed it.
       - name: Archive the rebased source
-        run: git archive --format=tar.gz -o "$RUNNER_TEMP/source.tar.gz" HEAD
+        run: |
+          git archive --format=tar.gz -o "$RUNNER_TEMP/source.tar.gz" HEAD
+          git diff --name-only --diff-filter=d "upstream-$TAG" HEAD -- '*.test.ts' '*.test.tsx' \
+            | grep -v '\.browser\.test\.' > "$RUNNER_TEMP/fork-tests.txt" || true
 
       - uses: actions/upload-artifact@v7
         with:
           name: self-build-source
-          path: ${{ runner.temp }}/source.tar.gz
+          path: |
+            ${{ runner.temp }}/source.tar.gz
+            ${{ runner.temp }}/fork-tests.txt
 
       - name: Import signing certificate
         env:
@@ -416,3 +437,55 @@ jobs:
     uses: ./.github/workflows/android-server.yml
     with:
       release: v${{ needs.resolve.outputs.version }}
+
+  # Reports only: a failing fork test must not hold back a release.
+  fork-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: self-build-source
+          path: ${{ runner.temp }}/source
+
+      - name: Unpack the rebased source
+        run: tar -xzf "$RUNNER_TEMP/source/source.tar.gz" -C "$GITHUB_WORKSPACE"
+
+      - uses: ./.github/actions/setup-ci-deps
+
+      - name: Run the tests this fork changes
+        run: |
+          mapfile -t tests < "$RUNNER_TEMP/source/fork-tests.txt"
+          (( ${#tests[@]} )) || exit 0
+          vp test run "${tests[@]}"
+
+  # One open issue per failure streak: its assignee is notified once, and later failures update it.
+  notify:
+    needs: [resolve, build, linux-cli, publish, android-server, fork-tests]
+    if: always() && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NEEDS: ${{ toJSON(needs) }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TITLE: Self-build is failing
+    steps:
+      - name: Open, update or close the failure issue
+        run: |
+          failed="$(jq -r '[to_entries[] | select(.value.result == "failure") | .key] | join(", ")' <<<"$NEEDS")"
+          issue="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$TITLE\" in:title" \
+            --json number,title --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty")"
+          if [[ -n "$failed" ]]; then
+            body="$(printf 'Latest failing run: %s\n\nFailed jobs: %s\n\nThis closes after the next run that builds with every job passing.' "$RUN_URL" "$failed")"
+            if [[ -n "$issue" ]]; then
+              gh issue edit "$issue" --repo "$GITHUB_REPOSITORY" --body "$body"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$body" --assignee "$GITHUB_REPOSITORY_OWNER"
+            fi
+          elif [[ -n "$issue" && "$(jq -r '.build.result' <<<"$NEEDS")" == success ]] \
+            && ! jq -e 'any(.[]; .result == "cancelled")' <<<"$NEEDS" > /dev/null; then
+            gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Fixed in $RUN_URL"
+          fi
