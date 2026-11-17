@@ -397,7 +397,6 @@ it.effect.each([
   "missing",
   "git-unavailable",
   "dispatch-failure",
-  "queue-failure",
   "no-continuation",
   "archived",
   "denied",
@@ -430,7 +429,6 @@ it.effect.each([
       currentBranch: "other-repo-branch",
       ...(scenario === "denied" ? { capabilities: new Set() } : {}),
       dispatchFails: scenario === "dispatch-failure",
-      continuation: scenario === "queue-failure" ? "fails" : "queued",
       ...(scenario === "git-unavailable"
         ? {
             git: {
@@ -499,7 +497,6 @@ it.effect.each([
                 ? "operation_failed"
                 : "invalid_request",
       });
-      expect(harness.sendToThread).not.toHaveBeenCalled();
       if (scenario !== "dispatch-failure") expect(harness.dispatch).not.toHaveBeenCalled();
     } else {
       expect(Exit.isSuccess(exit)).toBe(true);
@@ -508,12 +505,7 @@ it.effect.each([
           cwd: expectedCwd,
           previousCwd: currentDir,
           continuation: {
-            status:
-              scenario === "no-continuation"
-                ? "skipped"
-                : scenario === "queue-failure"
-                  ? "failed"
-                  : "scheduled",
+            status: scenario === "no-continuation" ? "skipped" : "scheduled",
           },
         });
       }
@@ -524,7 +516,17 @@ it.effect.each([
           expectedWorktreePath: currentDir,
         }),
       );
-      if (scenario === "no-continuation") expect(harness.sendToThread).not.toHaveBeenCalled();
+      const command = harness.dispatch.mock.calls[0]?.[0];
+      if (scenario === "no-continuation") {
+        expect(command).not.toHaveProperty("continuation");
+      } else {
+        expect(command).toMatchObject({
+          continuation: {
+            messageId: expect.any(String),
+            text: "Run pwd in the new directory.",
+          },
+        });
+      }
     }
     expect(harness.listRefs).not.toHaveBeenCalled();
     expect(harness.createWorktree).not.toHaveBeenCalled();
