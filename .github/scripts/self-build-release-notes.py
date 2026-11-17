@@ -14,6 +14,8 @@ DETAILS = re.compile(r"<details>\s*<summary>\s*Full changelog\s*</summary>", re.
 STATS = re.compile(r"^(?:\*\*)?v\S+?(?:\*\*)? · ")
 CHANGE = re.compile(r"^(?:feat|fix|perf)(?:\([^)]*\))?!?: (.+)$")
 MARKUP = re.compile(r"(?<!`)(`+)(?!`).+?(?<!`)\1(?!`)|<")
+# GitHub rejects release bodies over 125,000 characters; upstream notes alone can reach that.
+LIMIT = 120_000
 
 
 def fork_changes(subjects, previous=frozenset()):
@@ -44,13 +46,26 @@ def release_notes(version, tag, subjects, upstream, previous_subjects, previous_
             footer = [line for line in lines if line.startswith("### Plus ")]
             upstream = upstream[block.end() :].replace("</details>", "", 1).strip()
         header = f"**v{version}** · {tag}{f' · {stats}' if stats and bullets else ''} · {count}"
-        full.append(f"### pingdotgg/t3code {tag}\n\n{upstream}")
-    details = "\n\n".join(full)
+    else:
+        upstream = None
     # Only a summary shared with upstream's bullets needs each fork change marked.
     marker = "**Fork.** " if bullets else ""
-    parts = [header, "\n".join([f"- {marker}{change}" for change in changes] + bullets), *footer]
-    parts.append(f"<details>\n<summary>Full changelog</summary>\n\n{details}\n\n</details>")
-    return "\n\n".join(part for part in parts if part) + "\n"
+    summary = "\n".join([f"- {marker}{change}" for change in changes] + bullets)
+
+    def render(upstream_changelog):
+        sections = full + ([f"### pingdotgg/t3code {tag}\n\n{upstream_changelog}"] if upstream_changelog is not None else [])
+        details = "\n\n".join(sections)
+        parts = [header, summary, *footer]
+        parts.append(f"<details>\n<summary>Full changelog</summary>\n\n{details}\n\n</details>")
+        return "\n\n".join(part for part in parts if part) + "\n"
+
+    notes = render(upstream)
+    if upstream and len(notes) > LIMIT:
+        link = f"[Full upstream changelog](https://github.com/pingdotgg/t3code/releases/tag/{tag})"
+        kept = upstream[: max(0, len(upstream) - (len(notes) - LIMIT) - len(link) - 2)]
+        kept = kept[: kept.rfind("\n")].rstrip() if "\n" in kept else ""
+        notes = render(f"{kept}\n\n{link}" if kept else link)
+    return notes
 
 
 if __name__ == "__main__":
