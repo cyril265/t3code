@@ -3540,15 +3540,12 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     readonly close?: (sdkMessages: Queue.Queue<SDKMessage>) => Effect.Effect<void>;
     readonly interrupt?: Effect.Effect<void, ClaudeAdapterV2.ClaudeAgentSdkQueryRunnerError>;
     readonly setPermissionMode?: ClaudeAdapterV2.ClaudeAgentSdkQuerySession["setPermissionMode"];
-<<<<<<< HEAD
     readonly setModel?: (
       model: string,
       offerAndWait: (message: SDKMessage) => Effect.Effect<void>,
     ) => Effect.Effect<void>;
     readonly renameSession?: ClaudeAdapterV2.ClaudeAgentSdkQuerySession["renameSession"];
-=======
     readonly setCwd?: ClaudeAdapterV2.ClaudeAgentSdkQuerySession["setCwd"];
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
     readonly applyFlagSettings?: ClaudeAdapterV2.ClaudeAgentSdkQuerySession["applyFlagSettings"];
     readonly stopTask?: (
       taskId: string,
@@ -3732,16 +3729,13 @@ describe("ClaudeAdapterV2 background wake turns", () => {
                   Effect.sync(() => {
                     permissionModeChanges.push(mode);
                   }).pipe(Effect.andThen(() => options?.setPermissionMode?.(mode) ?? Effect.void)),
-<<<<<<< HEAD
                 renameSession: (title) =>
                   Effect.sync(() => {
                     renameCalls.push(title);
                   }).pipe(Effect.andThen(() => options?.renameSession?.(title) ?? Effect.void)),
-=======
                 setCwd:
                   options?.setCwd ??
                   ((input) => Effect.succeed({ status: "ok" as const, cwd: input.path })),
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
                 backgroundTasks: options?.backgroundTasks ?? (() => Effect.succeed(false)),
                 mcpServerStatus: options?.mcp?.mcpServerStatus ?? Effect.succeed([]),
                 readMcpResource:

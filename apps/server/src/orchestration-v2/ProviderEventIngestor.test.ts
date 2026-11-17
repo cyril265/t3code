@@ -55,16 +55,12 @@ import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.
 import { UsageLimitResetFallback } from "../usage/UsageLimitSources.ts";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
 import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
-<<<<<<< HEAD
 import type { ServerProvider } from "@t3tools/contracts";
-import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
-=======
 import {
   makeProviderFailure,
   WORKSPACE_CHANGE_FAILED_CODE,
 } from "@t3tools/provider-core/server/failure";
 import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
 import {
   makeProviderEventRoutingState,
   type ProviderEventRouteIdentity,
@@ -460,7 +456,6 @@ it.effect("records accepted billed turn usage once without billing the context w
   }).pipe(Effect.provide(layerTest.pipe(Layer.provide(layerAnalytics))));
 });
 
-<<<<<<< HEAD
 it.effect(
   "reports invalid provider questions as typed errors and still ingests valid questions",
   () =>
@@ -529,7 +524,8 @@ it.effect(
         validEvent.turnItem,
       ]);
     }).pipe(Effect.provide(layerTest)),
-=======
+);
+
 it.effect("stamps an unexpected prompt cache miss per turn and across a restart", () =>
   Effect.gen(function* () {
     const now = yield* DateTime.now;
@@ -611,7 +607,6 @@ it.effect("stamps an unexpected prompt cache miss per turn and across a restart"
       { tokens: 22_000, ...unexpected },
     ]);
   }).pipe(Effect.provide(layerTest)),
->>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
 );
 
 layer("ProviderEventIngestorV2", (it) => {

@@ -76,13 +76,10 @@ import * as WorktreeHandlers from "./toolkits/worktree/handlers.ts";
 import { WorktreeToolkit } from "./toolkits/worktree/tools.ts";
 import * as WorktreeMcpService from "./WorktreeMcpService.ts";
 import * as PullRequestsHandlers from "./toolkits/pullRequests/handlers.ts";
-<<<<<<< HEAD
 import * as ToolSearchHandlers from "./toolkits/toolSearch/handlers.ts";
 import { ToolSearchToolkit } from "./toolkits/toolSearch/tools.ts";
-=======
 import * as ExternalWaitHandlers from "./toolkits/externalWait/handlers.ts";
 import { ExternalWaitToolkit } from "./toolkits/externalWait/tools.ts";
->>>>>>> f441097e96 (feat: show running wait scripts on their thread)
 import { PullRequestsToolkit } from "./toolkits/pullRequests/tools.ts";
 import * as DeviceHandlers from "./toolkits/device/handlers.ts";
 import {

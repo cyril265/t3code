@@ -2535,29 +2535,8 @@ export default function ChatView(props: ChatViewProps) {
     feedbackUploading ||
     pendingApprovals.length > 0 ||
     pendingUserInputs.length > 0;
-<<<<<<< HEAD
-  const compactDisabled = compactThreadUnavailable;
-<<<<<<< HEAD
+  const compactDisabled = compactCommandUnavailable || isWorking;
   // The context window is the current conversation's, so a handoff destination never inherits it.
-=======
-=======
-    pendingUserInputs.length > 0 ||
-    showPlanFollowUpPrompt;
-  const compactDisabled = compactCommandUnavailable || isWorking;
-  const compactDisabledReason = compactDisabled
-    ? !canOperateThread
-      ? "This connection cannot change threads."
-      : !activeProject
-        ? "Choose a project before compacting"
-        : !manualCompactionProviderAvailable
-          ? "Compaction is unavailable for this provider"
-          : "Compacting is unavailable right now"
-    : null;
->>>>>>> 7376a1ec1 (fix(web): offer /compact in the slash menu while a turn runs)
->>>>>>> 5a20a5b8f1 (fix(web): offer /compact in the slash menu while a turn runs)
-=======
-  const compactDisabled = compactCommandUnavailable || isWorking;
->>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
   const resumeCompactionTokens =
     activeContextWindow &&
     pendingHandoff === null &&

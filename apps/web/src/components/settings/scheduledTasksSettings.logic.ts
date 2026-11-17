@@ -47,6 +47,7 @@ export function scheduleLabel(
 ): string {
   if (schedule.type === "webhook") return "On webhook";
   if (schedule.type === "once") return `Once, ${ONCE_FORMATTER.format(new Date(schedule.runAt))}`;
+  if (schedule.type === "cron") return `Cron ${schedule.expression}`;
   if (schedule.type === "interval") {
     const minutes = schedule.everyMs / 60_000;
     return Number.isInteger(minutes)
@@ -159,10 +160,8 @@ export function scheduleDraftErrors(draft: DraftState) {
       ];
     return [];
   }
-<<<<<<< HEAD
   if (draft.scheduleMode === "fixed" && !draft.timeOfDay)
     return [{ title: "Invalid run time", description: "Pick a time." }];
-=======
   if (draft.scheduleMode === "cron")
     return isCronExpression(draft.cronExpression)
       ? []
@@ -172,7 +171,6 @@ export function scheduleDraftErrors(draft: DraftState) {
             description: "Use five fields: minute, hour, day of month, month, and weekday.",
           },
         ];
->>>>>>> 3dddb989f2 (feat: cron schedules for scheduled tasks)
   if (draft.scheduleMode !== "webhook") return [];
   if (parseMaxDeliveryAge(draft.maxDeliveryAgeMinutes) === undefined)
     return [

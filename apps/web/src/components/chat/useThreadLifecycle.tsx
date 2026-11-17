@@ -76,13 +76,8 @@ import { withExternalWaitStop } from "@t3tools/client-runtime/state/external-wai
 import { useAtomValue } from "@effect/atom-react";
 import type { RunStopPresentation } from "@t3tools/client-runtime/state/thread-execution";
 import { Atom } from "effect/reactivity";
-<<<<<<< HEAD
-import { environmentThreadDetails } from "../../state/threads";
-import { resolveThreadOpenRoute } from "../../lib/sideChatPane";
-=======
 import { environmentThreadDetails, externalWaits } from "../../state/threads";
-import { openSideChatTab } from "../../lib/sideChatPane";
->>>>>>> f441097e96 (feat: show running wait scripts on their thread)
+import { resolveThreadOpenRoute } from "../../lib/sideChatPane";
 import type { useLocalDispatchState } from "./useLocalDispatchState";
 const RELATED_THREAD_SHELL_WAIT_MS = 1_000;
 const NO_RUN_STOP_ATOM = Atom.make<RunStopPresentation | null>(null).pipe(

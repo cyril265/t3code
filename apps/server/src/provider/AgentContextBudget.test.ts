@@ -54,11 +54,8 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(AssetSigner)({}),
   Layer.mock(DeviceService)({}),
   Layer.mock(DocumentText)({}),
-<<<<<<< HEAD
   Layer.mock(EnvironmentThemeService)({}),
-=======
   Layer.mock(ExternalWaits)({}),
->>>>>>> f441097e96 (feat: show running wait scripts on their thread)
   Layer.mock(GitVcsDriver)({}),
   Layer.mock(GitWorkflowService)({}),
   Layer.mock(ManagedProjectFolders)({ namedProjectsRoot: "" }),

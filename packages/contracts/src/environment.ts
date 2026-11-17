@@ -198,8 +198,6 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   /** Server can transcribe 16 kHz mono PCM audio on the environment machine. */
   voiceTranscription: Schema.optionalKey(Schema.Boolean),
   cloudVoiceTranscription: Schema.optionalKey(Schema.Boolean),
-<<<<<<< HEAD
-<<<<<<< HEAD
   /**
    * The server config's flags of the same names. A server that names them here lets a client
    * load the shell snapshot before the socket opens, and answers its `resumeFrom`.
@@ -208,16 +206,8 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   shellOlderSettled: Schema.optionalKey(Schema.Boolean),
   /** Publishes a pull request refresh when linked-thread answers change; older servers need polling. */
   linkedThreadRefreshes: Schema.optionalKey(Schema.Boolean),
-=======
-=======
   /** Server accepts `{ type: "cron" }` scheduled tasks; older servers reject them on save. */
   cronSchedules: Schema.optionalKey(Schema.Boolean),
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
->>>>>>> 3dddb989f2 (feat: cron schedules for scheduled tasks)
-=======
-  /** Server accepts `{ type: "cron" }` scheduled tasks; older servers reject them on save. */
-  cronSchedules: Schema.optionalKey(Schema.Boolean),
->>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 

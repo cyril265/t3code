@@ -88,13 +88,9 @@ export const UsageLimitSourceSnapshot = Schema.Struct({
   id: UsageLimitSourceId,
   kind: Schema.Literal("cliproxy"),
   label: TrimmedNonEmptyString,
-<<<<<<< HEAD
   /** Origin of the hub, which also serves the agents sent through it. */
   origin: Schema.optional(TrimmedNonEmptyString),
   /** Origin and base path of the hub, which tell apart hubs served from one origin. */
-=======
-  /** The source's URL as `endpointIdentity`, so providers routed through it can find their limits. */
->>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
   endpoint: Schema.optional(TrimmedNonEmptyString),
   checkedAt: IsoDateTime,
   accounts: ForwardCompatibleArray(UsageLimitSourceAccount),
