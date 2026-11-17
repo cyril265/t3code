@@ -229,8 +229,8 @@ import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
 import {
   makeProviderFailure,
   makeProviderRetryTurnItem,
-<<<<<<< HEAD
   PROVIDER_RETRY_BUDGET_MS,
+<<<<<<< HEAD
 <<<<<<< HEAD
   providerProcessExitGuidance,
 =======
@@ -238,6 +238,9 @@ import {
   WORKSPACE_CHANGE_FAILED_CODE,
 >>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
 >>>>>>> 43cd4a621a (feat: move a thread to another directory or a new worktree without a new session)
+=======
+  WORKSPACE_CHANGE_FAILED_CODE,
+>>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 } from "@t3tools/provider-core/server/failure";
 import { turnScopedSelectionTransition } from "@t3tools/provider-core/server/selectionTransition";
 import { providerMessageTextWithAttachmentPaths } from "@t3tools/provider-core/server/attachmentPrompt";
@@ -744,15 +747,12 @@ export interface ClaudeAgentSdkQuerySession {
   readonly setPermissionMode: (
     mode: PermissionMode,
   ) => Effect.Effect<void, ClaudeAgentSdkQueryRunnerError>;
-<<<<<<< HEAD
   readonly renameSession: (title: string) => Effect.Effect<void, ClaudeAgentSdkQueryRunnerError>;
-=======
   readonly setCwd?: (input: {
     readonly path: string;
     readonly trustAccepted?: boolean;
     readonly trustedDirectory?: string;
   }) => Effect.Effect<ClaudeCwdChangeResult, ClaudeAgentSdkQueryRunnerError>;
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
   readonly stopTask: (taskId: string) => Effect.Effect<void, ClaudeAgentSdkQueryRunnerError>;
   readonly backgroundTasks: (
     toolUseId: string,
@@ -1010,11 +1010,7 @@ function closeClaudeQuery(queryRuntime: ClaudeQuery) {
 async function sendClaudeControlRequest(
   queryRuntime: ClaudeQuery,
   request: {
-<<<<<<< HEAD
-    readonly subtype: "mcp_call" | "list_permission_rules" | "rename_session";
-=======
-    readonly subtype: "mcp_call" | "list_permission_rules" | "set_cwd";
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
+    readonly subtype: "mcp_call" | "list_permission_rules" | "rename_session" | "set_cwd";
     readonly [key: string]: unknown;
   },
 ): Promise<unknown> {
@@ -2420,7 +2416,6 @@ export const layerQueryRunner: Layer.Layer<
                   }),
                 ),
               ),
-<<<<<<< HEAD
             renameSession: (title) =>
               Effect.tryPromise({
                 try: () =>
@@ -2442,7 +2437,7 @@ export const layerQueryRunner: Layer.Layer<
                     },
                   }),
                 ),
-=======
+              ),
             setCwd: (input) =>
               Effect.tryPromise({
                 try: () =>
@@ -2460,7 +2455,6 @@ export const layerQueryRunner: Layer.Layer<
               }).pipe(
                 Effect.flatMap(decodeClaudeCwdChangeResult),
                 Effect.mapError((cause) => queryRunnerError(cause, "setCwd")),
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
               ),
             stopTask: (taskId) =>
               Effect.tryPromise({
@@ -11466,9 +11460,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             if (event.type === "message_start") {
               reasoning.messageId = event.message.id;
               reasoning.streamBlocks.clear();
-<<<<<<< HEAD
               context.assistant.streamBlocks.clear();
-=======
               // The request's first usage sample must name its model, or a switch reads as an unexpected cache miss.
               if (event.message.model && event.message.model !== "<synthetic>") {
                 context.executedModel = resolveClaudeReportedModelSlug(
@@ -11476,7 +11468,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   event.message.model,
                 );
               }
->>>>>>> 9bf0a75052 (feat: show idle time and prompt cache misses in thread details)
               const usage: ClaudeMessageUsage | undefined = event.message.usage;
               context.streamUsage =
                 usage === undefined ? null : { messageId: event.message.id, usage };
@@ -13983,7 +13974,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               const used = turnInput.providerThread.nativeMetadata?.claudeAttachmentBudget;
               pdfBudgets.set(nativeThreadId, makeClaudeAttachmentBudget(used));
             }
-<<<<<<< HEAD
             if (!appliedSessionTitles.has(nativeThreadId)) {
               const recordedTitle = turnInput.providerThread.nativeMetadata?.title;
               if (recordedTitle !== undefined && recordedTitle !== null) {
@@ -13998,22 +13988,21 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 queryPolicyForTurn(turnInput),
               ],
               { concurrency: "unbounded" },
-=======
+            );
             const promptScope = yield* Scope.fork(sessionScope);
             let promptDeferred = false;
             yield* Effect.addFinalizer(() =>
               promptDeferred ? Effect.void : Scope.close(promptScope, Exit.void),
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
             );
             const pdfReservation = yield* reserveClaudePdfBudget(
               pdfBudgets.get(nativeThreadId)!,
               persistAttachmentBudget(nativeThreadId),
-<<<<<<< HEAD
-            );
+            ).pipe(Effect.provideService(Scope.Scope, promptScope));
             const promptText = applyClaudePromptEffortPrefix(
               turnInput.message.text,
               compileClaudeModelSelection(turnInput.modelSelection, modelCatalog).promptEffort,
             );
+<<<<<<< HEAD
 <<<<<<< HEAD
             const appContext = turnInput.appContext ?? [];
             const delivered = deliveredAppContext.get(nativeThreadId);
@@ -14023,6 +14012,8 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             ).pipe(Effect.provideService(Scope.Scope, promptScope));
 >>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
 >>>>>>> 43cd4a621a (feat: move a thread to another directory or a new worktree without a new session)
+=======
+>>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
             const userMessage =
               promptUuid === null
                 ? null
@@ -14237,9 +14228,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   );
             if (userMessage !== null && !turnInput.resume) {
               yield* attachTurn;
-<<<<<<< HEAD
-              yield* offerUserMessage;
-=======
               const sendPrompt = Effect.gen(function* () {
                 if (
                   (yield* Ref.get(activeTurn)) !== context ||
@@ -14365,7 +14353,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 return;
               }
               yield* sendPrompt;
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
               return;
             }
             // Transcript reads suspend replay; hold SDK frames until the buffer is applied to preserve order.
@@ -14690,7 +14677,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 detail: `Claude provider turn ${turnInput.providerTurnId} is not the active turn.`,
               });
             }
-<<<<<<< HEAD
             // Claude echoes this uuid once it accepts the steer.
             const steerUuid = yield* random.uuidV4().pipe(
               Effect.filterOrFail(isClaudePromptUuid),
@@ -14703,14 +14689,12 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   }),
               ),
             );
-=======
             if (existing.settingsCwd !== currentTurn.input.runtimePolicy.cwd) {
               return yield* new ProviderAdapter.ProviderAdapterProtocolError({
                 driver: CLAUDE_PROVIDER,
                 detail: "Claude is changing workspaces; queue this message for the next turn.",
               });
             }
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
             const pdfReservation = yield* reserveClaudePdfBudget(
               pdfBudgets.get(existing.nativeThreadId) ??
                 makeClaudeAttachmentBudget({

@@ -5923,15 +5923,11 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
         settled?.type === "provider_turn.updated" ? settled.providerTurn.turnTokenUsage : undefined;
       assert.deepInclude(usage, { usageStatus: "complete", inputTokens: 20, outputTokens: 2 });
       assert.notProperty(usage, "models");
-<<<<<<< HEAD
-    }),
-=======
       assert.deepEqual(liveOutput, [
         [1, 0],
         [2, 0],
       ]);
     }).pipe(Effect.scoped),
->>>>>>> adaa3cf3f5 (feat: show live output token counts and average tok/s)
   );
 
   it.effect("reports cache writes as cache creation, not only as input", () =>

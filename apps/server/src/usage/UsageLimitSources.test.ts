@@ -36,22 +36,15 @@ it.effect("keeps malformed source URLs encodable for config subscribers", () =>
       "hub.test:8317",
       "Usage limit source",
     ]);
-<<<<<<< HEAD
     // Only an http(s) hub URL names an endpoint an agent can be sent to.
     expect(snapshots.map((source) => source.origin)).toEqual([
-=======
-    expect(snapshots.map((source) => source.endpoint)).toEqual([
->>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       undefined,
       undefined,
       undefined,
       "https://hub.test:8317",
       undefined,
     ]);
-<<<<<<< HEAD
     expect(snapshots[3]?.endpoint).toBe("https://hub.test:8317/team-a");
-=======
->>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
     expect(() =>
       encodeConfigEvent({
         version: 1,

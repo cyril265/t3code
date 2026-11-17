@@ -4720,7 +4720,9 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         : command.type === "thread.metadata.update" &&
             command.worktreePath !== undefined &&
             command.worktreePath !== thread.worktreePath
-          ? (providerContext?.providerSessions ?? []).map((session) => session.id)
+          ? (providerContext?.providerSessions ?? [])
+              .filter((session) => !session.capabilities.sessions.supportsWorkspaceSwitchInSession)
+              .map((session) => session.id)
           : command.type === "thread.runtime-mode.set"
             ? (providerContext?.providerSessions ?? [])
                 .filter(
@@ -5697,36 +5699,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       yield* closePendingLinkRequests({ command, events, threadId: command.threadId, now });
     }
 
-<<<<<<< HEAD
     if (liveSessions.length > 0) {
-=======
-    // Archive and settle stop idle background work; serialized commands prevent starts racing detach.
-    // Settlement rejects active or blocked runs.
-    const detachSessionIds = new Set(
-      command.type === "thread.archive" || command.type === "thread.settle"
-        ? (providerContext?.providerSessions ?? []).map((session) => session.id)
-        : command.type === "thread.metadata.update" &&
-            command.worktreePath !== undefined &&
-            command.worktreePath !== thread.worktreePath
-          ? (providerContext?.providerSessions ?? [])
-              .filter((session) => !session.capabilities.sessions.supportsWorkspaceSwitchInSession)
-              .map((session) => session.id)
-          : command.type === "thread.runtime-mode.set"
-            ? (providerContext?.providerSessions ?? [])
-                .filter(
-                  (session) => !session.capabilities.sessions.supportsRuntimeModeSwitchInSession,
-                )
-                .map((session) => session.id)
-            : (providerSwitchPlan?.releaseProviderSessionIds ?? []),
-    );
-    if (detachSessionIds.size > 0) {
-      const liveSessions = (providerContext?.providerSessions ?? []).filter(
-        (session) =>
-          detachSessionIds.has(session.id) &&
-          session.status !== "stopped" &&
-          session.status !== "error",
-      );
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
       yield* Effect.forEach(
         liveSessions,
         (session) =>
@@ -11847,24 +11820,10 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         cause: "A message that starts a fresh session can't steer the current turn.",
       });
     }
-<<<<<<< HEAD
-    if (goalCommand !== null) {
-<<<<<<< HEAD
-      yield* ensureGoalCommandSupported(command, queuedMessage, modelSelection.instanceId);
-=======
-      yield* ensureGoalCommandSupported(command, queuedMessage, queuedRun.providerInstanceId);
-=======
-=======
->>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
     if (goalCommand !== null || compaction) {
       if (goalCommand !== null) {
-        yield* ensureGoalCommandSupported(command, queuedMessage, queuedRun.providerInstanceId);
+        yield* ensureGoalCommandSupported(command, queuedMessage, modelSelection.instanceId);
       }
-<<<<<<< HEAD
->>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
->>>>>>> 8d89bcffc2 (feat: queue and steer /compact while a turn runs)
-=======
->>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
       const goal = projection.providerThreads.find(
         (candidate) => candidate.id === target?.providerThreadId,
       )?.goal;

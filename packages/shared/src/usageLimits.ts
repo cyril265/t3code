@@ -260,7 +260,6 @@ function accountKeyResolver(reports: Iterable<AccountReport>) {
 
 const hubAccountName = (account: { readonly id: string }) => account.id.replace(/\.json$/i, "");
 
-<<<<<<< HEAD
 // Source ids are environment-local, so only a remote endpoint names the same hub across environments.
 function hubIdentity(environmentId: EnvironmentId, source: UsageLimitSourceSnapshot): string {
   // The server supplies canonical endpoints; native URL polyfills can misparse IPv6 hosts.
@@ -273,7 +272,8 @@ function hubIdentity(environmentId: EnvironmentId, source: UsageLimitSourceSnaps
     // Each machine resolves these to itself too; shared host classification leaves them out.
     /\.localhost\.*$|^\[::ffff:(?:127\.|7f[\da-f]{2}:)/i.test(host);
   return endpoint && !local ? endpoint : `${environmentId}:${source.id}`;
-=======
+}
+
 const providerKeyResolver = (
   providers: readonly ServerProvider[],
   sources: UsageLimitSourceSnapshots,
@@ -301,7 +301,6 @@ function hubLimitAccount(
     redeem,
     limits: account.usageLimits,
   };
->>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 }
 
 export interface LimitAccount {
@@ -430,24 +429,9 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
         : source.label;
       for (const account of source.accounts) {
         if (limitsNotice(account.usageLimits) !== null) continue;
-<<<<<<< HEAD
-        const resolved = resolveKey(account);
-        // A resolved account already has an identity; its public key must stay distinct from others'.
-        const hub = resolved ? `${environmentId}:${source.id}` : hubIdentity(environmentId, source);
-        const key = `${hub}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
-        merge(resolved ?? key, {
-          key,
-          driver: account.driver,
-          displayName: account.email ? null : hubAccountName(account),
-          email: account.email,
-          plan: account.plan,
-          accentColor: undefined,
-          environments: [],
-=======
         const hub = hubLimitAccount(
           source,
           account,
->>>>>>> cc49c4a2e9 (fix(web): show CLI Proxy limits for Claude Code routed through it)
           sourceLabel,
           account.usageLimits.resetCredits?.nextCreditId
             ? {
@@ -460,7 +444,11 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
               }
             : null,
         );
-        merge(resolveKey(account) ?? hub.key, hub);
+        const resolved = resolveKey(account);
+        // A resolved account already has an identity; its public key must stay distinct from others'.
+        const identity = resolved ? `${environmentId}:${source.id}` : hubIdentity(environmentId, source);
+        const key = `${identity}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
+        merge(resolved ?? key, { ...hub, key });
       }
     }
   }
