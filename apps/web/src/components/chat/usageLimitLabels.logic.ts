@@ -7,13 +7,13 @@ const CADENCE = new Map([
 
 /**
  * "Weekly" reads 7d. A scope with one window drops its cadence ("Weekly · Fable" reads fable);
- * a scope with several keeps it ("Go · Weekly" reads go 7d). Other names stay, lowercased.
+ * a scope with several leads with it ("Go · Weekly" reads 7d go), so truncation keeps it visible.
+ * Other names stay, lowercased.
  */
 export function shortLimitLabels(labels: readonly string[]): string[] {
   const parsed = labels.map((label) => {
     const parts = label.split(" · ");
     return {
-      label,
       scope: parts
         .filter((part) => !CADENCE.has(part.toLowerCase()))
         .join(" · ")
@@ -21,11 +21,11 @@ export function shortLimitLabels(labels: readonly string[]): string[] {
       cadence: parts.map((part) => CADENCE.get(part.toLowerCase())).find(Boolean) ?? null,
     };
   });
-  return parsed.map(({ label, scope, cadence }) => {
-    if (cadence === null) return label.toLowerCase();
+  return parsed.map(({ scope, cadence }) => {
+    if (cadence === null) return scope;
     if (scope === "") return cadence;
     return parsed.filter((other) => other.scope === scope).length > 1
-      ? `${scope} ${cadence}`
+      ? `${cadence} ${scope}`
       : scope;
   });
 }
