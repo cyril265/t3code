@@ -543,8 +543,7 @@ const make = Effect.gen(function* () {
       Effect.orElseSucceed(() => null),
     );
     const ids = yield* handoffIds(scope);
-    // Providers without live directory switching detach on binding; still record the continuation.
-    const continuation = yield* Effect.uninterruptible(
+    const bound = yield* Effect.uninterruptible(
       threadManagement
         .dispatch({
           type: "thread.metadata.update",
@@ -554,39 +553,28 @@ const make = Effect.gen(function* () {
           // Legacy name: this is the per-thread cwd override that runtimes and clients read.
           worktreePath: cwd === projectRoot ? null : cwd,
           expectedWorktreePath: projection.thread.worktreePath,
+          ...(input.continuationPrompt === undefined
+            ? {}
+            : {
+                continuation: {
+                  messageId: ids.continuationMessageId,
+                  text: input.continuationPrompt,
+                },
+              }),
         })
-        .pipe(
-          asOperationFailed("Unable to change the thread directory"),
-          Effect.andThen(() =>
-            input.continuationPrompt === undefined
-              ? Effect.succeed<WorktreeMcpContinuationStatus>({ status: "skipped" })
-              : threadManagement
-                  .sendToThread({
-                    projectId: project.id,
-                    commandId: ids.continuationCommandId,
-                    threadId: scope.thread.threadId,
-                    messageId: ids.continuationMessageId,
-                    text: input.continuationPrompt,
-                    attachments: [],
-                    mode: "queue",
-                    createdBy: "agent",
-                    creationSource: "mcp",
-                  })
-                  .pipe(
-                    Effect.map((result): WorktreeMcpContinuationStatus => ({
-                      status: "scheduled",
-                      delivery: result.delivery,
-                    })),
-                    Effect.catchCause((cause) =>
-                      Effect.succeed<WorktreeMcpContinuationStatus>({
-                        status: "failed",
-                        detail: errorMessage(Cause.squash(cause)),
-                      }),
-                    ),
-                  ),
-          ),
-        ),
+        .pipe(asOperationFailed("Unable to change the thread directory")),
     );
+    const continuation: WorktreeMcpContinuationStatus =
+      input.continuationPrompt === undefined
+        ? { status: "skipped" }
+        : {
+            status: "scheduled",
+            delivery: bound.storedEvents.some(
+              ({ event }) => event.type === "run.created" && event.payload.status !== "queued",
+            )
+              ? "started"
+              : "queued",
+          };
     return {
       cwd,
       previousCwd,
