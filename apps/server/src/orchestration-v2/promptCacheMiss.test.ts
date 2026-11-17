@@ -82,6 +82,7 @@ it("prices re-written tokens at the write rate and the rest as uncached input, m
     outputCostPerToken: 25e-6,
     cacheReadCostPerToken: 0.5e-6,
     cacheCreationCostPerToken: 6.25e-6,
+    cacheCreation1hCostPerToken: 10e-6,
   };
   expect(promptCacheMissCostUsd(100_000, 106_000, rates)).toBeCloseTo(0.575);
   expect(promptCacheMissCostUsd(100_000, 0, rates)).toBeCloseTo(0.45);
