@@ -580,7 +580,7 @@ function UsageRow({
   tick = null,
   detail = null,
   value,
-  ariaValue = detail === null ? value : `${detail.text}, ${value}`,
+  ariaValue,
   tooltip,
   muted = false,
   opensUsage = false,
@@ -618,7 +618,7 @@ function UsageRow({
 =======
           <div
             tabIndex={0}
-            aria-label={`${label}: ${ariaValue}`}
+            aria-label={`${label}: ${ariaValue ?? (detail === null ? value : `${detail.text}, ${value}`)}`}
             className={cn(
               "col-span-3 grid h-6 grid-cols-subgrid items-center px-2.5",
               HOVER_TARGET,
