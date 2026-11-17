@@ -1170,7 +1170,7 @@ const threadWaitStatusCommand = Command.make("wait-status", {
     Effect.gen(function* () {
       const threadId = yield* decodeThreadId(flags.thread);
       yield* withThreadTools(
-        flags,
+        { ...flags, json: true },
         Effect.fn("cli.thread.waitStatus")(function* (tools) {
           const result = yield* tools.call(
             EXTERNAL_WAIT_TOOL_NAME,
