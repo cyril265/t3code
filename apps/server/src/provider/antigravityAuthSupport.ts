@@ -248,11 +248,12 @@ function antigravityEnvironment(
   };
 }
 
-class AntigravitySkillLinkError extends Schema.TaggedError<AntigravitySkillLinkError>()(
-  "AntigravitySkillLinkError",
+class AntigravityUserLinkError extends Schema.TaggedError<AntigravityUserLinkError>()(
+  "AntigravityUserLinkError",
   { link: Schema.String, cause: Schema.Defect() },
 ) {
   override get message(): string {
+<<<<<<< HEAD
     return `Could not link Antigravity user configuration at ${this.link}.`;
   }
 }
@@ -265,12 +266,21 @@ const antigravityUserConfigFiles = [
 
 /** Private GEMINI_HOME isolates credentials/hooks/MCP; link global skills and rules from the real ~/.gemini. */
 const linkAntigravityUserConfig = Effect.fn("linkAntigravityUserConfig")(function* (input: {
+=======
+    return `Could not link Antigravity user customizations at ${this.link}.`;
+  }
+}
+
+/** Private GEMINI_HOME isolates credentials/hooks/MCP; link global skills and rules from the real ~/.gemini. */
+const linkAntigravityUserFiles = Effect.fn("linkAntigravityUserFiles")(function* (input: {
+>>>>>>> 3fb4968c5c (fix(antigravity): link the user's global GEMINI.md rules into T3's profile)
   readonly profileDirectory: string;
   readonly userHome: string;
   readonly platform: NodeJS.Platform;
 }): Effect.fn.Return<void, never, FileSystem.FileSystem | Path.Path> {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
+<<<<<<< HEAD
   const userGemini = path.join(input.userHome, ".gemini");
   const links = antigravityUserSkillDirectories(path, input.profileDirectory);
   const targets = antigravityUserSkillDirectories(path, userGemini);
@@ -289,6 +299,19 @@ const linkAntigravityUserConfig = Effect.fn("linkAntigravityUserConfig")(functio
               "file",
             ] as const,
         )),
+=======
+  const userGeminiHome = path.join(input.userHome, ".gemini");
+  const links = antigravityUserSkillDirectories(path, input.profileDirectory);
+  const targets = antigravityUserSkillDirectories(path, userGeminiHome);
+  for (const [link, target, type] of [
+    [links[0], targets[0], "dir"],
+    [links[1], targets[1], "dir"],
+    [
+      path.join(input.profileDirectory, "GEMINI.md"),
+      path.join(userGeminiHome, "GEMINI.md"),
+      "file",
+    ],
+>>>>>>> 3fb4968c5c (fix(antigravity): link the user's global GEMINI.md rules into T3's profile)
   ] as const) {
     yield* Effect.gen(function* () {
       // The harness creates these folders itself, and mkdir fails on a dangling link.
@@ -308,7 +331,7 @@ const linkAntigravityUserConfig = Effect.fn("linkAntigravityUserConfig")(functio
         Effect.catch((error) =>
           Effect.tryPromise({
             try: () => NodeFSP.rmdir(link),
-            catch: (cause) => new AntigravitySkillLinkError({ link, cause }),
+            catch: (cause) => new AntigravityUserLinkError({ link, cause }),
           }).pipe(
             Effect.as(undefined),
             Effect.mapError(() => error),
@@ -321,12 +344,26 @@ const linkAntigravityUserConfig = Effect.fn("linkAntigravityUserConfig")(functio
       }
       yield* fs.makeDirectory(path.dirname(link), { recursive: true });
       yield* Effect.tryPromise({
+<<<<<<< HEAD
         try: () => NodeFSP.symlink(target, link, type),
         catch: (cause) => new AntigravitySkillLinkError({ link, cause }),
       });
     }).pipe(
       Effect.catch((error) =>
         Effect.logWarning("Antigravity user configuration is not linked into the profile.", {
+=======
+        try: () =>
+          NodeFSP.symlink(
+            target,
+            link,
+            type === "dir" && input.platform === "win32" ? "junction" : type,
+          ),
+        catch: (cause) => new AntigravityUserLinkError({ link, cause }),
+      });
+    }).pipe(
+      Effect.catch((error) =>
+        Effect.logWarning("Antigravity user customizations are not linked into the profile.", {
+>>>>>>> 3fb4968c5c (fix(antigravity): link the user's global GEMINI.md rules into T3's profile)
           link,
           target,
           error,
@@ -540,10 +577,14 @@ export const prepareAntigravityProfile = Effect.fn("prepareAntigravityProfile")(
         authSupportError("The Antigravity profile settings could not be written."),
       ),
     );
+<<<<<<< HEAD
   yield* linkAntigravityUserConfig({ profileDirectory: geminiHome, userHome, platform });
   if (platform === "win32") {
     yield* copyAntigravityUserConfigFiles({ profileDirectory: geminiHome, userHome });
   }
+=======
+  yield* linkAntigravityUserFiles({ profileDirectory: geminiHome, userHome, platform });
+>>>>>>> 3fb4968c5c (fix(antigravity): link the user's global GEMINI.md rules into T3's profile)
   return profile;
 });
 
