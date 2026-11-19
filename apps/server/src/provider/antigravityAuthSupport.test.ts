@@ -837,12 +837,13 @@ it.layer(NodeServices.layer)("Antigravity profile preparation", (it) => {
 
         yield* fs.remove(rules);
         yield* prepareAntigravityProfile({ profileDirectory, userHome });
-        expect(yield* fs.exists(link)).toBe(false);
+        expect(yield* fs.readDirectory(profileDirectory)).not.toContain("GEMINI.md");
 
         yield* fs.writeFileString(rules, "- user rule\n");
         yield* fs.writeFileString(link, "- profile rule\n");
         yield* prepareAntigravityProfile({ profileDirectory, userHome });
         expect(yield* fs.readFileString(link)).toBe("- profile rule\n");
+        expect(yield* fs.readFileString(rules)).toBe("- user rule\n");
       }),
   );
 
