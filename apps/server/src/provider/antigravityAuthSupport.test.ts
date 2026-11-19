@@ -129,6 +129,29 @@ describe("Antigravity process environment", () => {
     expect(spawn.env).toMatchObject({ GEMINI_HOME: profile.geminiHome, PATH: "/usr/bin" });
   });
 
+  it("gives only a thread's own session T3 MCP credentials and its agent", () => {
+    const baseEnv = { PATH: "/usr/bin", T3_ACP_MCP_AUTHORIZATION: "Bearer parent-thread" };
+    const helper = buildAntigravityAcpSpawnInput({
+      installation: { executablePath: "/usr/bin/agy", harnessPath: null },
+      profile,
+      cwd: "/project",
+      baseEnv,
+    });
+    const session = buildAntigravityAcpSpawnInput({
+      installation: { executablePath: "/usr/bin/agy", harnessPath: null },
+      profile,
+      cwd: "/project",
+      baseEnv,
+      agent: "t3-code",
+      processEnvironment: { T3_ACP_MCP_AUTHORIZATION: "Bearer this-thread" },
+    });
+
+    expect(helper.env).not.toHaveProperty("T3_ACP_MCP_AUTHORIZATION");
+    expect(helper.args).not.toContain("--agent");
+    expect(session.env).toMatchObject({ T3_ACP_MCP_AUTHORIZATION: "Bearer this-thread" });
+    expect(session.args.slice(-2)).toEqual(["--agent", "t3-code"]);
+  });
+
   it("passes only the configured method's credential and keeps the GCP pair out of the environment", () => {
     const baseEnv = { PATH: "/usr/bin", GOOGLE_API_KEY: "ambient-key" };
     const spawnFor = (auth: AntigravityAuthConfig) =>
