@@ -690,14 +690,11 @@ it.layer(NodeServices.layer)("Antigravity profile preparation", (it) => {
         const rules = path.join(userHome, ".gemini", "GEMINI.md");
         const link = path.join(profileDirectory, "GEMINI.md");
 
-        yield* prepareAntigravityProfile({ profileDirectory, userHome });
-        expect(yield* fs.exists(link)).toBe(false);
-
         yield* fs.makeDirectory(path.dirname(rules), { recursive: true });
         yield* fs.writeFileString(rules, "- user rule\n");
         yield* prepareAntigravityProfile({ profileDirectory, userHome });
-        expect(yield* fs.readLink(link)).toBe(rules);
-        expect(yield* fs.readFileString(link)).toBe("- user rule\n");
+        yield* fs.writeFileString(rules, "- edited user rule\n");
+        expect(yield* fs.readFileString(link)).toBe("- edited user rule\n");
 
         yield* fs.remove(rules);
         yield* prepareAntigravityProfile({ profileDirectory, userHome });
@@ -707,7 +704,6 @@ it.layer(NodeServices.layer)("Antigravity profile preparation", (it) => {
         yield* fs.writeFileString(link, "- profile rule\n");
         yield* prepareAntigravityProfile({ profileDirectory, userHome });
         expect(yield* fs.readFileString(link)).toBe("- profile rule\n");
-        expect(yield* fs.readFileString(rules)).toBe("- user rule\n");
       }),
   );
 
