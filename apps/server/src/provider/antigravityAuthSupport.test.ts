@@ -111,6 +111,52 @@ describe("Antigravity process environment", () => {
     });
   });
 
+<<<<<<< HEAD
+=======
+  it("runs the agy CLI as `agy acp` without a harness", () => {
+    const spawn = buildAntigravityAcpSpawnInput({
+      installation: { executablePath: "/usr/bin/agy", harnessPath: null },
+      profile,
+      cwd: "/project",
+      baseEnv: { PATH: "/usr/bin", ANTIGRAVITY_HARNESS_PATH: "/stale/harness" },
+    });
+
+    expect(spawn.command).toBe("/usr/bin/agy");
+    expect(spawn.args).toEqual([
+      "acp",
+      "--gemini-dir",
+      profile.geminiHome,
+      "--app-data-dir",
+      "antigravity-acp",
+    ]);
+    expect(spawn.env).not.toHaveProperty("ANTIGRAVITY_HARNESS_PATH");
+    expect(spawn.env).toMatchObject({ GEMINI_HOME: profile.geminiHome, PATH: "/usr/bin" });
+  });
+
+  it("gives only a thread's own session T3 MCP credentials and its agent", () => {
+    const baseEnv = { PATH: "/usr/bin", T3_ACP_MCP_AUTHORIZATION: "Bearer parent-thread" };
+    const helper = buildAntigravityAcpSpawnInput({
+      installation: { executablePath: "/usr/bin/agy", harnessPath: null },
+      profile,
+      cwd: "/project",
+      baseEnv,
+    });
+    const session = buildAntigravityAcpSpawnInput({
+      installation: { executablePath: "/usr/bin/agy", harnessPath: null },
+      profile,
+      cwd: "/project",
+      baseEnv,
+      agent: "t3-code",
+      processEnvironment: { T3_ACP_MCP_AUTHORIZATION: "Bearer this-thread" },
+    });
+
+    expect(helper.env).not.toHaveProperty("T3_ACP_MCP_AUTHORIZATION");
+    expect(helper.args).not.toContain("--agent");
+    expect(session.env).toMatchObject({ T3_ACP_MCP_AUTHORIZATION: "Bearer this-thread" });
+    expect(session.args.slice(-2)).toEqual(["--agent", "t3-code"]);
+  });
+
+>>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
   it("passes only the configured method's credential and keeps the GCP pair out of the environment", () => {
     const baseEnv = { PATH: "/usr/bin", GOOGLE_API_KEY: "ambient-key" };
     const spawnFor = (auth: AntigravityAuthConfig) =>

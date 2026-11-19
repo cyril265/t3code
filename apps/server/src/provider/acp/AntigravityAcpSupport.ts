@@ -56,6 +56,10 @@ export interface AntigravityAcpRuntimeInput extends Omit<
   /** Conversational sessions only; helpers and probes leave the system prompt untouched. */
   readonly sessionSystemPromptAppend?: string;
   readonly authMethod?: AntigravityAuthMethod;
+  /** The thread's variables for the agy process and the processes it starts. */
+  readonly processEnvironment?: NodeJS.ProcessEnv;
+  /** Conversational sessions run T3's lean agent where the runtime supports it. */
+  readonly t3Agent?: boolean;
 }
 
 function parseAntigravityVersion(version: string | null | undefined) {
@@ -83,12 +87,38 @@ export const antigravitySteersWithPrompt = (
   return parsed !== undefined && compareVersions(parsed, PROMPT_STEERING_RELEASE) >= 0;
 };
 
+<<<<<<< HEAD
 /** Whether a runtime that reported its version serves T3 Code, not only allowlisted editors. */
 export const antigravityServesT3Code = (version: string) => {
   const parsed = parseAntigravityVersion(version);
   return parsed === undefined || compareVersions(parsed, OPEN_MODEL_ACCESS_RELEASE) >= 0;
 };
 
+=======
+<<<<<<< HEAD
+=======
+// The oldest agy verified to inherit mcp_config.json servers into a custom `--agent`, lazily.
+const T3_AGENT_RELEASE = [1, 5, 12] as const;
+
+/** `agy acp` drops session/new MCP servers under `--agent`, so T3's tools come from mcp_config.json. */
+export function antigravityRunsT3Agent(executable: {
+  readonly harnessPath: string | null;
+  readonly version: string | null;
+}): boolean {
+  const parsed = parseAntigravityVersion(executable.version);
+  return (
+    executable.harnessPath === null &&
+    parsed !== undefined &&
+    compareVersions(parsed, T3_AGENT_RELEASE) >= 0
+  );
+}
+
+/**
+ * 1.4.5 appends `systemPrompt.append` to its system instructions on new, load and resume, and
+ * keeps none of it between processes, so every activation sends it again.
+ */
+>>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
+>>>>>>> 8b0f258920 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
 export const antigravityAppendsSystemPrompt = (
   initializeResult: EffectAcpSchema.InitializeResponse,
 ) => {

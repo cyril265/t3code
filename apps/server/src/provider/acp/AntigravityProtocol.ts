@@ -701,10 +701,60 @@ function withAntigravityEditPatches(
   });
 }
 
+const T3_MCP_SERVER = "t3-code";
+const EAGER_T3_MCP_TITLE = /^Run mcp_t3-code_(?<tool>[A-Za-z0-9_]+)$/;
+
+/**
+ * agy runs T3 tools it loaded on demand through `call_mcp_tool`, and eager ones as
+ * `mcp_t3-code_<tool>` with an added `toolSummary` argument. Neither names its server in `_meta`.
+ */
+function antigravityT3McpCall(
+  toolCall: AcpToolCallState,
+): { readonly tool: string; readonly input: Record<string, unknown> } | undefined {
+  const rawInput = Predicate.isObject(toolCall.data.rawInput) ? toolCall.data.rawInput : undefined;
+  if (
+    rawInput?.ServerName === T3_MCP_SERVER &&
+    typeof rawInput.ToolName === "string" &&
+    rawInput.ToolName.length > 0
+  ) {
+    return {
+      tool: rawInput.ToolName,
+      input: Predicate.isObject(rawInput.Arguments) ? rawInput.Arguments : {},
+    };
+  }
+  const tool =
+    toolCall.title === undefined
+      ? undefined
+      : EAGER_T3_MCP_TITLE.exec(toolCall.title)?.groups?.tool;
+  if (tool === undefined) return undefined;
+  const { toolSummary: _toolSummary, ...input } = rawInput ?? {};
+  return { tool, input };
+}
+
 export function normalizeAntigravityToolCall(
   toolCall: AcpToolCallState,
   readPreEditFile = readAntigravityPreEditFile,
 ): AcpToolCallState {
+  const sanitizedData = sanitizeAntigravityToolPayload(toolCall.data);
+  const data: Record<string, unknown> = Predicate.isObject(sanitizedData) ? sanitizedData : {};
+  const t3Call = antigravityT3McpCall({ ...toolCall, data });
+  if (t3Call !== undefined) {
+    return {
+      ...toolCall,
+      kind: "other",
+      ...(toolCall.title !== undefined ? { title: boundText(toolCall.title) } : {}),
+      data: {
+        ...data,
+        kind: "other",
+        rawInput: t3Call.input,
+        meta: {
+          ...(Predicate.isObject(data.meta) ? data.meta : {}),
+          serverId: T3_MCP_SERVER,
+          toolName: t3Call.tool,
+        },
+      },
+    };
+  }
   const input = Option.getOrUndefined(decodeNativeToolFields(toolCall.data.rawInput));
   const output = Option.getOrUndefined(decodeNativeToolFields(toolCall.data.rawOutput));
   const nativeCommand =
@@ -729,8 +779,6 @@ export function normalizeAntigravityToolCall(
   const aggregatedOutput = nativeOutput === undefined ? undefined : boundCommandText(nativeOutput);
   const exitCode = output?.exitCode ?? output?.exit_code;
   const imagePath = localImagePath(output?.imagePath);
-  const sanitizedData = sanitizeAntigravityToolPayload(toolCall.data);
-  const data: Record<string, unknown> = Predicate.isObject(sanitizedData) ? sanitizedData : {};
   const kind = toolCall.kind ?? (command !== undefined ? "execute" : undefined);
   if (kind !== undefined) data.kind = kind;
   if (command !== undefined) data.command = command;
