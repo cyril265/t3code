@@ -48,11 +48,21 @@ import {
 } from "../antigravityAuthSupport.ts";
 import {
   antigravityModelOptions,
+<<<<<<< HEAD
   antigravitySessionMode,
+=======
+  antigravityRunsT3Agent,
+>>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
   antigravityThinkingConfig,
   makeAntigravityAcpRuntime,
   type AntigravityAcpRuntimeInput,
 } from "../acp/AntigravityAcpSupport.ts";
+import {
+  ANTIGRAVITY_T3_AGENT,
+  antigravityT3McpServer,
+  syncAntigravityT3Agent,
+  WITHOUT_SESSION_MCP_SERVERS,
+} from "../acp/AntigravityT3Agent.ts";
 import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
 import type { ServerProviderDraft } from "@t3tools/provider-core/server/snapshotProbe";
 import {
@@ -140,6 +150,7 @@ export const AntigravityDriver: ProviderDriver<
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const host = yield* ProviderHost.ProviderHost;
     const selfInvocation = yield* resolveSelfInvocation();
+    const t3McpServer = antigravityT3McpServer(selfInvocation);
     const installation = yield* AntigravityInstallation.AntigravityInstallation;
     const loggers = yield* ProviderEventLoggers.ProviderEventLoggers;
     const modelCatalog = yield* ModelCatalog.ModelCatalog;
@@ -254,6 +265,17 @@ export const AntigravityDriver: ProviderDriver<
             : cause,
         ),
       );
+      // Decided once per process: agy keeps a session's MCP source for its whole life.
+      const runsT3Agent =
+        input.t3Agent === true &&
+        antigravityRunsT3Agent(executable) &&
+        (yield* syncAntigravityT3Agent({
+          profileDirectory: profile.geminiHome,
+          selfInvocation,
+        }).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+        ));
       // Use one directory per process; shared cleanup could delete files another session still reads.
       // Remove after the child dies, best-effort on Windows where handles may outlive the kill;
       // the next driver start sweeps leftovers.
@@ -278,8 +300,17 @@ export const AntigravityDriver: ProviderDriver<
               ),
             ),
       );
+<<<<<<< HEAD
       return {
         executable,
+=======
+      const runtime = yield* makeAntigravityAcpRuntime({
+        ...input,
+        ...(runsT3Agent ? WITHOUT_SESSION_MCP_SERVERS : {}),
+        runtimeVersion: executable.version,
+        authMethod: auth.authMethod,
+        childProcessSpawner: spawner,
+>>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
         spawn: buildAntigravityAcpSpawnInput({
           installation: executable,
           profile,
@@ -287,6 +318,15 @@ export const AntigravityDriver: ProviderDriver<
           baseEnv,
           auth,
           runtimeTempDirectory,
+          // The T3 bridge in mcp_config.json reads this thread's MCP credentials from here.
+          ...(runsT3Agent
+            ? {
+                agent: ANTIGRAVITY_T3_AGENT,
+                ...(input.processEnvironment === undefined
+                  ? {}
+                  : { processEnvironment: input.processEnvironment }),
+              }
+            : {}),
         }),
       };
     });
@@ -337,10 +377,38 @@ export const AntigravityDriver: ProviderDriver<
       });
       return {
         ...runtime,
+<<<<<<< HEAD
         setMode: (modeId: string) =>
           runtime.getModeState.pipe(
             Effect.flatMap((modeState) =>
               runtime.setMode(antigravitySessionMode(modeId, modeState)),
+=======
+        ...(runsT3Agent
+          ? {
+              loadSession: (sessionId: string) =>
+                runtime.loadSession(sessionId, WITHOUT_SESSION_MCP_SERVERS),
+              resumeSession: (sessionId: string) =>
+                runtime.resumeSession(sessionId, WITHOUT_SESSION_MCP_SERVERS),
+              forkSession: (
+                sessionId: string,
+                _options?: unknown,
+                meta?: Parameters<typeof runtime.forkSession>[2],
+              ) => runtime.forkSession(sessionId, WITHOUT_SESSION_MCP_SERVERS, meta),
+            }
+          : {}),
+        ...(executable.harnessPath === null
+          ? { setMode: (modeId: string) => runtime.setMode(antigravityCliSessionMode(modeId)) }
+          : {}),
+        start: () =>
+          runtime
+            .start()
+            .pipe(
+              Effect.tapError((cause): Effect.Effect<void> =>
+                input.onAuthorizationUrl === undefined && isAntigravitySignInRequiredError(cause)
+                  ? provider.onAuthRequired
+                  : Effect.void,
+              ),
+>>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
             ),
           ),
         start: () =>
@@ -572,7 +640,10 @@ export const AntigravityDriver: ProviderDriver<
       probeUsage: usage.probe,
       clearUsage: usage.clear,
       auth: { type: auth.authMethod, label: antigravityAuthLabel(auth.authMethod) },
-      supportsTextGeneration: isAntigravityTextGenerationAvailable(profileDirectory).pipe(
+      supportsTextGeneration: isAntigravityTextGenerationAvailable(
+        profileDirectory,
+        t3McpServer,
+      ).pipe(
         Effect.provideService(FileSystem.FileSystem, fileSystem),
         Effect.provideService(Path.Path, path),
         Effect.orElseSucceed(() => false),
@@ -621,6 +692,7 @@ export const AntigravityDriver: ProviderDriver<
     });
     const textGeneration = yield* makeAntigravityTextGeneration({
       profileDirectory,
+      t3McpServer,
       defaultModel,
       withProcess: authFlow.withProcess,
       makeRuntime: (cwd) =>

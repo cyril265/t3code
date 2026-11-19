@@ -13,6 +13,7 @@ import { type AcpError, AcpRequestError } from "effect-acp/errors";
 
 import { applyAntigravityAcpModelSelection } from "../provider/acp/AntigravityAcpSupport.ts";
 import { removeAntigravitySessionFiles } from "../provider/acp/AntigravitySessionFiles.ts";
+import { ANTIGRAVITY_T3_MCP_SERVER } from "../provider/acp/AntigravityT3Agent.ts";
 import {
   ANTIGRAVITY_SIGN_IN_REQUIRED_MESSAGE,
   isAntigravitySignInRequiredError,
@@ -54,6 +55,8 @@ type AntigravityTextRuntime = Pick<
 
 export interface AntigravityTextGenerationOptions {
   readonly profileDirectory: string;
+  /** The `t3-code` entry T3 writes to the profile's mcp_config.json. */
+  readonly t3McpServer?: unknown;
   readonly defaultModel?: Effect.Effect<string | undefined>;
   readonly makeRuntime: (
     cwd: string,
@@ -64,10 +67,13 @@ export interface AntigravityTextGenerationOptions {
   ) => Effect.Effect<A, E | ProviderSetupError, R | Scope.Scope>;
 }
 
-/** Global hooks and MCP servers can run before a helper can deny a tool request. */
+/**
+ * Global hooks and MCP servers can run before a helper can deny a tool request. T3's own entry,
+ * exactly as T3 writes it, is safe: without a thread's credentials its bridge exits first.
+ */
 export const isAntigravityTextGenerationAvailable = Effect.fn(
   "isAntigravityTextGenerationAvailable",
-)(function* (profileDirectory: string) {
+)(function* (profileDirectory: string, t3McpServer?: unknown) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   for (const name of ["hooks.json", "mcp_config.json"]) {
@@ -90,7 +96,15 @@ export const isAntigravityTextGenerationAvailable = Effect.fn(
                   configuration[name === "hooks.json" ? "hooks" : "mcpServers"] ?? configuration,
                 ),
               ),
-              Effect.map((configuration) => Object.keys(configuration).length === 0),
+              Effect.map((configuration) =>
+                Object.entries(configuration).every(
+                  ([server, entry]) =>
+                    name === "mcp_config.json" &&
+                    server === ANTIGRAVITY_T3_MCP_SERVER &&
+                    t3McpServer !== undefined &&
+                    JSON.stringify(entry) === JSON.stringify(t3McpServer),
+                ),
+              ),
             ),
       ),
       Effect.orElseSucceed(() => false),
@@ -133,10 +147,10 @@ export const makeAntigravityTextGeneration = Effect.fn("makeAntigravityTextGener
     return true;
   });
 
-  const available = isAntigravityTextGenerationAvailable(options.profileDirectory).pipe(
-    Effect.provideService(FileSystem.FileSystem, fs),
-    Effect.provideService(Path.Path, path),
-  );
+  const available = isAntigravityTextGenerationAvailable(
+    options.profileDirectory,
+    options.t3McpServer,
+  ).pipe(Effect.provideService(FileSystem.FileSystem, fs), Effect.provideService(Path.Path, path));
 
   const runAntigravityJson = Effect.fn("AntigravityTextGeneration.runJson")(
     function* <S extends Schema.Top>(input: TextGenerationOperations.Request<S>) {
