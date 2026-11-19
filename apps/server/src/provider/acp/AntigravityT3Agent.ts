@@ -38,6 +38,7 @@ tools:
   - manage_task
   - search_web
   - ask_question
+  - generate_image
 ---
 You are a coding agent. Work in the user's workspace and use your tools to complete their requests.
 `;
