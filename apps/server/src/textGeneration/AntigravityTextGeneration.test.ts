@@ -22,6 +22,7 @@ import { expect } from "vite-plus/test";
 
 import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
 import { removeAntigravitySessionFiles } from "../provider/acp/AntigravitySessionFiles.ts";
+import { antigravityT3McpServer } from "../provider/acp/AntigravityT3Agent.ts";
 
 import {
   type AntigravityTextGenerationOptions,
@@ -31,6 +32,8 @@ import {
 
 type TextRuntime = Effect.Success<ReturnType<AntigravityTextGenerationOptions["makeRuntime"]>>;
 
+const t3McpServer = antigravityT3McpServer({ command: "/opt/t3/node", entrypoint: undefined });
+const t3McpConfig = (servers: Record<string, unknown>) => JSON.stringify({ mcpServers: servers });
 const requestContext = { requestId: "test-request", method: "test" };
 const SESSION_ID = "047c62f6-607b-44db-bfbe-f83b67e9e8b1";
 const modelSelection = {
@@ -292,6 +295,7 @@ const makeFixture = Effect.fn("makeAntigravityTextGenerationFixture")(function* 
 
   const textGeneration = yield* makeAntigravityTextGeneration({
     profileDirectory,
+    t3McpServer,
     makeRuntime,
     withProcess,
   });
@@ -619,6 +623,17 @@ it.layer(NodeServices.layer)("AntigravityTextGeneration", (it) => {
     { name: "mcp_config.json", value: "x".repeat(64_001), available: false },
     { name: "hooks.json", value: "{}", available: true },
     { name: "hooks.json", value: '{"hooks":{}}', available: true },
+    {
+      name: "mcp_config.json",
+      value: t3McpConfig({ "t3-code": t3McpServer, server: { command: "do-not-run" } }),
+      available: false,
+    },
+    {
+      name: "mcp_config.json",
+      value: t3McpConfig({ "t3-code": { ...t3McpServer, command: "do-not-run" } }),
+      available: false,
+    },
+    { name: "mcp_config.json", value: t3McpConfig({ "t3-code": t3McpServer }), available: true },
     { name: "mcp_config.json", value: '{"mcpServers":{}}', available: true },
     { name: "mcp_config.json", value: "", available: true },
   ])("checks $name before starting a helper, available=$available", ({ name, value, available }) =>
@@ -627,7 +642,9 @@ it.layer(NodeServices.layer)("AntigravityTextGeneration", (it) => {
       const configDirectory = fixture.path.join(fixture.profileDirectory, "config");
       yield* fixture.fs.makeDirectory(configDirectory, { recursive: true });
       yield* fixture.fs.writeFileString(fixture.path.join(configDirectory, name), value);
-      expect(yield* isAntigravityTextGenerationAvailable(fixture.profileDirectory)).toBe(available);
+      expect(
+        yield* isAntigravityTextGenerationAvailable(fixture.profileDirectory, t3McpServer),
+      ).toBe(available);
       const result = yield* fixture.textGeneration
         .generateThreadTitle(fixture.titleInput)
         .pipe(Effect.exit);

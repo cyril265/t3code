@@ -17,6 +17,7 @@ import {
   makeAntigravityReadRepair,
 } from "./AntigravityProtocol.ts";
 import {
+  extractMcpToolCallIdentity,
   mergeToolCallState,
   parseSessionUpdateEvent,
 } from "@t3tools/provider-acp/server/runtimeModel";
@@ -359,6 +360,50 @@ describe("Antigravity tool results", () => {
     });
     expect(toolCall.data.rawOutput).not.toHaveProperty("formatted_output");
     expect(commandCompleted.update.rawOutput.formatted_output).toBe("after\n");
+  });
+
+  it("projects T3 tools agy loaded eagerly or on demand as T3 MCP calls with their own input", () => {
+    const toolUpdate = (toolCallId: string, title: string, kind: string, rawInput: unknown) =>
+      normalizeAntigravityToolCall(
+        parseToolUpdate({
+          sessionId: "session-1",
+          update: {
+            sessionUpdate: "tool_call",
+            toolCallId,
+            title,
+            kind,
+            status: "in_progress",
+            rawInput,
+          },
+        } as EffectAcpSchema.SessionNotification).toolCall,
+      );
+    const onDemand = toolUpdate("lazy", "MCP Tool t3_thread_wait", "execute", {
+      Arguments: { threadIds: ["thread-1"] },
+      ServerName: "t3-code",
+      ToolName: "t3_thread_wait",
+    });
+    const eager = toolUpdate("eager", "Run mcp_t3-code_delegate_task", "other", {
+      mode: "wait",
+      task: "Review the diff",
+      toolSummary: "Delegate a review",
+    });
+    const foreign = toolUpdate("foreign", "MCP Tool ping_probe", "execute", {
+      Arguments: {},
+      ServerName: "fake",
+      ToolName: "ping_probe",
+    });
+
+    expect(extractMcpToolCallIdentity(onDemand)).toEqual({
+      server: "t3-code",
+      tool: "t3_thread_wait",
+    });
+    expect(onDemand).toMatchObject({
+      kind: "other",
+      data: { rawInput: { threadIds: ["thread-1"] } },
+    });
+    expect(extractMcpToolCallIdentity(eager)).toEqual({ server: "t3-code", tool: "delegate_task" });
+    expect(eager.data.rawInput).toEqual({ mode: "wait", task: "Review the diff" });
+    expect(extractMcpToolCallIdentity(foreign)).toBeUndefined();
   });
 
   it("keeps the captured edit location through approval and completion", () => {

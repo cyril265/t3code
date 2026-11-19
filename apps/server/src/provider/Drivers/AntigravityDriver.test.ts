@@ -4,7 +4,10 @@ import { expect, it } from "@effect/vitest";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   EnvironmentId,
+<<<<<<< HEAD
   ProviderDriverKind,
+=======
+>>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
   ProviderInstanceId,
   ProviderSessionId,
   ThreadId,
@@ -150,6 +153,7 @@ const makeHarness = Effect.fn("makeAntigravityDriverHarness")(function* (
     forceFileStorage: string | undefined;
     credentialKeys: ReadonlyArray<string>;
     geminiApiKey: string | undefined;
+    mcpAuthorization: string | undefined;
     tempDirectory: string | undefined;
     handle: ChildProcessSpawner.ChildProcessHandle;
   }> = [];
@@ -215,7 +219,13 @@ const makeHarness = Effect.fn("makeAntigravityDriverHarness")(function* (
           blockedCredentialKeys.has(key.toUpperCase()),
         ),
         geminiApiKey: env("GEMINI_API_KEY"),
+<<<<<<< HEAD
         tempDirectory: agentExecutables.has(command.command) ? env("TMPDIR") : undefined,
+=======
+        mcpAuthorization: env("T3_ACP_MCP_AUTHORIZATION"),
+        tempDirectory:
+          environment.ANTIGRAVITY_HARNESS_PATH === undefined ? undefined : env("TMPDIR"),
+>>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
         handle,
       });
       return handle;
@@ -588,6 +598,73 @@ it.layer(layerTest)("AntigravityDriver", (it) => {
         expect(h.acquisitions).toHaveLength(2);
         expect(h.releases).toEqual([h.first.version, h.signedOut.version]);
         yield* h.assertClosed;
+      }),
+  );
+
+  it.effect.skipIf(windowsHost)(
+    "loads T3 tools from the profile under T3's agent only on an agy CLI that inherits them",
+    () =>
+      Effect.gen(function* () {
+        const h = yield* makeHarness();
+        const workspace = yield* h.fs.makeTempDirectoryScoped({ prefix: "t3-ag-agent-" });
+        const modelSelection = { instanceId: h.instance.instanceId, model: "gemini-test-low" };
+        const open = Effect.fn("open")(function* (name: string, initialNativeThreadId?: string) {
+          const threadId = ThreadId.make(`thread-antigravity-agent-${name}`);
+          yield* (yield* McpProviderSessions.McpProviderSessions).set({
+            environmentId: EnvironmentId.make("environment-antigravity-agent"),
+            threadId,
+            providerSessionId: `mcp-session-${name}`,
+            providerInstanceId: h.instance.instanceId,
+            endpoint: "http://127.0.0.1:43126/mcp",
+            authorizationHeader: `Bearer ${name}`,
+            browserToolsAvailable: false,
+          });
+          const runtimePolicy = ProviderAdapter.ProviderAdapterV2RuntimePolicy.make({
+            runtimeMode: "full-access",
+            interactionMode: "default",
+            cwd: workspace,
+          });
+          const session = yield* h.instance.orchestrationAdapter.openSession({
+            threadId,
+            providerSessionId: ProviderSessionId.make(`provider-session-${name}`),
+            modelSelection,
+            runtimePolicy,
+            ...(initialNativeThreadId === undefined ? {} : { initialNativeThreadId }),
+          });
+          return yield* session.ensureThread({ threadId, modelSelection, runtimePolicy });
+        });
+        const sessionMcpServers = Effect.gen(function* () {
+          return (yield* h.readRequests)
+            .filter((request) => request.method?.startsWith("session/") && request.params?.cwd)
+            .map((request) => [request.method, request.params?.mcpServers]);
+        });
+
+        // An agy on PATH has no install record, so T3 cannot tell its version.
+        for (const version of ["1.5.11", null]) {
+          h.controls.selected = {
+            ...(yield* h.makeExecutable(`cli ${String(version)}`)),
+            harnessPath: null,
+            version,
+          };
+          yield* open(`legacy-${String(version)}`);
+          expect(h.launches.at(-1)?.args).not.toContain("--agent");
+          expect(h.launches.at(-1)?.mcpAuthorization).toBeUndefined();
+          expect((yield* sessionMcpServers).at(-1)?.[1]).not.toEqual([]);
+        }
+
+        h.controls.selected = { ...(yield* h.makeExecutable("1.5.12")), harnessPath: null };
+        const fresh = yield* open("fresh");
+        expect(h.launches.at(-1)?.args.slice(-2)).toEqual(["--agent", "t3-code"]);
+        expect(h.launches.at(-1)?.mcpAuthorization).toBe("Bearer fresh");
+        expect((yield* sessionMcpServers).at(-1)).toEqual(["session/new", []]);
+        const nativeId = fresh.nativeThreadRef?.nativeId;
+        if (nativeId == null) return yield* Effect.die("The session has no native id.");
+        yield* open("resumed", nativeId);
+        expect((yield* sessionMcpServers).at(-1)).toEqual(["session/resume", []]);
+        const config = yield* h.fs.readFileString(
+          h.path.join(h.profileDirectory, "config", "mcp_config.json"),
+        );
+        expect(Object.keys(JSON.parse(config).mcpServers)).toEqual(["t3-code"]);
       }),
   );
 
