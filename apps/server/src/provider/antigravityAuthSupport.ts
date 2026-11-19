@@ -328,17 +328,20 @@ const linkAntigravityUserFiles = Effect.fn("linkAntigravityUserFiles")(function*
         Effect.catchReason("PlatformError", "NotFound", () => Effect.undefined),
         // An empty folder is the harness's placeholder from a launch without the link.
         // rmdir refuses a non-empty folder, so content added meanwhile is never deleted.
+        // A real profile GEMINI.md is the user's own override.
         Effect.catch((error) =>
-          Effect.tryPromise({
-            try: () => NodeFSP.rmdir(link),
-            catch: (cause) => new AntigravityUserLinkError({ link, cause }),
-          }).pipe(
-            Effect.as(undefined),
-            Effect.mapError(() => error),
-          ),
+          type === "file"
+            ? Effect.succeed(link)
+            : Effect.tryPromise({
+                try: () => NodeFSP.rmdir(link),
+                catch: (cause) => new AntigravityUserLinkError({ link, cause }),
+              }).pipe(
+                Effect.as(undefined),
+                Effect.mapError(() => error),
+              ),
         ),
       );
-      if (existing === target) return;
+      if (existing === target || existing === link) return;
       if (existing !== undefined) {
         yield* fs.remove(link);
       }
