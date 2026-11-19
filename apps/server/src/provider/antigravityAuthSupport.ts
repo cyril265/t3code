@@ -79,6 +79,9 @@ const removedEnvironmentKeys = new Set([
   "ELECTRON_RUN_AS_NODE",
   // An inherited pipe whose owner exited makes Electron-as-Node print Crashpad errors to stderr.
   "CHROME_CRASHPAD_PIPE_NAME",
+  // Only a thread's own session may hand its MCP credentials to the T3 bridge in mcp_config.json.
+  "T3_ACP_MCP_ENDPOINT",
+  "T3_ACP_MCP_AUTHORIZATION",
 ]);
 
 export interface AntigravityProfile {
@@ -551,9 +554,14 @@ export function buildAntigravityAcpSpawnInput(input: {
   readonly baseEnv?: NodeJS.ProcessEnv;
   readonly auth?: AntigravityAuthConfig;
   readonly runtimeTempDirectory?: string;
+  /** A custom agent in the profile; only the agy CLI accepts `--agent`. */
+  readonly agent?: string;
+  /** The thread's variables, such as its MCP credentials; they override the base environment. */
+  readonly processEnvironment?: NodeJS.ProcessEnv;
 }): AcpSessionRuntime.AcpSpawnInput {
   return {
     command: input.installation.executablePath,
+<<<<<<< HEAD
     args: [
       "acp",
       "--gemini-dir",
@@ -569,6 +577,36 @@ export function buildAntigravityAcpSpawnInput(input: {
       input.auth ?? ANTIGRAVITY_PERSONAL_AUTH,
       input.runtimeTempDirectory,
     ),
+=======
+    // The agy CLI has no harness sibling and serves ACP through its `acp` subcommand.
+    args:
+      input.installation.harnessPath === null
+        ? [
+            "acp",
+            "--gemini-dir",
+            input.profile.geminiHome,
+            "--app-data-dir",
+            // The CLI joins this beneath gemini-dir, including when the value is absolute.
+            "antigravity-acp",
+            ...(input.agent === undefined ? [] : ["--agent", input.agent]),
+          ]
+        : input.profile.platform === "linux"
+          ? ["--uid="]
+          : [],
+    cwd: input.cwd,
+    env: {
+      ...antigravityEnvironment(
+        input.profile,
+        input.baseEnv ?? process.env,
+        input.auth ?? ANTIGRAVITY_PERSONAL_AUTH,
+        input.runtimeTempDirectory,
+      ),
+      ...input.processEnvironment,
+      ...(input.installation.harnessPath === null
+        ? {}
+        : { ANTIGRAVITY_HARNESS_PATH: input.installation.harnessPath }),
+    },
+>>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
     extendEnv: false,
   };
 }
