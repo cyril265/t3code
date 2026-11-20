@@ -991,13 +991,13 @@ export function GeneralSettingsPanel() {
           }
         />
         <SettingsRow
-          {...searchableSetting("inbox-response-order")}
+          {...setting("inbox-response-order")}
           description="Keep inbox threads ordered by when the agent last finished or you last sent, instead of the order you drag them into. Always on with the Working section."
           resetAction={
             settings.sidebarInboxResponseOrderEnabled !==
             DEFAULT_UNIFIED_SETTINGS.sidebarInboxResponseOrderEnabled ? (
               <SettingResetButton
-                label="order by last response"
+                ariaLabel="Reset order by last response to default"
                 onClick={() =>
                   updateSettings({
                     sidebarInboxResponseOrderEnabled:
