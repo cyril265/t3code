@@ -57,8 +57,6 @@ export interface AntigravityAcpRuntimeInput extends Omit<
   /** Conversational sessions only; helpers and probes leave the system prompt untouched. */
   readonly sessionSystemPromptAppend?: string;
   readonly authMethod?: AntigravityAuthMethod;
-  /** The thread's variables for the agy process and the processes it starts. */
-  readonly processEnvironment?: NodeJS.ProcessEnv;
   /** Conversational sessions run T3's lean agent where the runtime supports it. */
   readonly t3Agent?: boolean;
 }
@@ -92,9 +90,7 @@ export const antigravitySteersWithPrompt = (
 const T3_AGENT_RELEASE = [1, 5, 12] as const;
 
 /** `agy acp` drops session/new MCP servers under `--agent`, so T3's tools come from mcp_config.json. */
-export function antigravityRunsT3Agent(executable: {
-  readonly version: string | null;
-}): boolean {
+export function antigravityRunsT3Agent(executable: { readonly version: string | null }): boolean {
   const parsed = parseAntigravityVersion(executable.version);
   return parsed !== undefined && compareVersions(parsed, T3_AGENT_RELEASE) >= 0;
 }
