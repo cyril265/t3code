@@ -247,8 +247,8 @@ function antigravityEnvironment(
   };
 }
 
-class AntigravityUserLinkError extends Schema.TaggedError<AntigravityUserLinkError>()(
-  "AntigravityUserLinkError",
+class AntigravitySkillLinkError extends Schema.TaggedError<AntigravitySkillLinkError>()(
+  "AntigravitySkillLinkError",
   { link: Schema.String, cause: Schema.Defect() },
 ) {
   override get message(): string {
@@ -292,31 +292,28 @@ const linkAntigravityUserConfig = Effect.fn("linkAntigravityUserConfig")(functio
         return;
       }
       const existing = yield* fs.readLink(link).pipe(
-        Effect.map((value): string | undefined | null => path.resolve(path.dirname(link), value)),
+        Effect.map((value): string | undefined => path.resolve(path.dirname(link), value)),
         Effect.catchReason("PlatformError", "NotFound", () => Effect.undefined),
         // An empty folder is the harness's placeholder from a launch without the link.
         // rmdir refuses a non-empty folder, so content added meanwhile is never deleted.
-        // A real profile GEMINI.md is the user's own override.
         Effect.catch((error) =>
-          type === "file"
-            ? Effect.succeed(null)
-            : Effect.tryPromise({
-                try: () => NodeFSP.rmdir(link),
-                catch: (cause) => new AntigravityUserLinkError({ link, cause }),
-              }).pipe(
-                Effect.as(undefined),
-                Effect.mapError(() => error),
-              ),
+          Effect.tryPromise({
+            try: () => NodeFSP.rmdir(link),
+            catch: (cause) => new AntigravitySkillLinkError({ link, cause }),
+          }).pipe(
+            Effect.as(undefined),
+            Effect.mapError(() => error),
+          ),
         ),
       );
-      if (existing === target || existing === null) return;
+      if (existing === target) return;
       if (existing !== undefined) {
         yield* fs.remove(link);
       }
       yield* fs.makeDirectory(path.dirname(link), { recursive: true });
       yield* Effect.tryPromise({
         try: () => NodeFSP.symlink(target, link, type),
-        catch: (cause) => new AntigravityUserLinkError({ link, cause }),
+        catch: (cause) => new AntigravitySkillLinkError({ link, cause }),
       });
     }).pipe(
       Effect.catch((error) =>
