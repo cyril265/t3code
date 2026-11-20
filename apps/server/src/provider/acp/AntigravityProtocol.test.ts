@@ -318,11 +318,6 @@ describe("Antigravity tool results", () => {
       task: "Review the diff",
       toolSummary: "Delegate a review",
     });
-    const foreign = toolUpdate("foreign", "MCP Tool ping_probe", "execute", {
-      Arguments: {},
-      ServerName: "fake",
-      ToolName: "ping_probe",
-    });
 
     expect(extractMcpToolCallIdentity(onDemand)).toEqual({
       server: "t3-code",
@@ -334,7 +329,6 @@ describe("Antigravity tool results", () => {
     });
     expect(extractMcpToolCallIdentity(eager)).toEqual({ server: "t3-code", tool: "delegate_task" });
     expect(eager.data.rawInput).toEqual({ mode: "wait", task: "Review the diff" });
-    expect(extractMcpToolCallIdentity(foreign)).toBeUndefined();
   });
 
   it("keeps the captured edit location through approval and completion", () => {

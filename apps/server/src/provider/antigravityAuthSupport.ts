@@ -79,9 +79,6 @@ const removedEnvironmentKeys = new Set([
   "ELECTRON_RUN_AS_NODE",
   // An inherited pipe whose owner exited makes Electron-as-Node print Crashpad errors to stderr.
   "CHROME_CRASHPAD_PIPE_NAME",
-  // Only a thread's own session may hand its MCP credentials to the T3 bridge in mcp_config.json.
-  "T3_ACP_MCP_ENDPOINT",
-  "T3_ACP_MCP_AUTHORIZATION",
 ]);
 
 export interface AntigravityProfile {
@@ -543,8 +540,6 @@ export function buildAntigravityAcpSpawnInput(input: {
   readonly runtimeTempDirectory?: string;
   /** A custom agent in the profile; only the agy CLI accepts `--agent`. */
   readonly agent?: string;
-  /** The thread's variables, such as its MCP credentials; they override the base environment. */
-  readonly processEnvironment?: NodeJS.ProcessEnv;
 }): AcpSessionRuntime.AcpSpawnInput {
   return {
     command: input.installation.executablePath,
@@ -558,15 +553,12 @@ export function buildAntigravityAcpSpawnInput(input: {
       ...(input.agent === undefined ? [] : ["--agent", input.agent]),
     ],
     cwd: input.cwd,
-    env: {
-      ...antigravityEnvironment(
-        input.profile,
-        input.baseEnv ?? process.env,
-        input.auth ?? ANTIGRAVITY_PERSONAL_AUTH,
-        input.runtimeTempDirectory,
-      ),
-      ...input.processEnvironment,
-    },
+    env: antigravityEnvironment(
+      input.profile,
+      input.baseEnv ?? process.env,
+      input.auth ?? ANTIGRAVITY_PERSONAL_AUTH,
+      input.runtimeTempDirectory,
+    ),
     extendEnv: false,
   };
 }

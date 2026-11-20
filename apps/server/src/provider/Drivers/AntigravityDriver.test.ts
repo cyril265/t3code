@@ -639,7 +639,6 @@ it.layer(layerTest)("AntigravityDriver", (it) => {
           };
           yield* open(`legacy-${String(version)}`);
           expect(h.launches.at(-1)?.args).not.toContain("--agent");
-          expect(h.launches.at(-1)?.mcpAuthorization).toBeUndefined();
           expect((yield* sessionMcpServers).at(-1)?.[1]).not.toEqual([]);
         }
 
