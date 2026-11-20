@@ -541,6 +541,18 @@ it.layer(layerTest)("AntigravityDriver", (it) => {
           T3_ACP_MCP_NODE: "/ambient/node",
           T3_ACP_MCP_ENTRYPOINT: "/ambient/entrypoint.mjs",
         });
+        yield* h.instance.textGeneration
+          .generateThreadTitle({
+            cwd: h.profileDirectory,
+            message: "Name this thread",
+            modelSelection: { instanceId: h.instance.instanceId, model: "gemini-test-low" },
+          })
+          .pipe(Effect.ignore);
+        const helperLaunch = h.launches.at(-1);
+        expect(helperLaunch?.command).toBe(h.first.executablePath);
+        expect(helperLaunch?.environment).toMatchObject({ T3_ACP_MCP_NODE: "/ambient/node" });
+        expect(helperLaunch?.environment).not.toHaveProperty("T3_ACP_MCP_ENDPOINT");
+        expect(helperLaunch?.environment).not.toHaveProperty("T3_ACP_MCP_AUTHORIZATION");
         yield* h.assertClosed;
       }),
   );
@@ -658,6 +670,7 @@ it.layer(layerTest)("AntigravityDriver", (it) => {
           };
           yield* open(`legacy-${String(version)}`);
           expect(h.launches.at(-1)?.args).not.toContain("--agent");
+          expect(h.launches.at(-1)?.mcpAuthorization).toBe(`Bearer legacy-${String(version)}`);
           expect((yield* sessionMcpServers).at(-1)?.[1]).not.toEqual([]);
         }
 

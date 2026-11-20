@@ -177,6 +177,11 @@ export const AntigravityDriver: ProviderDriver<
     };
     const authConfigIssue = antigravityAuthConfigIssue(auth);
     const processEnvironment = yield* mergeProviderInstanceEnvironment(environment);
+    // The T3 bridge in mcp_config.json would act for whichever thread these credentials belong to.
+    const credentialKeys = new Set(["T3_ACP_MCP_ENDPOINT", "T3_ACP_MCP_AUTHORIZATION"]);
+    const helperEnvironment = Object.fromEntries(
+      Object.entries(processEnvironment).filter(([key]) => !credentialKeys.has(key.toUpperCase())),
+    );
     const userHome = resolveAntigravityUserHome(
       yield* HostProcess.Platform,
       processEnvironment,
@@ -342,6 +347,7 @@ export const AntigravityDriver: ProviderDriver<
 
     const makeRuntime = Effect.fn("AntigravityDriver.makeRuntime")(function* (
       input: AntigravityAdapterV2RuntimeInput,
+      baseEnv: NodeJS.ProcessEnv = processEnvironment,
     ): Effect.fn.Return<
       AcpSessionRuntime.AcpSessionRuntime["Service"],
       AcpErrors.AcpError | ProviderSetupError,
@@ -352,9 +358,7 @@ export const AntigravityDriver: ProviderDriver<
       const { processEnvironment: threadEnvironment, ...runtimeInput } = input;
       const { executable, spawn, runsT3Agent } = yield* prepareSpawn(
         runtimeInput.cwd,
-        threadEnvironment === undefined
-          ? processEnvironment
-          : { ...processEnvironment, ...threadEnvironment },
+        threadEnvironment === undefined ? baseEnv : { ...baseEnv, ...threadEnvironment },
         input,
       );
       const runtime = yield* makeAntigravityAcpRuntime({
@@ -697,11 +701,7 @@ export const AntigravityDriver: ProviderDriver<
       t3McpServer,
       defaultModel,
       withProcess: authFlow.withProcess,
-      makeRuntime: (cwd) =>
-        makeRuntime({
-          cwd,
-          mcpServers: [],
-        }),
+      makeRuntime: (cwd) => makeRuntime({ cwd, mcpServers: [] }, helperEnvironment),
     });
 
     const refreshModels = Effect.fn("AntigravityDriver.refreshModels")(
