@@ -52,14 +52,15 @@ import {
 import {
   antigravityModelOptions,
 <<<<<<< HEAD
+<<<<<<< HEAD
   antigravityServesT3Code,
 =======
 <<<<<<< HEAD
 >>>>>>> 8b0f258920 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
-  antigravitySessionMode,
 =======
+>>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
+  antigravitySessionMode,
   antigravityRunsT3Agent,
->>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
   antigravityThinkingConfig,
   makeAntigravityAcpRuntime,
   OPEN_MODEL_ACCESS_RELEASE,
@@ -243,10 +244,12 @@ export const AntigravityDriver: ProviderDriver<
     const prepareSpawn = Effect.fn("AntigravityDriver.prepareSpawn")(function* (
       cwd: string,
       baseEnv: NodeJS.ProcessEnv,
+      input: Pick<AntigravityAdapterV2RuntimeInput, "t3Agent" | "processEnvironment"> = {},
     ): Effect.fn.Return<
       {
         readonly executable: AntigravityInstallation.AntigravityExecutable;
         readonly spawn: AcpSessionRuntime.AcpSpawnInput;
+        readonly runsT3Agent: boolean;
       },
       AcpErrors.AcpError | ProviderSetupError,
       Scope.Scope
@@ -326,17 +329,9 @@ export const AntigravityDriver: ProviderDriver<
               ),
             ),
       );
-<<<<<<< HEAD
       return {
         executable,
-=======
-      const runtime = yield* makeAntigravityAcpRuntime({
-        ...input,
-        ...(runsT3Agent ? WITHOUT_SESSION_MCP_SERVERS : {}),
-        runtimeVersion: executable.version,
-        authMethod: auth.authMethod,
-        childProcessSpawner: spawner,
->>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
+        runsT3Agent,
         spawn: buildAntigravityAcpSpawnInput({
           installation: executable,
           profile,
@@ -418,14 +413,20 @@ export const AntigravityDriver: ProviderDriver<
       // `buildAntigravityAcpSpawnInput` sets `extendEnv: false`, so thread variables only reach the
       // agent's shell through `baseEnv`.
       const { processEnvironment: threadEnvironment, ...runtimeInput } = input;
-      const { executable, spawn } = yield* prepareSpawn(
+      const { executable, spawn, runsT3Agent } = yield* prepareSpawn(
         runtimeInput.cwd,
         threadEnvironment === undefined
           ? processEnvironment
           : { ...processEnvironment, ...threadEnvironment },
+        input,
       );
       const runtime = yield* makeAntigravityAcpRuntime({
         ...runtimeInput,
+<<<<<<< HEAD
+=======
+        ...(runsT3Agent ? WITHOUT_SESSION_MCP_SERVERS : {}),
+        runtimeVersion: executable.version,
+>>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
         authMethod: auth.authMethod,
         childProcessSpawner: spawner,
         spawn,
@@ -451,12 +452,6 @@ export const AntigravityDriver: ProviderDriver<
       });
       return {
         ...runtime,
-<<<<<<< HEAD
-        setMode: (modeId: string) =>
-          runtime.getModeState.pipe(
-            Effect.flatMap((modeState) =>
-              runtime.setMode(antigravitySessionMode(modeId, modeState)),
-=======
         ...(runsT3Agent
           ? {
               loadSession: (sessionId: string) =>
@@ -470,19 +465,10 @@ export const AntigravityDriver: ProviderDriver<
               ) => runtime.forkSession(sessionId, WITHOUT_SESSION_MCP_SERVERS, meta),
             }
           : {}),
-        ...(executable.harnessPath === null
-          ? { setMode: (modeId: string) => runtime.setMode(antigravityCliSessionMode(modeId)) }
-          : {}),
-        start: () =>
-          runtime
-            .start()
-            .pipe(
-              Effect.tapError((cause): Effect.Effect<void> =>
-                input.onAuthorizationUrl === undefined && isAntigravitySignInRequiredError(cause)
-                  ? provider.onAuthRequired
-                  : Effect.void,
-              ),
->>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
+        setMode: (modeId: string) =>
+          runtime.getModeState.pipe(
+            Effect.flatMap((modeState) =>
+              runtime.setMode(antigravitySessionMode(modeId, modeState)),
             ),
           ),
         start: () =>

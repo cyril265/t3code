@@ -137,17 +137,12 @@ function describeSchedule(
       msg("Once, {date} at {time}", { date: formatRunAtDate(runAt), time: formatRunAtTime(runAt) }),
     );
   }
-<<<<<<< HEAD
+  if (task.schedule.type === "cron") return `Cron ${task.schedule.expression}`;
   if (task.schedule.type === "interval")
     return formatScheduledTaskInterval(task.schedule.everyMs, resolve);
   const days = task.schedule.weekdays?.length
     ? repeatLabel(task.schedule.weekdays, resolve, locale)
     : resolve(msg("Every day"));
-=======
-  if (task.schedule.type === "cron") return `Cron ${task.schedule.expression}`;
-  if (task.schedule.type === "interval") return formatScheduledTaskInterval(task.schedule.everyMs);
-  const days = task.schedule.weekdays?.length ? repeatLabel(task.schedule.weekdays) : "Every day";
->>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
   const zone = scheduleTimeZoneLabel(timeZone, task.nextRunAt);
   const time = formatTime(task.schedule.timeOfDay);
   return zone === undefined
@@ -855,9 +850,6 @@ function TaskForm({
       );
       return;
     }
-<<<<<<< HEAD
-    const parsedFilters = parseWebhookFilterDrafts(draft.schedule.filters, m);
-=======
     if (draft.schedule.mode === "cron" && !offersCron) {
       Dialog.alert(
         "Cron is not available here",
@@ -872,8 +864,7 @@ function TaskForm({
       );
       return;
     }
-    const parsedFilters = parseWebhookFilterDrafts(draft.schedule.filters);
->>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
+    const parsedFilters = parseWebhookFilterDrafts(draft.schedule.filters, m);
     if (draft.schedule.mode === "webhook" && "error" in parsedFilters) {
       Dialog.alert(gt("Invalid filter"), parsedFilters.error);
       return;
@@ -1192,14 +1183,10 @@ function TaskForm({
                       },
                     ]
                   : []),
-<<<<<<< HEAD
                 { value: "interval", label: gt("Interval") },
-=======
-                { value: "interval", label: "Interval" },
                 ...(offersCron || draft.schedule.mode === "cron"
                   ? [{ value: "cron" as const, label: "Cron" }]
                   : []),
->>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
                 ...(webhookDenial === undefined || draft.schedule.mode === "webhook"
                   ? [{ value: "webhook" as const, label: gt("On webhook") }]
                   : []),

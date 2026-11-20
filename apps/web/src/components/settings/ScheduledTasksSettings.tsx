@@ -2126,16 +2126,12 @@ function ScheduledTaskEditorForm({
                     <T>Once</T>
                   </Toggle>
                 ) : null}
-<<<<<<< HEAD
                 <Toggle value="interval">
                   <T>Every interval</T>
                 </Toggle>
-=======
-                <Toggle value="interval">Every interval</Toggle>
                 {offersCron || draft.scheduleMode === "cron" ? (
                   <Toggle value="cron">Cron</Toggle>
                 ) : null}
->>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
                 <Toggle
                   value="webhook"
                   disabled={webhookDenial !== undefined && draft.scheduleMode !== "webhook"}

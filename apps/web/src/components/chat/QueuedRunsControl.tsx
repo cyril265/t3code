@@ -80,15 +80,16 @@ type ThreadQueueProjection = Parameters<typeof deriveThreadQueueWorkflowState>[0
 function sendNowLabel(
   workflow: ReturnType<typeof deriveThreadQueueWorkflowState> | null,
   message: Parameters<typeof isCompactionCommandMessage>[0] | undefined,
+  resolve: typeof m,
 ): string {
-  if (workflow?.canSendNow) return "Start a turn with this message";
+  if (workflow?.canSendNow) return resolve(msg("Start a turn with this message"));
   // A queued compaction never stops a running one; it only moves first.
   if (message !== undefined && isCompactionCommandMessage(message)) {
     return workflow?.promoteSkipsCompaction ? "Compact next" : "Stop the current turn and compact";
   }
   return workflow?.promoteSkipsCompaction
-    ? "Skip compaction and send this message"
-    : "Send into the current turn";
+    ? resolve(msg("Skip compaction and send this message"))
+    : resolve(msg("Send into the current turn"));
 }
 
 function queuedImageResources(projection: ThreadQueueProjection | undefined) {
@@ -352,6 +353,7 @@ export function QueuedRunsControl({
                       <TooltipPopup>
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                         {item.serverIndex === 0 && props.steerShortcutLabel
 >>>>>>> de246deb4b (feat: queue and steer /compact while a turn runs)
                           ? workflow?.canSendNow
@@ -408,6 +410,9 @@ export function QueuedRunsControl({
                         {`${sendNowLabel(workflow, item.message)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
 >>>>>>> edeaf749ef (refactor: derive the compaction resume from the queued message)
 >>>>>>> c0d8601f95 (refactor: derive the compaction resume from the queued message)
+=======
+                        {`${sendNowLabel(workflow, item.message, messages)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
                       </TooltipPopup>
                     </Tooltip>
 >>>>>>> de246deb4b (feat: queue and steer /compact while a turn runs)

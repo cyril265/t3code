@@ -11,11 +11,8 @@ import {
 import {
   changeDraftProject,
   createDraft,
-<<<<<<< HEAD
   editDraft,
-=======
   hasScheduledTaskDraftChanges,
->>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
   scheduledTaskDefaultModel,
   DEFAULT_SCHEDULE,
   scheduleDraftForTask,
