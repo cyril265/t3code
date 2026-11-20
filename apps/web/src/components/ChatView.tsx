@@ -1,10 +1,7 @@
-<<<<<<< HEAD
 import { m } from "../i18n/messages";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { useGT, useMessages } from "gt-react";
-=======
 import * as DateTime from "effect/DateTime";
->>>>>>> 7a864c1eee (feat: show idle time and prompt cache misses in thread details)
 import { ChildThreadApprovals } from "./chat/ChildThreadApprovals";
 import {
   draftRuntimeModeLimitsInstance,
@@ -2692,6 +2689,7 @@ export default function ChatView(props: ChatViewProps) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   // A typed /compact queues behind a running turn, so only the immediate compaction waits for idle.
   const compactDisabled = compactThreadUnavailable || isWorking;
 =======
@@ -2702,42 +2700,15 @@ export default function ChatView(props: ChatViewProps) {
   const compactDisabled = compactThreadUnavailable;
 <<<<<<< HEAD
 >>>>>>> 7c86015596 (fix(web): offer /compact in the slash menu while a turn runs)
+=======
+  const compactDisabled = compactCommandUnavailable || isWorking;
+>>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
   const freshSessionAvailable =
     activeMessageCount > 0 && serverConfig?.environment.capabilities.freshContext === true;
   const freshSessionArmed = useFreshSessionArmed(routeThreadKey);
   const freshSessionPending = freshSessionAvailable && freshSessionArmed;
   // The context window is the current conversation's, so neither a handoff destination nor
   // the fresh session armed by /clear inherits it.
-=======
-<<<<<<< HEAD
-  // The context window is the current conversation's, so a handoff destination never inherits it.
-=======
-=======
-    pendingUserInputs.length > 0 ||
-    showPlanFollowUpPrompt;
-  const compactDisabled = compactCommandUnavailable || isWorking;
-  const compactDisabledReason = compactDisabled
-    ? !canOperateThread
-      ? "This connection cannot change threads."
-      : !activeProject
-        ? "Choose a project before compacting"
-        : !manualCompactionProviderAvailable
-          ? "Compaction is unavailable for this provider"
-          : "Compacting is unavailable right now"
-    : null;
->>>>>>> 7376a1ec1 (fix(web): offer /compact in the slash menu while a turn runs)
->>>>>>> 5a20a5b8f1 (fix(web): offer /compact in the slash menu while a turn runs)
-<<<<<<< HEAD
->>>>>>> 20a41ed1fd (fix(web): offer /compact in the slash menu while a turn runs)
-=======
-=======
-  const compactDisabled = compactCommandUnavailable || isWorking;
->>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
->>>>>>> a5fe74f2a2 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
-=======
-  const compactDisabled = compactCommandUnavailable || isWorking;
-  // The context window is the current conversation's, so a handoff destination never inherits it.
->>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
   const resumeCompactionTokens =
     activeContextWindow &&
     pendingHandoff === null &&

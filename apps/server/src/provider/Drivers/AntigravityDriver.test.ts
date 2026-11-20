@@ -5,15 +5,16 @@ import {
   ANTIGRAVITY_DEFAULT_MODEL,
   EnvironmentId,
 <<<<<<< HEAD
+<<<<<<< HEAD
   MessageId,
   NodeId,
   ProjectId,
 =======
 <<<<<<< HEAD
 >>>>>>> 8b0f258920 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
-  ProviderDriverKind,
 =======
->>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
+>>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
+  ProviderDriverKind,
   ProviderInstanceId,
   ProviderSessionId,
   RunAttemptId,
@@ -229,13 +230,8 @@ const makeHarness = Effect.fn("makeAntigravityDriverHarness")(function* (
           blockedCredentialKeys.has(key.toUpperCase()),
         ),
         geminiApiKey: env("GEMINI_API_KEY"),
-<<<<<<< HEAD
-        tempDirectory: agentExecutables.has(command.command) ? env("TMPDIR") : undefined,
-=======
         mcpAuthorization: env("T3_ACP_MCP_AUTHORIZATION"),
-        tempDirectory:
-          environment.ANTIGRAVITY_HARNESS_PATH === undefined ? undefined : env("TMPDIR"),
->>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
+        tempDirectory: agentExecutables.has(command.command) ? env("TMPDIR") : undefined,
         handle,
       });
       return handle;
@@ -658,7 +654,6 @@ it.layer(layerTest)("AntigravityDriver", (it) => {
         for (const version of ["1.5.11", null]) {
           h.controls.selected = {
             ...(yield* h.makeExecutable(`cli ${String(version)}`)),
-            harnessPath: null,
             version,
           };
           yield* open(`legacy-${String(version)}`);
@@ -667,7 +662,7 @@ it.layer(layerTest)("AntigravityDriver", (it) => {
           expect((yield* sessionMcpServers).at(-1)?.[1]).not.toEqual([]);
         }
 
-        h.controls.selected = { ...(yield* h.makeExecutable("1.5.12")), harnessPath: null };
+        h.controls.selected = yield* h.makeExecutable("1.5.12");
         const fresh = yield* open("fresh");
         expect(h.launches.at(-1)?.args.slice(-2)).toEqual(["--agent", "t3-code"]);
         expect(h.launches.at(-1)?.mcpAuthorization).toBe("Bearer fresh");

@@ -557,25 +557,11 @@ function ThreadDetailBody(
   const composerBottomInset = useComposerBottomInset();
   const composerKeyboardOffset = composerBottomInset;
   const contentPresentationKind = props.contentPresentation.kind;
-<<<<<<< HEAD
-  const interruptThreadTurn = useAtomCommand(threadEnvironment.interruptTurn, {
-    reportFailure: false,
-  });
-=======
-  const connectionRetrying =
-    props.connectionStateLabel === "connecting" || props.connectionStateLabel === "reconnecting";
-  const retryError = connectionRetrying ? props.connectionError : null;
-  const retryConnectionError = useDelayedStatus(
-    `${props.environmentId}:${retryError !== null}`,
-    retryError,
-    RECONNECT_ERROR_DELAY_MS,
-  );
   const interruptThreadTurn = withExternalWaitStop(
     props.selectedThread.pendingBackgroundTasks,
     useAtomCommand(externalWaits.stop, { reportFailure: false }),
     useAtomCommand(threadEnvironment.interruptTurn, { reportFailure: false }),
   );
->>>>>>> 5ce1d180c0 (feat: show running wait scripts on their thread)
   const unsnoozeThread = useAtomCommand(threadEnvironment.unsnooze, { reportFailure: false });
   const unsettleThread = useAtomCommand(threadEnvironment.unsettle, { reportFailure: false });
   const canTriageThread = !useEnvironmentScopeDenied(

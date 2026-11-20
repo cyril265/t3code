@@ -12,29 +12,24 @@ import {
   type LimitPoolWindow,
 =======
   collectProviderUsageLimits,
-<<<<<<< HEAD
-  type LimitPace,
-=======
   customEndpointLimitPool,
-  formatDuration,
   type LimitAccount,
   type LimitPace,
   type LimitPoolWindow,
+<<<<<<< HEAD
   limitsNotice,
 >>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 >>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
+=======
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
   paceOf,
   paceRemainingPercent,
   remainingPercent,
 } from "@t3tools/shared/usageLimits";
-<<<<<<< HEAD
 import { formatDuration, limitsNotice } from "@t3tools/shared/usageLimitsCopy";
 import { Link } from "@tanstack/react-router";
 import { msg, useGT, useLocale, useMessages } from "gt-react";
-import type { ReactNode } from "react";
-=======
 import { Children, type ReactNode } from "react";
->>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
 
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { useNowMinute } from "../../hooks/useNowMinute";
@@ -78,6 +73,7 @@ export interface ThreadDetailsUsageInput {
 type UsageTone = "error" | "warning" | null;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 function limitTone(left: number): UsageTone {
   if (left <= 10) return "error";
   if (left <= 20) return "warning";
@@ -89,6 +85,8 @@ function limitTone(left: number): UsageTone {
 >>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 /** The selected provider's limit windows. Each row reads as room left and opens the usage page. */
 =======
+=======
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
 const limitTone = (left: number): UsageTone =>
   left <= 10 ? "error" : left <= 20 ? "warning" : null;
 
@@ -105,22 +103,23 @@ const withShortLabels = <Window extends { readonly label: string }>(windows: rea
 };
 
 /** The selected provider's limit windows. Each row reads as room left. */
->>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 export function ThreadDetailsUsage({
   providerInstanceId,
   model,
   providers,
   sources,
-<<<<<<< HEAD
-}: Omit<ThreadDetailsUsageInput, "contextWindow">) {
+}: Pick<ThreadDetailsUsageInput, "providerInstanceId" | "providers" | "sources">) {
   const gt = useGT();
 <<<<<<< HEAD
 =======
   const m = useMessages();
+<<<<<<< HEAD
 =======
 }: Pick<ThreadDetailsUsageInput, "providerInstanceId" | "providers" | "sources">) {
 >>>>>>> 7a864c1eee (feat: show idle time and prompt cache misses in thread details)
 >>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
+=======
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
   const nowMinute = useNowMinute();
   const now = Date.parse(`${nowMinute}:00Z`);
 <<<<<<< HEAD
@@ -138,16 +137,16 @@ export function ThreadDetailsUsage({
     report?.accounts.find((entry) => entry.instanceId === providerInstanceId)?.limits ??
     providers.find((provider) => provider.instanceId === providerInstanceId)?.usageLimits;
   if (!limits) return null;
-<<<<<<< HEAD
   const notice = limitsNotice(limits, m);
-=======
-  const notice = limitsNotice(limits);
   const pool =
     notice && providerInstanceId !== null
       ? customEndpointLimitPool(providerInstanceId, providers, sources, now)
       : null;
+<<<<<<< HEAD
 >>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 >>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
+=======
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
 
   return (
     <ThreadDetailsSection
@@ -250,6 +249,7 @@ export function ThreadDetailsContext({
   working,
   latestTokenUsage,
 }: Pick<ThreadDetailsUsageInput, "contextWindow" | "idleSince" | "working" | "latestTokenUsage">) {
+  const gt = useGT();
   const cacheMiss = latestTokenUsage?.cacheMiss;
   const shownMiss =
     cacheMiss !== undefined &&
@@ -260,7 +260,7 @@ export function ThreadDetailsContext({
   return (
     <ThreadDetailsSection
       headingId="thread-details-context-heading"
-      title="Context window"
+      title={gt("Context window")}
       showHeading={false}
     >
       <div className="grid grid-cols-[auto_minmax(3rem,1fr)_auto] gap-x-3 text-xs">
@@ -295,79 +295,40 @@ function ContextRow({ usage }: { readonly usage: ContextWindowSnapshot }) {
   const locale = useLocale();
   const usedTokens = formatContextWindowTokens(usage.usedTokens);
   return (
-<<<<<<< HEAD
-    <ThreadDetailsSection
-      headingId="thread-details-context-heading"
-      title={gt("Context window")}
-      showHeading={false}
-    >
-      <div className="grid grid-cols-[auto_minmax(3rem,1fr)_auto] gap-x-3 text-xs">
-        <UsageRow
-          label={gt("Context", { $context: "context window row label" })}
-          fill={used}
-          tone={used === null ? null : used >= 90 ? "error" : used >= 80 ? "warning" : null}
-          tick={tick}
-          muted
-          value={
-            maxTokens !== null
-              ? `${usedTokens} / ${formatContextWindowTokens(maxTokens)}`
-              : usedTokens
-          }
-          ariaValue={
-            used !== null
-              ? gt("{used}% used", { used })
-              : gt("{usedTokens} tokens used", { usedTokens })
-          }
-          tooltip={
-            <>
-              <span className="text-foreground">
-                {used !== null
-                  ? gt("Context: {used}% used", { used })
-                  : gt("Context: {usedTokens} tokens used", { usedTokens })}
-              </span>
-              {maxTokens !== null ? (
-                <span className="text-muted-foreground">
-                  {gt("{used} of {max} tokens", {
-                    used: usage.usedTokens.toLocaleString(locale),
-                    max: maxTokens.toLocaleString(locale),
-                  })}
-                </span>
-              ) : null}
-              {threshold !== null && threshold > 0 ? (
-                <span className="text-muted-foreground">
-                  {formatContextWindowCompactionMessage(threshold, m)}
-                </span>
-              ) : null}
-            </>
-          }
-        />
-      </div>
-    </ThreadDetailsSection>
-=======
     <UsageRow
-      label="Context"
+      label={gt("Context", { $context: "context window row label" })}
       fill={used}
       tone={used === null ? null : used >= 90 ? "error" : used >= 80 ? "warning" : null}
       tick={tick}
       muted
       value={
-        maxTokens !== null ? `${usedTokens} / ${formatContextWindowTokens(maxTokens)}` : usedTokens
+        maxTokens !== null
+          ? `${usedTokens} / ${formatContextWindowTokens(maxTokens)}`
+          : usedTokens
       }
-      ariaValue={used !== null ? `${used}% used` : `${usedTokens} tokens used`}
+      ariaValue={
+        used !== null
+          ? gt("{used}% used", { used })
+          : gt("{usedTokens} tokens used", { usedTokens })
+      }
       tooltip={
         <>
           <span className="text-foreground">
-            {used !== null ? `Context: ${used}% used` : `Context: ${usedTokens} tokens used`}
+            {used !== null
+              ? gt("Context: {used}% used", { used })
+              : gt("Context: {usedTokens} tokens used", { usedTokens })}
           </span>
           {maxTokens !== null ? (
             <span className="text-muted-foreground">
-              {usage.usedTokens.toLocaleString("en-US")} of {maxTokens.toLocaleString("en-US")}{" "}
-              tokens
+              {gt("{used} of {max} tokens", {
+                used: usage.usedTokens.toLocaleString(locale),
+                max: maxTokens.toLocaleString(locale),
+              })}
             </span>
           ) : null}
           {threshold !== null && threshold > 0 ? (
             <span className="text-muted-foreground">
-              {formatContextWindowCompactionMessage(threshold)}
+              {formatContextWindowCompactionMessage(threshold, m)}
             </span>
           ) : null}
         </>
@@ -434,7 +395,6 @@ function IdleRow({
         </>
       }
     />
->>>>>>> 7a864c1eee (feat: show idle time and prompt cache misses in thread details)
   );
 }
 
@@ -474,6 +434,7 @@ function WindowLimit({
   const resetsAt = window.resetsAt ? Date.parse(window.resetsAt) : Number.NaN;
   return (
 <<<<<<< HEAD
+<<<<<<< HEAD
     <UsageRow
       label={window.label}
       fill={left}
@@ -486,18 +447,13 @@ function WindowLimit({
       tick={timeLeft}
 =======
 =======
+=======
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
     <LimitItem
       label={shortLabel}
->>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
       tone={limitTone(left)}
->>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
       value={`${left}%`}
-<<<<<<< HEAD
-      ariaValue={gt("{left}% left", { left })}
-      opensUsage
-=======
-      ariaLabel={`${window.label}: ${left}% left`}
->>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
+      ariaLabel={gt("{label}: {left}% left", { label: window.label, left })}
       tooltip={
         <>
           <span className="text-foreground">
@@ -523,6 +479,7 @@ function WindowLimit({
   );
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -600,8 +557,9 @@ function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly n
 =======
 function ServedByRow({
 =======
+=======
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
 function ServedBy({
->>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
   account,
   at,
   now,
@@ -631,10 +589,6 @@ function ServedBy({
   );
 }
 
-<<<<<<< HEAD
->>>>>>> e40588df8b (fix(web): show the CLI Proxy account a thread is running on)
-function PoolRow({ window, now }: { readonly window: LimitPoolWindow; readonly now: number }) {
-=======
 function PoolLimit({
   window,
   shortLabel,
@@ -644,7 +598,7 @@ function PoolLimit({
   readonly shortLabel: string;
   readonly now: number;
 }) {
->>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
+  const m = useMessages();
   const left = window.remainingPercent;
   const accounts = window.members.length;
   const next = window.resets.find((reset) => reset.at > now);
@@ -665,7 +619,7 @@ function PoolLimit({
             </span>
           ) : null}
           {window.pace ? (
-            <span className="text-muted-foreground">{PACE_LABEL[window.pace]}</span>
+            <span className="text-muted-foreground">{m(PACE_LABEL[window.pace])}</span>
           ) : null}
         </>
       }
@@ -707,14 +661,15 @@ function LimitItem({
   readonly ariaLabel: string;
   readonly tooltip: ReactNode;
 }) {
+  const gt = useGT();
   return (
     <Tooltip>
       <TooltipTrigger
         render={
-          <div
-            tabIndex={0}
+          <Link
+            to="/usage"
             aria-label={ariaLabel}
-            className={cn("flex h-6 min-w-0 items-center gap-1 px-1", HOVER_TARGET)}
+            className={cn("flex h-6 min-w-0 items-center gap-1 px-1", HOVER_TARGET, "cursor-pointer")}
           />
         }
       >
@@ -726,14 +681,16 @@ function LimitItem({
         ) : null}
       </TooltipTrigger>
       <TooltipPopup side="top">
-        <div className="flex flex-col gap-0.5">{tooltip}</div>
+        <div className="flex flex-col gap-0.5">
+          {tooltip}
+          <span className="text-muted-foreground">{gt("Open usage")}</span>
+        </div>
       </TooltipPopup>
     </Tooltip>
   );
 }
 
 /** One label, hairline, and value row; the whole row opens the details tooltip. */
->>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
 function UsageRow({
   label,
   fill,
@@ -762,7 +719,10 @@ function UsageRow({
 }) {
   const gt = useGT();
   const rowProps = {
-    "aria-label": gt("{label}: {value}", { label, value: ariaValue }),
+    "aria-label": gt("{label}: {value}", {
+      label,
+      value: ariaValue ?? (detail === null ? value : `${detail.text}, ${value}`),
+    }),
     className: cn(
       "col-span-3 grid h-6 grid-cols-subgrid items-center rounded-lg px-2.5 outline-none hover:bg-black/[0.035] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-popup-open:bg-black/[0.035] dark:hover:bg-white/[0.08] dark:data-popup-open:bg-white/[0.08]",
       opensUsage
@@ -774,18 +734,7 @@ function UsageRow({
     <Tooltip>
       <TooltipTrigger
         render={
-<<<<<<< HEAD
           opensUsage ? <Link to="/usage" {...rowProps} /> : <div tabIndex={0} {...rowProps} />
-=======
-          <div
-            tabIndex={0}
-            aria-label={`${label}: ${ariaValue ?? (detail === null ? value : `${detail.text}, ${value}`)}`}
-            className={cn(
-              "col-span-3 grid h-6 grid-cols-subgrid items-center px-2.5",
-              HOVER_TARGET,
-            )}
-          />
->>>>>>> 408323da32 (feat(web): show usage limits as one compact line)
         }
       >
         <span className="max-w-28 truncate text-muted-foreground group-hover:text-foreground">
