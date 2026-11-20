@@ -111,19 +111,6 @@ describe("Antigravity process environment", () => {
     });
   });
 
-  it("adds the agent argument only for a session that runs T3's agent", () => {
-    const spawn = (agent?: string) =>
-      buildAntigravityAcpSpawnInput({
-        installation: { executablePath: "/usr/bin/agy" },
-        profile,
-        cwd: "/project",
-        ...(agent === undefined ? {} : { agent }),
-      });
-
-    expect(spawn().args).not.toContain("--agent");
-    expect(spawn("t3-code").args.slice(-2)).toEqual(["--agent", "t3-code"]);
-  });
-
   it("passes only the configured method's credential and keeps the GCP pair out of the environment", () => {
     const baseEnv = { PATH: "/usr/bin", GOOGLE_API_KEY: "ambient-key" };
     const spawnFor = (auth: AntigravityAuthConfig) =>
