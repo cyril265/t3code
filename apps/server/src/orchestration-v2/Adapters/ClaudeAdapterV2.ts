@@ -14914,20 +14914,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 ) {
                   return yield* Effect.interrupt;
                 }
-                yield* startUserTurnForWakeReports(nativeThreadId);
-                yield* Effect.uninterruptibleMask((restore) =>
-                  restore(
-                    querySession.query.offer(userMessage, () => {
-                      pdfReservation.commit();
-                    }),
-                  ).pipe(
-                    Effect.tap(() =>
-                      Effect.sync(() => {
-                        pdfReservation.commit();
-                      }),
-                    ),
-                  ),
-                );
+                yield* offerUserMessage;
               });
               const nextCwd = turnInput.runtimePolicy.cwd;
               if (nextCwd !== null && querySession.settingsCwd !== nextCwd) {
