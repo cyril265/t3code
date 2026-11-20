@@ -244,7 +244,7 @@ export const AntigravityDriver: ProviderDriver<
     const prepareSpawn = Effect.fn("AntigravityDriver.prepareSpawn")(function* (
       cwd: string,
       baseEnv: NodeJS.ProcessEnv,
-      input: Pick<AntigravityAdapterV2RuntimeInput, "t3Agent" | "processEnvironment"> = {},
+      input: Pick<AntigravityAdapterV2RuntimeInput, "t3Agent"> = {},
     ): Effect.fn.Return<
       {
         readonly executable: AntigravityInstallation.AntigravityExecutable;
@@ -339,15 +339,8 @@ export const AntigravityDriver: ProviderDriver<
           baseEnv,
           auth,
           runtimeTempDirectory,
-          // The T3 bridge in mcp_config.json reads this thread's MCP credentials from here.
-          ...(runsT3Agent
-            ? {
-                agent: ANTIGRAVITY_T3_AGENT,
-                ...(input.processEnvironment === undefined
-                  ? {}
-                  : { processEnvironment: input.processEnvironment }),
-              }
-            : {}),
+          // The T3 bridge in mcp_config.json reads this thread's MCP credentials from baseEnv.
+          ...(runsT3Agent ? { agent: ANTIGRAVITY_T3_AGENT } : {}),
         }),
       };
     });

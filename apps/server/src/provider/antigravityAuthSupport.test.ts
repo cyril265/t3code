@@ -111,27 +111,17 @@ describe("Antigravity process environment", () => {
     });
   });
 
-  it("gives only a thread's own session T3 MCP credentials and its agent", () => {
-    const baseEnv = { PATH: "/usr/bin", T3_ACP_MCP_AUTHORIZATION: "Bearer parent-thread" };
-    const helper = buildAntigravityAcpSpawnInput({
-      installation: { executablePath: "/usr/bin/agy" },
-      profile,
-      cwd: "/project",
-      baseEnv,
-    });
-    const session = buildAntigravityAcpSpawnInput({
-      installation: { executablePath: "/usr/bin/agy" },
-      profile,
-      cwd: "/project",
-      baseEnv,
-      agent: "t3-code",
-      processEnvironment: { T3_ACP_MCP_AUTHORIZATION: "Bearer this-thread" },
-    });
+  it("adds the agent argument only for a session that runs T3's agent", () => {
+    const spawn = (agent?: string) =>
+      buildAntigravityAcpSpawnInput({
+        installation: { executablePath: "/usr/bin/agy" },
+        profile,
+        cwd: "/project",
+        ...(agent === undefined ? {} : { agent }),
+      });
 
-    expect(helper.env).not.toHaveProperty("T3_ACP_MCP_AUTHORIZATION");
-    expect(helper.args).not.toContain("--agent");
-    expect(session.env).toMatchObject({ T3_ACP_MCP_AUTHORIZATION: "Bearer this-thread" });
-    expect(session.args.slice(-2)).toEqual(["--agent", "t3-code"]);
+    expect(spawn().args).not.toContain("--agent");
+    expect(spawn("t3-code").args.slice(-2)).toEqual(["--agent", "t3-code"]);
   });
 
   it("passes only the configured method's credential and keeps the GCP pair out of the environment", () => {
