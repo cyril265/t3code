@@ -224,6 +224,7 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   linkedThreadRefreshes: Schema.optionalKey(Schema.Boolean),
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   /** Honors the `agentFeedback` setting; older servers drop it, so hide its switch where absent. */
   agentFeedback: Schema.optionalKey(Schema.Boolean),
   /** Answers `issues.linkedThreads`, the threads an issue is linked to. */
@@ -234,13 +235,13 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
 =======
 >>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 <<<<<<< HEAD
+=======
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
   /** Answers `issues.linkedThreads`, the threads an issue is linked to. */
   issueLinkedThreads: Schema.optionalKey(Schema.Boolean),
-=======
-=======
-=======
   /** Server accepts `{ type: "cron" }` scheduled tasks; older servers reject them on save. */
   cronSchedules: Schema.optionalKey(Schema.Boolean),
+<<<<<<< HEAD
 >>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
 >>>>>>> 3dddb989f2 (feat: cron schedules for scheduled tasks)
 <<<<<<< HEAD
@@ -262,6 +263,8 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   cronSchedules: Schema.optionalKey(Schema.Boolean),
 >>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 >>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
+=======
+>>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 
