@@ -1425,11 +1425,8 @@ export const layerTools = Layer.mergeAll(
   layerPreviewControlsRegistration,
   layerWorktreeToolkitRegistration,
   layerPullRequestsToolkit,
-<<<<<<< HEAD
   layerIssuesToolkit,
-=======
   toolkitRegistration(ExternalWaitToolkit, ExternalWaitHandlers.layer),
->>>>>>> 5ce1d180c0 (feat: show running wait scripts on their thread)
   layerDeviceToolkit,
   layerHtmlToolkit,
   layerMessageToolkit,

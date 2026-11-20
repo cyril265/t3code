@@ -70,15 +70,16 @@ type ThreadQueueProjection = Parameters<typeof deriveThreadQueueWorkflowState>[0
 function sendNowLabel(
   workflow: ReturnType<typeof deriveThreadQueueWorkflowState> | null,
   message: Parameters<typeof isCompactionCommandMessage>[0] | undefined,
+  resolve: typeof m,
 ): string {
-  if (workflow?.canSendNow) return "Start a turn with this message";
+  if (workflow?.canSendNow) return resolve(msg("Start a turn with this message"));
   // A queued compaction never stops a running one; it only moves first.
   if (message !== undefined && isCompactionCommandMessage(message)) {
     return workflow?.promoteSkipsCompaction ? "Compact next" : "Stop the current turn and compact";
   }
   return workflow?.promoteSkipsCompaction
-    ? "Skip compaction and send this message"
-    : "Send into the current turn";
+    ? resolve(msg("Skip compaction and send this message"))
+    : resolve(msg("Send into the current turn"));
 }
 
 function queuedImageResources(projection: ThreadQueueProjection | undefined) {
@@ -329,31 +330,7 @@ export function QueuedRunsControl({
                         </Button>
                       </TooltipTrigger>
                       <TooltipPopup>
-<<<<<<< HEAD
-<<<<<<< HEAD
-                        {item.serverIndex === 0 && props.steerShortcutLabel
-                          ? workflow?.canSendNow
-                            ? gt("Start a turn with this message ({shortcut})", {
-                                shortcut: props.steerShortcutLabel,
-                              })
-                            : workflow?.promoteSkipsCompaction
-                              ? gt("Skip compaction and send this message ({shortcut})", {
-                                  shortcut: props.steerShortcutLabel,
-                                })
-                              : gt("Send into the current turn ({shortcut})", {
-                                  shortcut: props.steerShortcutLabel,
-                                })
-                          : workflow?.canSendNow
-                            ? gt("Start a turn with this message")
-                            : workflow?.promoteSkipsCompaction
-                              ? gt("Skip compaction and send this message")
-                              : gt("Send into the current turn")}
-=======
-                        {`${workflow?.canSendNow ? "Start a turn with this message" : workflow?.promoteSkipsCompaction ? "Skip compaction and send this message" : item.message && isCompactionCommandMessage(item.message) ? "Stop the current turn and compact" : "Send into the current turn"}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> e101407a5a (feat: queue and steer /compact while a turn runs)
-=======
-                        {`${sendNowLabel(workflow, item.message)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> edeaf749ef (refactor: derive the compaction resume from the queued message)
+                        {`${sendNowLabel(workflow, item.message, messages)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
                       </TooltipPopup>
                     </Tooltip>
                   </>

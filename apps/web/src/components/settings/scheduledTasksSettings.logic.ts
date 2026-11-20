@@ -55,16 +55,11 @@ export function scheduleLabel(
   resolve: MessageResolver = m,
   locale: string = getActiveLocale(),
 ): string {
-<<<<<<< HEAD
   if (schedule.type === "webhook") return resolve(msg("On webhook"));
   if (schedule.type === "once") {
     return resolve(msg("Once, {time}", { time: ONCE_FORMATTER.format(new Date(schedule.runAt)) }));
   }
-=======
-  if (schedule.type === "webhook") return "On webhook";
-  if (schedule.type === "once") return `Once, ${ONCE_FORMATTER.format(new Date(schedule.runAt))}`;
   if (schedule.type === "cron") return `Cron ${schedule.expression}`;
->>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
   if (schedule.type === "interval") {
     const minutes = schedule.everyMs / 60_000;
     return Number.isInteger(minutes)
@@ -188,10 +183,7 @@ export function scheduleDraftErrors(draft: DraftState, resolve: MessageResolver 
     return [];
   }
   if (draft.scheduleMode === "fixed" && !draft.timeOfDay)
-<<<<<<< HEAD
     return invalidRunTime(resolve(msg("Pick a time.")));
-=======
-    return [{ title: "Invalid run time", description: "Pick a time." }];
   if (draft.scheduleMode === "cron")
     return isCronExpression(draft.cronExpression)
       ? []
@@ -201,11 +193,6 @@ export function scheduleDraftErrors(draft: DraftState, resolve: MessageResolver 
             description: "Use five fields: minute, hour, day of month, month, and weekday.",
           },
         ];
-<<<<<<< HEAD
->>>>>>> 3dddb989f2 (feat: cron schedules for scheduled tasks)
->>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
-=======
->>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
   if (draft.scheduleMode !== "webhook") return [];
   if (parseMaxDeliveryAge(draft.maxDeliveryAgeMinutes) === undefined)
     return [

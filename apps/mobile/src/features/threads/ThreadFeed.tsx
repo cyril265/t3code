@@ -4494,24 +4494,6 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
               </>
             }
             ListFooterComponent={
-<<<<<<< HEAD
-              props.pendingHandoff || props.statusLines?.length ? (
-                <>
-                  {props.pendingHandoff ? (
-                    <ThreadHandoffDivider
-                      environmentId={props.environmentId}
-                      endpoints={props.pendingHandoff}
-                      iconColor={iconSubtleColor}
-                      surfaceColor={screenColor}
-                      label={gt("Context handoff pending")}
-                    />
-                  ) : null}
-                  {props.statusLines?.map((line) => (
-                    <ThreadStatusLine key={line.key} line={line} iconColor={iconSubtleColor} />
-                  ))}
-                </>
-              ) : null
-=======
               <>
                 <LiveTurnTokenUsage environmentId={props.environmentId} threadId={props.threadId} />
                 {props.pendingHandoff ? (
@@ -4520,11 +4502,13 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
                     endpoints={props.pendingHandoff}
                     iconColor={iconSubtleColor}
                     surfaceColor={screenColor}
-                    label="Context handoff pending"
+                    label={gt("Context handoff pending")}
                   />
                 ) : null}
+                {props.statusLines?.map((line) => (
+                  <ThreadStatusLine key={line.key} line={line} iconColor={iconSubtleColor} />
+                ))}
               </>
->>>>>>> 19918a30e3 (feat: show live output token counts and average tok/s)
             }
             contentContainerStyle={{
               ...(props.fitShortFeedToViewport ? { minHeight: "100%" } : {}),

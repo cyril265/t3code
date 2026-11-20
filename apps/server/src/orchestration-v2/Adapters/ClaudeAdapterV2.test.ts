@@ -10549,7 +10549,6 @@ describe("ClaudeAdapterV2 background wake turns", () => {
       ),
   );
 
-<<<<<<< HEAD
   it.effect("reports an empty context when /clear resets the conversation", () =>
     Effect.gen(function* () {
       const harness = yield* makeWakeHarness;
@@ -10637,10 +10636,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     ),
   );
 
-  it.effect("reports the settings directory of a reused Claude query", () =>
-=======
   it.effect("moves a reused Claude query and reads settings from its current directory", () =>
->>>>>>> 43cd4a621a (feat: move a thread to another directory or a new worktree without a new session)
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
