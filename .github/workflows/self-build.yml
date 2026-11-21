@@ -97,6 +97,8 @@ jobs:
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
       VERSION: ${{ needs.resolve.outputs.version }}
+    outputs:
+      target: ${{ steps.notes.outputs.target }}
     steps:
       # The branch tip, not the queued event's SHA: an earlier run may have pushed a resolution.
       - uses: actions/checkout@v6
@@ -274,11 +276,11 @@ jobs:
             --force-with-lease="refs/heads/$GITHUB_REF_NAME:$SOURCE_SHA" origin "HEAD:refs/heads/$GITHUB_REF_NAME"
 
       - name: Write the release notes
+        id: notes
         if: github.ref_name == github.event.repository.default_branch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir "$RUNNER_TEMP/notes"
           gh release view "$TAG" --repo pingdotgg/t3code --json body --jq .body > "$RUNNER_TEMP/upstream-notes.md"
           previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName' \
             | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; echo "v$VERSION"; } | sort -uV | grep -B1 -x "v$VERSION" | head -1)"
@@ -290,17 +292,17 @@ jobs:
           git log --format=%s "upstream-$TAG..HEAD" \
             | python3 .github/scripts/self-build-release-notes.py "$VERSION" "$TAG" "$RUNNER_TEMP/upstream-notes.md" \
               "$RUNNER_TEMP/previous-subjects.txt" "$previous" \
-            > "$RUNNER_TEMP/notes/notes.md"
+            > "$RUNNER_TEMP/notes.md"
           # The tag is created when the release is published, so pin it to the built commit, not the branch tip by then.
           target="$SOURCE_SHA"
           if [[ "${CHANGED:-}" == "true" ]]; then target="$(git rev-parse HEAD)"; fi
-          echo "$target" > "$RUNNER_TEMP/notes/target"
+          echo "target=$target" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
         if: github.ref_name == github.event.repository.default_branch
         with:
           name: release-notes
-          path: ${{ runner.temp }}/notes
+          path: ${{ runner.temp }}/notes.md
 
   mac:
     needs: [resolve, prepare]
@@ -404,22 +406,18 @@ jobs:
 
       - uses: ./.github/actions/setup-ci-deps
         with:
-          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/web... --filter=@t3tools/scripts...
+          install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/scripts... ${{ matrix.windows && '--filter=@t3tools/desktop...' || '' }}
 
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           toolchain: stable
-          targets: ${{ matrix.rust_target }}${{ matrix.windows && ',x86_64-pc-windows-msvc' || '' }}
+          targets: ${{ matrix.rust_target }}
 
       - uses: ./.github/actions/setup-apt-mirrors
 
-      - name: Install patchelf
-        run: command -v patchelf || { sudo apt-get update && sudo apt-get install -y patchelf; }
-
-      # The desktop build compiles the Linux browser secret helper before packaging any platform.
-      - name: Install libsecret
-        if: matrix.windows
-        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+      # libsecret: the desktop build compiles the Linux browser secret helper before packaging any platform.
+      - name: Install build packages
+        run: sudo apt-get update && sudo apt-get install -y patchelf ${{ matrix.windows && 'libsecret-1-dev pkg-config' || '' }}
 
       - name: Build the CLI archive
         run: |
@@ -459,7 +457,9 @@ jobs:
 
       - name: Build the Windows resource monitor
         if: matrix.windows && steps.windows_monitor.outputs.cache-hit != 'true'
-        run: cargo xwin build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-pc-windows-msvc
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          cargo xwin build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-pc-windows-msvc
 
       - name: Package the Windows app
         if: matrix.windows
@@ -582,7 +582,7 @@ jobs:
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
             --jq ".[] | select(.draft and .tag_name == \"v$VERSION\") | .id" \
             | while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
-          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$(cat release-notes/target)" \
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "${{ needs.prepare.outputs.target }}" \
             --latest="$LATEST" --title "T3 Code $VERSION (self-build of $TAG)" --notes-file release-notes/notes.md \
             desktop-mac/*.zip desktop-mac/*.zip.blockmap desktop-mac/latest-mac.yml \
             desktop-win-x64/*.exe desktop-win-x64/*.exe.blockmap desktop-win-x64/latest.yml \
