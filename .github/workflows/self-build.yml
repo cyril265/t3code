@@ -62,7 +62,7 @@ jobs:
           fi
           major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}" first=$(( BASH_REMATCH[3] * 100 ))
           last=-1
-          # A draft is a build whose Linux archives never got attached; the next build reuses its number.
+          # A draft is a release whose assets never finished uploading; the next build reuses its number.
           existing_tags="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName')"
           for existing in $existing_tags; do
             if [[ "$existing" =~ ^v${major}\.${minor}\.([0-9]+)$ ]]; then
@@ -86,18 +86,17 @@ jobs:
           echo "build=true" >> "$GITHUB_OUTPUT"
           echo "building $tag as $version"
 
-  build:
+  # Rebases this branch onto the upstream release, has Codex fix what breaks, and hands every build job the result.
+  prepare:
     needs: resolve
     if: needs.resolve.outputs.build == 'true'
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 45
     # Environment secrets are read when the job starts, so a queued run sees the login the previous run saved.
     environment: codex
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
       VERSION: ${{ needs.resolve.outputs.version }}
-      LATEST: ${{ needs.resolve.outputs.latest }}
-      T3_SELF_SIGN_IDENTITY: ${{ vars.SELF_SIGN_IDENTITY }}
     steps:
       # The branch tip, not the queued event's SHA: an earlier run may have pushed a resolution.
       - uses: actions/checkout@v6
@@ -250,10 +249,11 @@ jobs:
           path: ${{ runner.temp }}/codex-changes.patch
           if-no-files-found: ignore
 
-      # The Linux CLI jobs build this rebased tree, which is only pushed when Codex changed it.
+      # Every build job starts from this tree. A one-commit clone keeps the commit hash the builds embed.
       - name: Archive the rebased source
         run: |
-          git archive --format=tar.gz -o "$RUNNER_TEMP/source.tar.gz" HEAD
+          git clone -q --depth=1 "file://$GITHUB_WORKSPACE" "$RUNNER_TEMP/source"
+          tar -czf "$RUNNER_TEMP/source.tar.gz" -C "$RUNNER_TEMP/source" .
           git diff --name-only --diff-filter=d "upstream-$TAG" HEAD -- '*.test.ts' '*.test.tsx' \
             | grep -v '\.browser\.test\.' > "$RUNNER_TEMP/fork-tests.txt" || true
 
@@ -263,6 +263,64 @@ jobs:
           path: |
             ${{ runner.temp }}/source.tar.gz
             ${{ runner.temp }}/fork-tests.txt
+
+      - name: Push the resolved branch
+        if: env.CHANGED == 'true'
+        env:
+          PUSH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
+        run: |
+          git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git -c http.https://github.com/.extraheader= push \
+            --force-with-lease="refs/heads/$GITHUB_REF_NAME:$SOURCE_SHA" origin "HEAD:refs/heads/$GITHUB_REF_NAME"
+
+      - name: Write the release notes
+        if: github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir "$RUNNER_TEMP/notes"
+          gh release view "$TAG" --repo pingdotgg/t3code --json body --jq .body > "$RUNNER_TEMP/upstream-notes.md"
+          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName' \
+            | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; echo "v$VERSION"; } | sort -uV | grep -B1 -x "v$VERSION" | head -1)"
+          if [[ "$previous" == "v$VERSION" ]]; then previous=""; fi
+          : > "$RUNNER_TEMP/previous-subjects.txt"
+          if [[ -n "$previous" ]]; then
+            git log --format=%s "$(git merge-base "$previous" upstream/main)..$previous" > "$RUNNER_TEMP/previous-subjects.txt"
+          fi
+          git log --format=%s "upstream-$TAG..HEAD" \
+            | python3 .github/scripts/self-build-release-notes.py "$VERSION" "$TAG" "$RUNNER_TEMP/upstream-notes.md" \
+              "$RUNNER_TEMP/previous-subjects.txt" "$previous" \
+            > "$RUNNER_TEMP/notes/notes.md"
+          # The tag is created when the release is published, so pin it to the built commit, not the branch tip by then.
+          target="$SOURCE_SHA"
+          if [[ "${CHANGED:-}" == "true" ]]; then target="$(git rev-parse HEAD)"; fi
+          echo "$target" > "$RUNNER_TEMP/notes/target"
+
+      - uses: actions/upload-artifact@v7
+        if: github.ref_name == github.event.repository.default_branch
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes
+
+  mac:
+    needs: [resolve, prepare]
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+      T3_SELF_SIGN_IDENTITY: ${{ vars.SELF_SIGN_IDENTITY }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: self-build-source
+          path: ${{ runner.temp }}/source
+
+      - name: Unpack the rebased source
+        run: tar -xzf "$RUNNER_TEMP/source/source.tar.gz" -C "$GITHUB_WORKSPACE"
+
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
 
       - name: Import signing certificate
         env:
@@ -308,52 +366,26 @@ jobs:
           codesign -d -r- "$app" | grep -F "certificate leaf = H\"$(echo "$T3_SELF_SIGN_IDENTITY" | tr 'A-F' 'a-f')\""
           grep -F "repo: ${GITHUB_REPOSITORY#*/}" "$app/Contents/Resources/app-update.yml"
 
-      - name: Push the resolved branch
-        if: env.CHANGED == 'true'
-        env:
-          PUSH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
-        run: |
-          git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
-          git -c http.https://github.com/.extraheader= push \
-            --force-with-lease="refs/heads/$GITHUB_REF_NAME:$SOURCE_SHA" origin "HEAD:refs/heads/$GITHUB_REF_NAME"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-mac
+          path: |
+            ${{ runner.temp }}/release/*.zip
+            ${{ runner.temp }}/release/*.zip.blockmap
+            ${{ runner.temp }}/release/latest-mac.yml
+          if-no-files-found: error
 
-      - name: Publish release
-        if: github.ref_name == github.event.repository.default_branch
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view "$TAG" --repo pingdotgg/t3code --json body --jq .body > "$RUNNER_TEMP/upstream-notes.md"
-          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName' \
-            | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; echo "v$VERSION"; } | sort -uV | grep -B1 -x "v$VERSION" | head -1)"
-          if [[ "$previous" == "v$VERSION" ]]; then previous=""; fi
-          : > "$RUNNER_TEMP/previous-subjects.txt"
-          if [[ -n "$previous" ]]; then
-            git log --format=%s "$(git merge-base "$previous" upstream/main)..$previous" > "$RUNNER_TEMP/previous-subjects.txt"
-          fi
-          git log --format=%s "upstream-$TAG..HEAD" \
-            | python3 .github/scripts/self-build-release-notes.py "$VERSION" "$TAG" "$RUNNER_TEMP/upstream-notes.md" \
-              "$RUNNER_TEMP/previous-subjects.txt" "$previous" \
-            > "$RUNNER_TEMP/notes.md"
-          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq ".[] | select(.draft and .tag_name == \"v$VERSION\") | .id" \
-            | while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
-          # The tag is created when the draft is published, so pin it to the built commit, not the branch tip by then.
-          target="$SOURCE_SHA"
-          if [[ "${CHANGED:-}" == "true" ]]; then target="$(git rev-parse HEAD)"; fi
-          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$target" --draft \
-            --title "T3 Code $VERSION (self-build of $TAG)" \
-            --notes-file "$RUNNER_TEMP/notes.md" \
-            "$RUNNER_TEMP"/release/*.zip "$RUNNER_TEMP"/release/*.zip.blockmap "$RUNNER_TEMP"/release/latest-mac.yml
-
-  # The archives SSH remotes download to run the desktop's own server version.
+  # The archives SSH remotes download to run the desktop's own server version. The x64 leg also packages
+  # the Windows app, which embeds that archive as its WSL runtime; Linux packages it faster than Windows.
   linux-cli:
-    needs: [resolve, build]
+    needs: [resolve, prepare]
     strategy:
       matrix:
         include:
           - arch: x64
             runner: ubuntu-24.04
             rust_target: x86_64-unknown-linux-gnu
+            windows: true
           - arch: arm64
             runner: ubuntu-24.04-arm
             rust_target: aarch64-unknown-linux-gnu
@@ -372,12 +404,12 @@ jobs:
 
       - uses: ./.github/actions/setup-ci-deps
         with:
-          install-args: --filter=t3... --filter=@t3tools/web... --filter=@t3tools/scripts...
+          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/web... --filter=@t3tools/scripts...
 
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           toolchain: stable
-          targets: ${{ matrix.rust_target }}
+          targets: ${{ matrix.rust_target }}${{ matrix.windows && ',x86_64-pc-windows-msvc' || '' }}
 
       - uses: ./.github/actions/setup-apt-mirrors
 
@@ -406,57 +438,113 @@ jobs:
           name: cli-linux-${{ matrix.arch }}
           path: release-cli/*
 
-  # Built on Windows so the packaged app's self-check runs; it embeds the x64 Linux CLI archive as its WSL runtime.
-  windows:
-    needs: [resolve, linux-cli]
-    runs-on: windows-2025
-    timeout-minutes: 60
-    env:
-      VERSION: ${{ needs.resolve.outputs.version }}
-    steps:
-      - uses: actions/download-artifact@v8
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        if: matrix.windows
         with:
-          name: self-build-source
-          path: ${{ runner.temp }}/source
+          tool: cargo-xwin@0.23.1
 
-      # Relative: GNU tar reads D:\... as host:path. The only symlinks live in .repos and .claude, which MSYS tar
-      # cannot extract and the build does not need.
-      - name: Unpack the rebased source
-        working-directory: ${{ runner.temp }}/source
-        run: tar -xzf source.tar.gz -C "$GITHUB_WORKSPACE" --exclude=.repos --exclude=.claude
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: cli-linux-x64
-          path: wsl-runtime
-
-      - uses: ./.github/actions/setup-ci-deps
-        with:
-          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
-
-      - name: Build
+      - name: Package the Windows app
+        if: matrix.windows
+        env:
+          T3CODE_DESKTOP_REUSE_RESOURCE_MONITOR: true
         run: |
-          cp .env.example .env
-          vp run dist:desktop:artifact --platform win --target nsis --arch x64 \
-            --build-version "$VERSION" --wsl-runtime "$GITHUB_WORKSPACE"/wsl-runtime/t3-*-linux-x64.tar.gz \
-            --output-dir "$RUNNER_TEMP/release" --verbose
+          cargo xwin build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-pc-windows-msvc
+          vp run dist:desktop:artifact --platform win --target nsis --arch x64 --build-version "$VERSION" \
+            --wsl-runtime release-cli/t3-*-linux-x64.tar.gz --output-dir "$RUNNER_TEMP/windows" --keep-stage --verbose
+
+      # The Windows job runs what Linux cannot: the packaged natives and the cross-linked resource monitor.
+      - name: Stage the Windows verification inputs
+        if: matrix.windows
+        run: |
+          mkdir verify
+          unpacked="$(ls -d "${TMPDIR:-/tmp}"/t3code-desktop-win-stage-*/app/dist/win-unpacked)"
+          tar -C "$(dirname "$unpacked")" -cf verify/unpacked.tar win-unpacked
+          # build-desktop-artifact.ts's own import.meta.main guard must not run its CLI inside the bundle.
+          scripts/node_modules/.bin/esbuild scripts/verify-windows-desktop-artifact.ts --bundle --platform=node \
+            --format=esm --target=node24 --define:import.meta.main=false \
+            --banner:js="import{createRequire as __cr}from'node:module';const require=__cr(import.meta.url);" \
+            --outfile=verify/verify-windows-desktop-artifact.mjs
 
       - uses: actions/upload-artifact@v7
+        if: matrix.windows
+        with:
+          name: verify-win-x64
+          path: verify/*
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v7
+        if: matrix.windows
         with:
           name: desktop-win-x64
           path: |
-            ${{ runner.temp }}/release/*.exe
-            ${{ runner.temp }}/release/*.exe.blockmap
-            ${{ runner.temp }}/release/latest.yml
+            ${{ runner.temp }}/windows/*.exe
+            ${{ runner.temp }}/windows/*.exe.blockmap
+            ${{ runner.temp }}/windows/latest.yml
           if-no-files-found: error
 
-  # The release stays a draft until every archive and the Windows installer are attached, so
-  # desktops never update to a version their SSH remotes cannot download or Windows cannot install.
+  windows:
+    needs: [resolve, linux-cli]
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: verify-win-x64
+          path: verify
+
+      - name: Verify the packaged natives
+        run: |
+          tar -C verify -xf verify/unpacked.tar
+          node verify/verify-windows-desktop-artifact.mjs --app-dir "$(cygpath -w "$PWD/verify/win-unpacked")" \
+            --arch x64 --build-version "${{ needs.resolve.outputs.version }}" --verbose
+
+      # cargo-xwin links this binary on Linux, and nothing else runs it before users do.
+      - name: Smoke-test the resource monitor
+        env:
+          MONITOR: verify/win-unpacked/resources/resource-monitor/t3-resource-monitor.exe
+        run: |
+          node --input-type=module <<'EOF'
+          import { spawn } from "node:child_process";
+          const monitor = spawn(process.env.MONITOR, { stdio: ["pipe", "pipe", "inherit"] });
+          monitor.stdout.setEncoding("utf8");
+          let output = "";
+          const exited = new Promise((resolve) => monitor.on("close", resolve));
+          const hello = await new Promise((resolve, reject) => {
+            monitor.on("error", reject);
+            monitor.on("close", () => reject(new Error(`Resource monitor exited before hello: ${output}`)));
+            monitor.stdout.on("data", (chunk) => {
+              output += chunk;
+              const end = output.indexOf("\n");
+              if (end !== -1) resolve(JSON.parse(output.slice(0, end)));
+            });
+          });
+          if (hello.type !== "hello" || hello.arch !== "x86_64") {
+            throw new Error(`Unexpected hello: ${JSON.stringify(hello)}`);
+          }
+          const send = (message) => monitor.stdin.write(`${JSON.stringify({ version: hello.version, ...message })}\n`);
+          send({ type: "configure", rootPid: process.pid, sampleIntervalMs: 1000 });
+          send({ type: "sampleNow", requestId: "verify" });
+          monitor.stdin.end();
+          const exitCode = await exited;
+          const sample = output
+            .split("\n")
+            .filter((line) => line.trim())
+            .map((line) => JSON.parse(line))
+            .find((message) => message.requestId === "verify");
+          if (exitCode !== 0 || sample?.type !== "snapshot" || !sample.processes.some((p) => p.pid === process.pid)) {
+            throw new Error(`Resource monitor exited ${exitCode} with: ${output}`);
+          }
+          console.log(`Resource monitor sampled ${sample.scannedProcessCount} processes.`);
+          EOF
+
+  # The release is created with every asset at once, so desktops never update to a version
+  # their SSH remotes cannot download or Windows cannot install.
   publish:
-    needs: [resolve, linux-cli, windows]
+    needs: [resolve, prepare, mac, linux-cli, windows]
     if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     env:
+      TAG: ${{ needs.resolve.outputs.tag }}
       VERSION: ${{ needs.resolve.outputs.version }}
       LATEST: ${{ needs.resolve.outputs.latest }}
       GH_TOKEN: ${{ github.token }}
@@ -469,17 +557,19 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          name: desktop-win-x64
-          path: windows
+          pattern: "{desktop-*,release-notes}"
 
-      - name: Attach the CLI archives and Windows installer, then publish
-        working-directory: cli
+      - name: Publish the release
         run: |
-          sha256sum t3-*.tar.gz > SHA256SUMS
-          cat SHA256SUMS
-          gh release upload "v$VERSION" t3-*.tar.gz SHA256SUMS \
-            ../windows/*.exe ../windows/*.exe.blockmap ../windows/latest.yml --clobber --repo "$GITHUB_REPOSITORY"
-          gh release edit "v$VERSION" --draft=false --latest="$LATEST" --repo "$GITHUB_REPOSITORY"
+          (cd cli && sha256sum t3-*.tar.gz > SHA256SUMS && cat SHA256SUMS)
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.draft and .tag_name == \"v$VERSION\") | .id" \
+            | while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$(cat release-notes/target)" \
+            --latest="$LATEST" --title "T3 Code $VERSION (self-build of $TAG)" --notes-file release-notes/notes.md \
+            desktop-mac/*.zip desktop-mac/*.zip.blockmap desktop-mac/latest-mac.yml \
+            desktop-win-x64/*.exe desktop-win-x64/*.exe.blockmap desktop-win-x64/latest.yml \
+            cli/t3-*.tar.gz cli/SHA256SUMS
 
   android-server:
     needs: [resolve, publish]
@@ -490,7 +580,7 @@ jobs:
 
   # Reports only: a failing fork test must not hold back a release.
   fork-tests:
-    needs: build
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -512,7 +602,7 @@ jobs:
 
   # One open issue per failure streak: its assignee is notified once, and later failures update it.
   notify:
-    needs: [resolve, build, linux-cli, windows, publish, android-server, fork-tests]
+    needs: [resolve, prepare, mac, linux-cli, windows, publish, android-server, fork-tests]
     if: always() && github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     permissions:
@@ -535,7 +625,7 @@ jobs:
             else
               gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$body" --assignee "$GITHUB_REPOSITORY_OWNER"
             fi
-          elif [[ -n "$issue" && "$(jq -r '.build.result' <<<"$NEEDS")" == success ]] \
+          elif [[ -n "$issue" && "$(jq -r '.publish.result' <<<"$NEEDS")" == success ]] \
             && ! jq -e 'any(.[]; .result == "cancelled")' <<<"$NEEDS" > /dev/null; then
             gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Fixed in $RUN_URL"
           fi
