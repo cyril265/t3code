@@ -487,7 +487,9 @@ jobs:
         with:
           name: verify-win-x64
           path: verify/*
+          if-no-files-found: error
           retention-days: 1
+          compression-level: 1
 
       - uses: actions/upload-artifact@v7
         if: matrix.windows
@@ -498,11 +500,14 @@ jobs:
             ${{ runner.temp }}/windows/*.exe.blockmap
             ${{ runner.temp }}/windows/latest.yml
           if-no-files-found: error
+          compression-level: 0
 
   windows:
     needs: [resolve, linux-cli]
     runs-on: windows-2025
     timeout-minutes: 15
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -513,7 +518,8 @@ jobs:
         run: |
           tar -C verify -xf verify/unpacked.tar
           node verify/verify-windows-desktop-artifact.mjs --app-dir "$(cygpath -w "$PWD/verify/win-unpacked")" \
-            --arch x64 --build-version "${{ needs.resolve.outputs.version }}" --verbose
+            --arch x64 --build-version "$VERSION" --verbose
+          grep -F "repo: ${GITHUB_REPOSITORY#*/}" verify/win-unpacked/resources/app-update.yml
 
       # cargo-xwin links this binary on Linux, and nothing else runs it before users do.
       - name: Smoke-test the resource monitor
