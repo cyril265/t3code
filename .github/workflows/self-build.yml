@@ -406,10 +406,54 @@ jobs:
           name: cli-linux-${{ matrix.arch }}
           path: release-cli/*
 
-  # The release stays a draft until every archive is attached, so desktops never update to a
-  # version their SSH remotes cannot download.
-  publish:
+  # Built on Windows so the packaged app's self-check runs; it embeds the x64 Linux CLI archive as its WSL runtime.
+  windows:
     needs: [resolve, linux-cli]
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: self-build-source
+          path: ${{ runner.temp }}/source
+
+      # Relative: GNU tar reads D:\... as host:path. The only symlinks live in .repos and .claude, which MSYS tar
+      # cannot extract and the build does not need.
+      - name: Unpack the rebased source
+        working-directory: ${{ runner.temp }}/source
+        run: tar -xzf source.tar.gz -C "$GITHUB_WORKSPACE" --exclude=.repos --exclude=.claude
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: cli-linux-x64
+          path: wsl-runtime
+
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          install-args: --filter=@t3tools/desktop... --filter=t3... --filter=@t3tools/scripts...
+
+      - name: Build
+        run: |
+          cp .env.example .env
+          vp run dist:desktop:artifact --platform win --target nsis --arch x64 \
+            --build-version "$VERSION" --wsl-runtime "$GITHUB_WORKSPACE"/wsl-runtime/t3-*-linux-x64.tar.gz \
+            --output-dir "$RUNNER_TEMP/release" --verbose
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-win-x64
+          path: |
+            ${{ runner.temp }}/release/*.exe
+            ${{ runner.temp }}/release/*.exe.blockmap
+            ${{ runner.temp }}/release/latest.yml
+          if-no-files-found: error
+
+  # The release stays a draft until every archive and the Windows installer are attached, so
+  # desktops never update to a version their SSH remotes cannot download or Windows cannot install.
+  publish:
+    needs: [resolve, linux-cli, windows]
     if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     env:
@@ -423,12 +467,18 @@ jobs:
           merge-multiple: true
           path: cli
 
-      - name: Attach the CLI archives and publish the release
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-win-x64
+          path: windows
+
+      - name: Attach the CLI archives and Windows installer, then publish
         working-directory: cli
         run: |
           sha256sum t3-*.tar.gz > SHA256SUMS
           cat SHA256SUMS
-          gh release upload "v$VERSION" t3-*.tar.gz SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload "v$VERSION" t3-*.tar.gz SHA256SUMS \
+            ../windows/*.exe ../windows/*.exe.blockmap ../windows/latest.yml --clobber --repo "$GITHUB_REPOSITORY"
           gh release edit "v$VERSION" --draft=false --latest="$LATEST" --repo "$GITHUB_REPOSITORY"
 
   android-server:
@@ -462,7 +512,7 @@ jobs:
 
   # One open issue per failure streak: its assignee is notified once, and later failures update it.
   notify:
-    needs: [resolve, build, linux-cli, publish, android-server, fork-tests]
+    needs: [resolve, build, linux-cli, windows, publish, android-server, fork-tests]
     if: always() && github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     permissions:
