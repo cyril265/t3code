@@ -443,17 +443,29 @@ jobs:
           name: cli-linux-${{ matrix.arch }}
           path: release-cli/*
 
-      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      # cargo-xwin spends about 6 minutes downloading the MSVC runtime, so the built monitor is cached.
+      - name: Cache the Windows resource monitor
         if: matrix.windows
+        id: windows_monitor
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/resource-monitor/target/x86_64-pc-windows-msvc/release/t3-resource-monitor.exe
+          key: resource-monitor-x86_64-pc-windows-msvc-${{ hashFiles('native/resource-monitor/Cargo.lock', 'native/resource-monitor/Cargo.toml', 'native/resource-monitor/src/**') }}
+
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        if: matrix.windows && steps.windows_monitor.outputs.cache-hit != 'true'
         with:
           tool: cargo-xwin@0.23.1
+
+      - name: Build the Windows resource monitor
+        if: matrix.windows && steps.windows_monitor.outputs.cache-hit != 'true'
+        run: cargo xwin build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-pc-windows-msvc
 
       - name: Package the Windows app
         if: matrix.windows
         env:
           T3CODE_DESKTOP_REUSE_RESOURCE_MONITOR: true
         run: |
-          cargo xwin build --locked --release --manifest-path native/resource-monitor/Cargo.toml --target x86_64-pc-windows-msvc
           vp run dist:desktop:artifact --platform win --target nsis --arch x64 --build-version "$VERSION" \
             --wsl-runtime release-cli/t3-*-linux-x64.tar.gz --output-dir "$RUNNER_TEMP/windows" --keep-stage --verbose
 
