@@ -416,6 +416,11 @@ jobs:
       - name: Install patchelf
         run: command -v patchelf || { sudo apt-get update && sudo apt-get install -y patchelf; }
 
+      # The desktop build compiles the Linux browser secret helper before packaging any platform.
+      - name: Install libsecret
+        if: matrix.windows
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config
+
       - name: Build the CLI archive
         run: |
           cp .env.example .env
