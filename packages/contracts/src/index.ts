@@ -67,12 +67,9 @@ export * from "./previewAutomation.ts";
 export * from "./previewCapture.ts";
 export * from "./usage.ts";
 export * from "./scheduledTask.ts";
-<<<<<<< HEAD
 export * from "./milestones.ts";
 export * from "./workflow.ts";
-=======
 export * from "./externalWait.ts";
->>>>>>> c71aed8336 (feat: show running wait scripts on their thread)
 export * from "./worktreeMcp.ts";
 export * from "./resourceTelemetry.ts";
 export * from "./rpc.ts";

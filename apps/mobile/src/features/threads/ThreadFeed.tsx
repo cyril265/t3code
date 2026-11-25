@@ -66,15 +66,10 @@ import {
   resolveUserMessagePresentation,
 } from "@t3tools/client-runtime/user-message";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
-<<<<<<< HEAD
-=======
 import {
   formatLiveTurnTokenUsage,
   formatTurnTokenRate,
 } from "@t3tools/client-runtime/state/turn-token-rate";
-import type { ThreadCheckpointSummary } from "@t3tools/client-runtime/state/thread-checkpoints";
-import { formatDiffCount } from "@t3tools/client-runtime/diff-count";
->>>>>>> a3d861571e (feat: show live output token counts and average tok/s)
 import type { WorkflowOpening } from "@t3tools/client-runtime/state/subagentRuntime";
 import {
   AuthFilesystemReadScope,

@@ -10,18 +10,12 @@ import {
   isAttachmentOnlyBootstrapPrompt,
   replaceComposerContextReferences,
 } from "@t3tools/shared/composerContextReferences";
-<<<<<<< HEAD
 import { composerFileLinksToPlainText } from "@t3tools/shared/composerInlineTokens";
 import {
   parseGoalCommand,
   type ChatAttachment as ContractChatAttachment,
   type EnvironmentId,
-=======
-import {
-  type ChatAttachment as ContractChatAttachment,
-  type EnvironmentId,
   isCompactionCommandMessage,
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
   type MessageId,
   type RunId,
   type ThreadId,
@@ -80,6 +74,7 @@ function sendNowLabel(
   workflow: ReturnType<typeof deriveThreadQueueWorkflowState> | null,
   message: Parameters<typeof isCompactionCommandMessage>[0] | undefined,
   resolve: typeof m,
+  movesCommandFirst: boolean,
 ): string {
   if (workflow?.canSendNow) return resolve(msg("Start a turn with this message"));
   // A queued compaction never stops a running one; it only moves first.
@@ -88,7 +83,9 @@ function sendNowLabel(
   }
   return workflow?.promoteSkipsCompaction
     ? resolve(msg("Skip compaction and send this message"))
-    : resolve(msg("Send into the current turn"));
+    : movesCommandFirst
+      ? resolve(msg("Move this command to the front of the queue"))
+      : resolve(msg("Send into the current turn"));
 }
 
 function queuedImageResources(projection: ThreadQueueProjection | undefined) {
@@ -344,48 +341,7 @@ export function QueuedRunsControl({
                         </Button>
                       </TooltipTrigger>
                       <TooltipPopup>
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-                        {item.serverIndex === 0 && props.steerShortcutLabel
-                          ? workflow?.canSendNow
-                            ? gt("Start a turn with this message ({shortcut})", {
-                                shortcut: props.steerShortcutLabel,
-                              })
-                            : workflow?.promoteSkipsCompaction
-                              ? gt("Skip compaction and send this message ({shortcut})", {
-                                  shortcut: props.steerShortcutLabel,
-                                })
-                              : movesCommandFirst
-                                ? gt("Move this command to the front of the queue ({shortcut})", {
-                                    shortcut: props.steerShortcutLabel,
-                                  })
-                                : gt("Send into the current turn ({shortcut})", {
-                                    shortcut: props.steerShortcutLabel,
-                                  })
-                          : workflow?.canSendNow
-                            ? gt("Start a turn with this message")
-                            : workflow?.promoteSkipsCompaction
-                              ? gt("Skip compaction and send this message")
-<<<<<<< HEAD
-                              : movesCommandFirst
-                                ? gt("Move this command to the front of the queue")
-                                : gt("Send into the current turn")}
-=======
-                              : gt("Send into the current turn")}
-=======
-                        {`${workflow?.canSendNow ? "Start a turn with this message" : workflow?.promoteSkipsCompaction ? "Skip compaction and send this message" : item.message && isCompactionCommandMessage(item.message) ? "Stop the current turn and compact" : "Send into the current turn"}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> e101407a5a (feat: queue and steer /compact while a turn runs)
-<<<<<<< HEAD
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
-=======
-=======
-                        {`${sendNowLabel(workflow, item.message)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> edeaf749ef (refactor: derive the compaction resume from the queued message)
->>>>>>> c0d8601f95 (refactor: derive the compaction resume from the queued message)
-=======
-                        {`${sendNowLabel(workflow, item.message, messages)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
+                        {`${sendNowLabel(workflow, item.message, messages, movesCommandFirst)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
                       </TooltipPopup>
                     </Tooltip>
                   </>

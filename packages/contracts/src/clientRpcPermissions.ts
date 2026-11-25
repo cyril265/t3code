@@ -13,11 +13,8 @@ import {
   type AuthEnvironmentScope,
   mcpClientScopes,
 } from "./auth.ts";
-<<<<<<< HEAD
 import { PeerLinkLinkPairingInput } from "./peerLink.ts";
-=======
 import { EXTERNAL_WAIT_WS_METHODS } from "./externalWait.ts";
->>>>>>> c71aed8336 (feat: show running wait scripts on their thread)
 import { ORCHESTRATION_V2_WS_METHODS } from "./orchestrationV2.ts";
 import { WS_METHODS } from "./rpc.ts";
 

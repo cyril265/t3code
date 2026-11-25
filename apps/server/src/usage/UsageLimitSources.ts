@@ -12,14 +12,7 @@ import {
   type UsageLimitSourceSnapshot,
 } from "@t3tools/contracts";
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { antigravityWindowLimitsModel, hubRoutes } from "@t3tools/shared/usageLimits";
-=======
-import { endpointIdentity } from "@t3tools/shared/usageLimits";
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -163,15 +156,7 @@ export const make = Effect.gen(function* () {
       id,
       kind: config.kind,
       label: sourceLabel(id, config),
-<<<<<<< HEAD
-<<<<<<< HEAD
       ...(config.kind === "cliproxy" && url && /^https?:$/.test(url.protocol)
-=======
-<<<<<<< HEAD
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
-      ...(url && /^https?:$/.test(url.protocol)
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
         ? {
             origin: url.origin,
             endpoint: `${url.origin}${url.pathname.replace(/(\/management\.html)?\/*$/i, "")}`,

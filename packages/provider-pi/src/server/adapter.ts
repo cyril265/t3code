@@ -361,7 +361,7 @@ function compactionTitle(status: PiCompactionStatus): string {
 
 type PiMessageTokenUsage = Pick<
   OrchestrationV2ProviderTurnTokenUsage,
-  "inputTokens" | "cachedInputTokens" | "outputTokens"
+  "inputTokens" | "cachedInputTokens" | "cacheWriteTokens" | "outputTokens"
 >;
 
 interface ActivePiTurn {
@@ -382,17 +382,8 @@ interface ActivePiTurn {
   adoptedWake: boolean;
   promptMayBeCommandOnly: boolean;
   latestCompactionAfterTokens: number | null;
-<<<<<<< HEAD
-  lastLiveUsedTokens: number | null;
   lastMessageUsage: PiMessageTokenUsage | undefined;
-=======
   lastLiveUsageKey: string | null;
-  /** The latest request's counters, kept on the final usage as the next request's cache baseline. */
-  requestTokens: Pick<
-    OrchestrationV2ProviderTurnTokenUsage,
-    "inputTokens" | "cachedInputTokens" | "cacheWriteTokens" | "outputTokens"
-  >;
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
   settleProbeGeneration: number;
   /** An extension may start compaction immediately after Pi emits agent_settled. */
   settleWhenIdle: boolean;
@@ -946,6 +937,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
       const piMessageTokenUsage = (usage: unknown): PiMessageTokenUsage => {
         const uncachedInputTokens = nonNegativeInteger(usage, "input");
         const cachedInputTokens = nonNegativeInteger(usage, "cacheRead");
+        const cacheWriteTokens = nonNegativeInteger(usage, "cacheWrite");
         const outputTokens = nonNegativeInteger(usage, "output");
         return {
           ...(uncachedInputTokens === undefined
@@ -954,9 +946,10 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
                 inputTokens:
                   uncachedInputTokens +
                   (cachedInputTokens ?? 0) +
-                  (nonNegativeInteger(usage, "cacheWrite") ?? 0),
+                  (cacheWriteTokens ?? 0),
               }),
           ...(cachedInputTokens === undefined ? {} : { cachedInputTokens }),
+          ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
           ...(outputTokens === undefined ? {} : { outputTokens }),
         };
       };
@@ -1060,14 +1053,8 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           nonNegativeInteger(contextUsage, "tokens") ?? fallbackUsedTokens ?? undefined;
         if (usedTokens === undefined || maxTokens === undefined || maxTokens === 0)
           return undefined;
-<<<<<<< HEAD
         // Stats `tokens` are whole-session totals; the breakdown comes from the turn's last message.
         return { usedTokens, maxTokens, ...messageUsage, updatedAt: DateTime.formatIso(updatedAt) };
-=======
-
-        // Stats token counts are session totals, not this request's, so they stay out.
-        return { usedTokens, maxTokens, updatedAt: DateTime.formatIso(updatedAt) };
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
       };
 
       const readTokenUsage = (turn: ActivePiTurn, updatedAt: DateTime.Utc) =>
@@ -1101,9 +1088,6 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           ) {
             return;
           }
-<<<<<<< HEAD
-          turn.lastLiveUsedTokens = usedTokens;
-=======
           const uncachedInputTokens = nonNegativeInteger(usage, "input");
           const cachedInputTokens = nonNegativeInteger(usage, "cacheRead");
           const cacheWriteTokens = nonNegativeInteger(usage, "cacheWrite");
@@ -1118,19 +1102,6 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
           ].join(":");
           if (usageKey === turn.lastLiveUsageKey) return;
           turn.lastLiveUsageKey = usageKey;
-          turn.requestTokens = {
-            // Pi's counters are disjoint; inputTokens is the whole prompt, as for other providers.
-            ...(uncachedInputTokens === undefined
-              ? {}
-              : {
-                  inputTokens:
-                    uncachedInputTokens + (cachedInputTokens ?? 0) + (cacheWriteTokens ?? 0),
-                }),
-            ...(cachedInputTokens === undefined ? {} : { cachedInputTokens }),
-            ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
-            ...(outputTokens === undefined ? {} : { outputTokens }),
-          };
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
           const updatedAt = yield* DateTime.now;
           yield* emit({
             type: "provider_turn.updated",
@@ -1141,11 +1112,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
               tokenUsage: {
                 usedTokens,
                 maxTokens: contextWindow,
-<<<<<<< HEAD
                 ...turn.lastMessageUsage,
-=======
-                ...turn.requestTokens,
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
                 updatedAt: DateTime.formatIso(updatedAt),
               },
             },
@@ -2183,7 +2150,7 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
             completedAt,
             ...(tokenUsage === undefined
               ? {}
-              : { tokenUsage: { ...turn.requestTokens, ...tokenUsage } }),
+              : { tokenUsage }),
             ...(turn.reportedModel === undefined ? {} : { model: turn.reportedModel }),
           },
         });
@@ -3596,13 +3563,8 @@ export const makePiAdapterV2 = Effect.fn("makePiAdapterV2")(function* (
               promptMayBeCommandOnly:
                 compactCommand !== null || (payload?.message.trimStart().startsWith("/") ?? false),
               latestCompactionAfterTokens: null,
-<<<<<<< HEAD
-              lastLiveUsedTokens: null,
               lastMessageUsage: undefined,
-=======
               lastLiveUsageKey: null,
-              requestTokens: {},
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
               settleProbeGeneration: 0,
               settleWhenIdle: false,
               compactionCancelled: false,
