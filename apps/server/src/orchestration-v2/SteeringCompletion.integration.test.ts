@@ -956,11 +956,11 @@ it.effect.each(
         assert.equal(edited.steerWhenReadyRunId, run.id);
         yield* orchestrator.dispatch({
           type: "queued-run.edit",
-          commandId: CommandId.make("edit-steer-to-logout"),
+          commandId: CommandId.make("edit-steer-to-compact"),
           modelSelection: composerSelection,
           threadId,
           runId: edited.id,
-          text: "/logout",
+          text: "/compact",
         });
         const compact = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
           (candidate) => candidate.id === edited.id,
@@ -1002,34 +1002,33 @@ it.effect.each(
         queued.modelSelection,
         status === "preparing" && !direct ? composerSelection : runSelection,
       );
-      for (const text of ["/compact", "/logout"]) {
-        yield* orchestrator.dispatch({
-          type: "message.dispatch",
-          commandId: CommandId.make(`queue-${text}`),
-          threadId,
-          messageId: MessageId.make(`message:${text}`),
-          text,
-          attachments: [],
-          dispatchMode: { type: "queue_after_active" },
-          createdBy: "user",
-          creationSource: "web",
-        });
-        const maintenance = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
-          (candidate) => candidate.userMessageId === MessageId.make(`message:${text}`),
-        )!;
-        yield* orchestrator.dispatch({
-          type: "queued-message.promote-to-steer",
-          commandId: CommandId.make(`promote-${text}`),
-          threadId,
-          queuedRunId: maintenance.id,
-          targetRunId: run.id,
-        });
-        const promoted = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
-          (candidate) => candidate.id === maintenance.id,
-        )!;
-        assert.equal(promoted.status, "queued");
-        assert.equal(promoted.queuePosition, 1);
-      }
+      const logoutMessageId = MessageId.make("message:logout");
+      yield* orchestrator.dispatch({
+        type: "message.dispatch",
+        commandId: CommandId.make("queue-logout"),
+        threadId,
+        messageId: logoutMessageId,
+        text: "/logout",
+        attachments: [],
+        dispatchMode: { type: "queue_after_active" },
+        createdBy: "user",
+        creationSource: "web",
+      });
+      const logout = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
+        (candidate) => candidate.userMessageId === logoutMessageId,
+      )!;
+      yield* orchestrator.dispatch({
+        type: "queued-message.promote-to-steer",
+        commandId: CommandId.make("promote-logout"),
+        threadId,
+        queuedRunId: logout.id,
+        targetRunId: run.id,
+      });
+      const promotedLogout = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
+        (candidate) => candidate.id === logout.id,
+      )!;
+      assert.equal(promotedLogout.status, "queued");
+      assert.equal(promotedLogout.queuePosition, 1);
       const command = {
         type: "queued-message.promote-to-steer" as const,
         commandId: CommandId.make("promote"),
@@ -4398,7 +4397,7 @@ it.effect.each([
               (event) =>
                 event.type === "run.updated" &&
                 event.payload.id === compaction.runId &&
-                event.payload.status === "waiting",
+                event.payload.status === "completed",
             ),
             Stream.take(1),
             Stream.runDrain,
@@ -4518,11 +4517,11 @@ it.effect.each([
           (event) =>
             event.type === "run.updated" &&
             event.payload.id === started[0]!.runId &&
-            event.payload.status === "waiting",
+            event.payload.status === "completed",
         ),
         Stream.take(1),
         Stream.runDrain,
-        Effect.forkScoped,
+        Effect.forkScoped({ startImmediately: true }),
       );
       const compacting = yield* orchestrator.streamDomainEvents.pipe(
         Stream.filter(
@@ -4533,7 +4532,7 @@ it.effect.each([
         ),
         Stream.take(1),
         Stream.runDrain,
-        Effect.forkScoped,
+        Effect.forkScoped({ startImmediately: true }),
       );
       const turn = (yield* orchestrator.getThreadProjection(threadId)).providerTurns[0]!;
       yield* Queue.offer(events, {

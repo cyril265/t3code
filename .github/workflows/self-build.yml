@@ -98,6 +98,7 @@ jobs:
       TAG: ${{ needs.resolve.outputs.tag }}
       VERSION: ${{ needs.resolve.outputs.version }}
     outputs:
+      source: ${{ steps.notes.outputs.source }}
       target: ${{ steps.notes.outputs.target }}
     steps:
       # The branch tip, not the queued event's SHA: an earlier run may have pushed a resolution.
@@ -124,14 +125,7 @@ jobs:
               if (( ++steps > 500 )); then echo "::error::Rebase did not finish" >&2; exit 1; fi
               while IFS= read -r -d '' entry; do
                 code="${entry:0:2}" path="${entry:3}"
-                # v0.1.12 retired this page. The cron instructions are also in
-                # docs/user/project-settings.md; retain the rest of the cron commit.
-                if test "$code" = DU &&
-                  test "$path" = 'docs/orchestration-v2/orchestrator-mcp-server.md' &&
-                  test "$(git rev-parse REBASE_HEAD)" = '604656cb23d550575b25cf21d9ed63f5c10d93a1' &&
-                  ! git cat-file -e "upstream-$TAG:$path" 2>/dev/null; then
-                  git rm -- "$path"
-                elif [[ "$code" == UU || "$code" == AA ]] && grep -qE '^<<<<<<< ' -- "$path"; then
+                if [[ "$code" == UU || "$code" == AA ]] && grep -qE '^<<<<<<< ' -- "$path"; then
                   conflicted+="$path"$'\n'
                 else
                   unsupported+="$code $path"$'\n'
@@ -273,15 +267,6 @@ jobs:
             ${{ runner.temp }}/source.tar.gz
             ${{ runner.temp }}/fork-tests.txt
 
-      - name: Push the resolved branch
-        if: env.CHANGED == 'true'
-        env:
-          PUSH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
-        run: |
-          git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
-          git -c http.https://github.com/.extraheader= push \
-            --force-with-lease="refs/heads/$GITHUB_REF_NAME:$SOURCE_SHA" origin "HEAD:refs/heads/$GITHUB_REF_NAME"
-
       - name: Write the release notes
         id: notes
         if: github.ref_name == github.event.repository.default_branch
@@ -300,10 +285,21 @@ jobs:
             | python3 .github/scripts/self-build-release-notes.py "$VERSION" "$TAG" "$RUNNER_TEMP/upstream-notes.md" \
               "$RUNNER_TEMP/previous-subjects.txt" "$previous" \
             > "$RUNNER_TEMP/notes.md"
-          # The tag is created when the release is published, so pin it to the built commit, not the branch tip by then.
-          target="$SOURCE_SHA"
-          if [[ "${CHANGED:-}" == "true" ]]; then target="$(git rev-parse HEAD)"; fi
+          target="$(git rev-parse HEAD)"
+          echo "source=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
           echo "target=$target" >> "$GITHUB_OUTPUT"
+
+      # The source archive is shallow; hand publish the commits it needs to update the branch.
+      - name: Bundle the rebased commits
+        if: steps.notes.outputs.target != '' && steps.notes.outputs.source != steps.notes.outputs.target
+        run: git bundle create "$RUNNER_TEMP/resolved.bundle" HEAD "^upstream-$TAG"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.notes.outputs.target != '' && steps.notes.outputs.source != steps.notes.outputs.target
+        with:
+          name: resolved-commits
+          path: ${{ runner.temp }}/resolved.bundle
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         if: github.ref_name == github.event.repository.default_branch
@@ -575,13 +571,15 @@ jobs:
   # The release is created with every asset at once, so desktops never update to a version
   # their SSH remotes cannot download or Windows cannot install.
   publish:
-    needs: [resolve, prepare, mac, linux-cli, windows]
+    needs: [resolve, prepare, mac, linux-cli, windows, fork-tests]
     if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
       VERSION: ${{ needs.resolve.outputs.version }}
       LATEST: ${{ needs.resolve.outputs.latest }}
+      SOURCE_SHA: ${{ needs.prepare.outputs.source }}
+      TARGET_SHA: ${{ needs.prepare.outputs.target }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/download-artifact@v8
@@ -594,13 +592,33 @@ jobs:
         with:
           pattern: "{desktop-*,release-notes}"
 
+      - uses: actions/download-artifact@v8
+        if: env.SOURCE_SHA != env.TARGET_SHA
+        with:
+          name: resolved-commits
+          path: ${{ runner.temp }}/resolved
+
+      - name: Push the tested branch
+        if: env.SOURCE_SHA != env.TARGET_SHA
+        env:
+          PUSH_TOKEN: ${{ secrets.SELF_BUILD_TOKEN }}
+        run: |
+          cd "$RUNNER_TEMP/resolved"
+          git init --quiet
+          git fetch --no-tags https://github.com/pingdotgg/t3code.git "refs/tags/$TAG"
+          git fetch ./resolved.bundle HEAD
+          test "$(git rev-parse FETCH_HEAD)" = "$TARGET_SHA"
+          ref="refs/heads/$GITHUB_REF_NAME"
+          git push --force-with-lease="$ref:$SOURCE_SHA" \
+            "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "$TARGET_SHA:$ref"
+
       - name: Publish the release
         run: |
           (cd cli && sha256sum t3-*.tar.gz > SHA256SUMS && cat SHA256SUMS)
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
             --jq ".[] | select(.draft and .tag_name == \"v$VERSION\") | .id" \
             | while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
-          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "${{ needs.prepare.outputs.target }}" \
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$TARGET_SHA" \
             --latest="$LATEST" --title "T3 Code $VERSION (self-build of $TAG)" --notes-file release-notes/notes.md \
             desktop-mac/*.zip desktop-mac/*.zip.blockmap desktop-mac/latest-mac.yml \
             desktop-win-x64/*.exe desktop-win-x64/*.exe.blockmap desktop-win-x64/latest.yml \
@@ -613,7 +631,6 @@ jobs:
     with:
       release: v${{ needs.resolve.outputs.version }}
 
-  # Reports only: a failing fork test must not hold back a release.
   fork-tests:
     needs: prepare
     runs-on: ubuntu-latest
@@ -628,6 +645,9 @@ jobs:
         run: tar -xzf "$RUNNER_TEMP/source/source.tar.gz" -C "$GITHUB_WORKSPACE"
 
       - uses: ./.github/actions/setup-ci-deps
+
+      - name: Type check mobile and packaging scripts
+        run: vp run --filter @t3tools/mobile --filter @t3tools/scripts typecheck
 
       - name: Run the tests this fork changes
         run: |

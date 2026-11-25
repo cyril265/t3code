@@ -320,6 +320,11 @@ function claudeMessageInputTokens(usage: {
   );
 }
 
+function claudeContextSample(usage: ClaudeMessageUsage) {
+  // After an advisor call, the response totals can count the same context twice.
+  return usage.iterations?.findLast((iteration) => iteration.type === "message") ?? usage;
+}
+
 export function claudeProviderTurnTokenUsage(
   usage: {
     readonly iterations?: SDKAssistantMessage["message"]["usage"]["iterations"] | undefined;
@@ -334,8 +339,7 @@ export function claudeProviderTurnTokenUsage(
   autoCompactWindow = "",
   requestedAt?: DateTime.Utc,
 ) {
-  // After an advisor call, the response totals can count the same context twice.
-  const sample = usage.iterations?.findLast((iteration) => iteration.type === "message") ?? usage;
+  const sample = claudeContextSample(usage);
   const inputTokens = claudeMessageInputTokens(sample);
   const outputTokens = optionalClaudeUsageTokenCount(sample.output_tokens) ?? 0;
   const cachedInputTokens = optionalClaudeUsageTokenCount(sample.cache_read_input_tokens) ?? 0;
@@ -7140,7 +7144,8 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               outputGrew = next > previous;
             }
           }
-          const hasContext = typeof usage === "number" || claudeMessageInputTokens(usage) > 0;
+          const hasContext =
+            typeof usage === "number" || claudeMessageInputTokens(claudeContextSample(usage)) > 0;
           if (!hasContext && !outputGrew) return;
           if (hasContext && typeof usage !== "number") context.compactionTokens = undefined;
           const tokenUsage =
@@ -12375,13 +12380,15 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 yield* emitContextUsage(context, snapshotUsage);
               } else if (
                 stream.usage !== null &&
-                ((claudeMessageInputTokens(stream.usage) <= 0 &&
-                  claudeMessageInputTokens(snapshotUsage) > 0) ||
+                ((claudeMessageInputTokens(claudeContextSample(stream.usage)) <= 0 &&
+                  claudeMessageInputTokens(claudeContextSample(snapshotUsage)) > 0) ||
                   (optionalClaudeUsageTokenCount(snapshotUsage.output_tokens) ?? 0) >
                     (optionalClaudeUsageTokenCount(stream.usage.output_tokens) ?? 0))
               ) {
                 stream.usage = {
-                  ...(claudeMessageInputTokens(stream.usage) <= 0 ? snapshotUsage : stream.usage),
+                  ...(claudeMessageInputTokens(claudeContextSample(stream.usage)) <= 0
+                    ? snapshotUsage
+                    : stream.usage),
                   iterations: snapshotUsage.iterations ?? stream.usage.iterations,
                   output_tokens: Math.max(
                     optionalClaudeUsageTokenCount(snapshotUsage.output_tokens) ?? 0,
