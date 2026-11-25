@@ -124,7 +124,13 @@ jobs:
               if (( ++steps > 500 )); then echo "::error::Rebase did not finish" >&2; exit 1; fi
               while IFS= read -r -d '' entry; do
                 code="${entry:0:2}" path="${entry:3}"
-                if [[ "$code" == UU || "$code" == AA ]] && grep -qE '^<<<<<<< ' -- "$path"; then
+                # v0.1.12 retired this page. The cron instructions are also in
+                # docs/user/project-settings.md; retain the rest of the cron commit.
+                if [[ "$code" == DU && "$path" == docs/orchestration-v2/orchestrator-mcp-server.md" ]] &&
+                  [[ "$(git rev-parse REBASE_HEAD)" == 604656cb23d550575b25cf21d9ed63f5c10d93a1 ]] &&
+                  ! git cat-file -e "upstream-$TAG:$path" 2>/dev/null; then
+                  git rm -- "$path"
+                elif [[ "$code" == UU || "$code" == AA ]] && grep -qE '^<<<<<<< ' -- "$path"; then
                   conflicted+="$path"$'\n'
                 else
                   unsupported+="$code $path"$'\n'
