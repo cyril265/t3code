@@ -350,7 +350,12 @@ jobs:
           echo "T3_SELF_SIGN_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
 
       - name: Build
+        env:
+          # The Apple Speech helper uses the macOS 26 SDK; macos-15 defaults to Xcode 16.4.
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
         run: |
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
           cp .env.example .env
           vp run dist:desktop:artifact --platform mac --target zip --arch arm64 \
             --build-version "$VERSION" --output-dir "$RUNNER_TEMP/release"
