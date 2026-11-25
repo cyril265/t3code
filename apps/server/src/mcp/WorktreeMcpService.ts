@@ -463,18 +463,13 @@ const make = Effect.gen(function* () {
           continuation,
           note: `${
             continuation.status === "scheduled"
-<<<<<<< HEAD
-              ? "Handoff recorded. Changing the workspace detaches this provider session, so the current turn ends shortly after this call; the queued continuation prompt then starts the next turn inside the worktree with the conversation preserved. The worktree is not removed automatically when the thread is deleted."
-              : "Handoff recorded. Changing the workspace detaches this provider session, so the current turn ends shortly after this call; the conversation continues inside the worktree when the thread receives its next message. Pass continuationPrompt to resume automatically. The worktree is not removed automatically when the thread is deleted."
+              ? "Worktree recorded. End this turn now; the queued continuation runs in the worktree with the conversation preserved. The worktree stays after this thread is deleted."
+              : "Worktree recorded. End this turn now; the next message runs in the worktree with the conversation preserved. The worktree stays after this thread is deleted."
           }${
             setupWaitsForFullAccess
               ? " Project setup scripts do not run for a handoff from a thread below Full access."
               : ""
           }`,
-=======
-              ? "Worktree recorded. End this turn now; the queued continuation runs in the worktree with the conversation preserved. The worktree stays after this thread is deleted."
-              : "Worktree recorded. End this turn now; the next message runs in the worktree with the conversation preserved. The worktree stays after this thread is deleted.",
->>>>>>> 5551ee94ad (feat: move a thread to another directory or a new worktree without a new session)
         };
         return result;
       }),

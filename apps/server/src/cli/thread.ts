@@ -1057,11 +1057,7 @@ const threadSendCommand = Command.make("send", {
           const followWakes = flags.wait ? yield* threadIsIdle(tools, threadId) : false;
           const sent = yield* tools.call(
             "t3_thread_send",
-<<<<<<< HEAD
-            { threadId, message, mode: "queue", ...output },
-=======
-            { threadId, message, mode: flags.mode },
->>>>>>> c71aed8336 (feat: show running wait scripts on their thread)
+            { threadId, message, mode: flags.mode, ...output },
             OrchestratorMcpThreadSendResult,
           );
           if (flags.wait) {

@@ -7,21 +7,10 @@ import type {
   UsageLimitSourceSnapshots,
 } from "@t3tools/contracts";
 import {
-<<<<<<< HEAD
-  type LimitPace,
-  type LimitPoolWindow,
-=======
-  collectProviderUsageLimits,
   customEndpointLimitPool,
   type LimitAccount,
   type LimitPace,
   type LimitPoolWindow,
-<<<<<<< HEAD
-  limitsNotice,
->>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-=======
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
   paceOf,
   paceRemainingPercent,
   remainingPercent,
@@ -40,16 +29,13 @@ import { formatUpcomingTimestamp } from "../../timestampFormat";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { formatContextWindowCompactionMessage } from "./compaction.logic";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
-<<<<<<< HEAD
 import {
   nextPoolReset,
   poolSources,
   resolveThreadDetailsLimits,
   resolveThreadHttpQuotas,
 } from "./ThreadDetailsUsage.logic";
-=======
 import { shortLimitLabels } from "./usageLimitLabels.logic";
->>>>>>> b51bd9a490 (feat(web): show usage limits as one compact line)
 
 const PACE_LABEL: Record<LimitPace, string> = {
   ahead: msg("Ahead of pace"),
@@ -72,21 +58,6 @@ export interface ThreadDetailsUsageInput {
 
 type UsageTone = "error" | "warning" | null;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-function limitTone(left: number): UsageTone {
-  if (left <= 10) return "error";
-  if (left <= 20) return "warning";
-  return null;
-}
-
-=======
-<<<<<<< HEAD
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-/** The selected provider's limit windows. Each row reads as room left and opens the usage page. */
-=======
-=======
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
 const limitTone = (left: number): UsageTone =>
   left <= 10 ? "error" : left <= 20 ? "warning" : null;
 
@@ -108,45 +79,29 @@ export function ThreadDetailsUsage({
   model,
   providers,
   sources,
-}: Pick<ThreadDetailsUsageInput, "providerInstanceId" | "providers" | "sources">) {
+}: Pick<ThreadDetailsUsageInput, "providerInstanceId" | "model" | "providers" | "sources">) {
   const gt = useGT();
-<<<<<<< HEAD
-=======
-  const m = useMessages();
-<<<<<<< HEAD
-=======
-}: Pick<ThreadDetailsUsageInput, "providerInstanceId" | "providers" | "sources">) {
->>>>>>> 7a864c1eee (feat: show idle time and prompt cache misses in thread details)
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
-=======
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
   const nowMinute = useNowMinute();
   const now = Date.parse(`${nowMinute}:00Z`);
-<<<<<<< HEAD
   const resolved = resolveThreadDetailsLimits(providerInstanceId, model, providers, sources, now);
   const quotas = resolveThreadHttpQuotas(providerInstanceId, sources);
-  if (!resolved && quotas.length === 0) return null;
-=======
-  const report =
-    providerInstanceId !== null
-      ? collectProviderUsageLimits(providerInstanceId, providers, sources, now)
-      : null;
-  // Only this instance's data: the report keeps one instance per login, and any other entry may be
-  // a different login or workspace, so fall back to the instance's own snapshot.
-  const limits =
-    report?.accounts.find((entry) => entry.instanceId === providerInstanceId)?.limits ??
-    providers.find((provider) => provider.instanceId === providerInstanceId)?.usageLimits;
-  if (!limits) return null;
-  const notice = limitsNotice(limits, m);
   const pool =
-    notice && providerInstanceId !== null
+    resolved?.kind === "pool" && providerInstanceId !== null
       ? customEndpointLimitPool(providerInstanceId, providers, sources, now)
       : null;
-<<<<<<< HEAD
->>>>>>> 924450cc96 (fix(web): show CLI Proxy limits for Claude Code routed through it)
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-=======
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
+  const servedBy = pool?.servedBy;
+  const shownServedBy =
+    servedBy &&
+    resolved?.kind === "pool" &&
+    resolved.windows.some((window) =>
+      window.members.some(
+        ({ account }) =>
+          account.key === servedBy.account.key || account.key.endsWith(`:${servedBy.account.key}`),
+      ),
+    )
+      ? servedBy
+      : null;
+  if (!resolved && quotas.length === 0) return null;
 
   return (
     <ThreadDetailsSection
@@ -155,57 +110,38 @@ export function ThreadDetailsUsage({
       showHeading={false}
     >
       <div className="grid grid-cols-[auto_minmax(3rem,1fr)_auto] gap-x-3 text-xs">
-<<<<<<< HEAD
-<<<<<<< HEAD
-        {resolved?.kind === "pool"
-          ? resolved.windows.map((window) => <PoolRow key={window.id} window={window} now={now} />)
-          : resolved &&
-            (quotas.length === 0 || limitsNotice(resolved.limits) === null) && (
-              <InstanceRows limits={resolved.limits} now={now} />
-            )}
-        {quotas.map(({ key, accountLabel, window }) => (
-          <LimitRow key={key} window={window} now={now} accountLabel={accountLabel} />
-        ))}
-=======
-        {pool ? (
-=======
-        {pool?.servedBy ? (
-          <>
-            <LimitLine>
-              <ServedBy {...pool.servedBy} now={now} />
-            </LimitLine>
-            <WindowLimits windows={pool.servedBy.account.limits.windows} now={now} />
-          </>
-        ) : pool ? (
-<<<<<<< HEAD
->>>>>>> 245b0854eb (fix(web): show the CLI Proxy account a thread is running on)
-          pool.windows.map((window) => <PoolRow key={window.id} window={window} now={now} />)
-=======
+        {shownServedBy ? (
           <LimitLine>
-            {withShortLabels(pool.windows).map(([window, shortLabel]) => (
+            <ServedBy {...shownServedBy} now={now} />
+          </LimitLine>
+        ) : null}
+        {resolved?.kind === "pool" ? (
+          <LimitLine>
+            {withShortLabels(resolved.windows).map(([window, shortLabel]) => (
               <PoolLimit key={window.id} window={window} shortLabel={shortLabel} now={now} />
             ))}
           </LimitLine>
->>>>>>> b51bd9a490 (feat(web): show usage limits as one compact line)
-        ) : notice ? (
-          <UsageRow
-            label={gt("Limits", { $context: "usage limits row label" })}
-            fill={null}
-            tone={null}
-            value={gt("Unavailable")}
-            tooltip={<span className="text-foreground">{notice}</span>}
-            opensUsage
-          />
-        ) : (
-          <WindowLimits windows={limits.windows} now={now} />
-        )}
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
+        ) : resolved && (quotas.length === 0 || limitsNotice(resolved.limits) === null) ? (
+          <InstanceRows limits={resolved.limits} now={now} />
+        ) : null}
+        {quotas.length > 0 ? (
+          <LimitLine>
+            {quotas.map(({ key, accountLabel, window }) => (
+              <WindowLimit
+                key={key}
+                window={window}
+                shortLabel={window.label}
+                now={now}
+                accountLabel={accountLabel}
+              />
+            ))}
+          </LimitLine>
+        ) : null}
       </div>
     </ThreadDetailsSection>
   );
 }
 
-<<<<<<< HEAD
 function InstanceRows({
   limits,
   now,
@@ -228,12 +164,9 @@ function InstanceRows({
       />
     );
   }
-  return limits.windows.map((window) => <LimitRow key={window.id} window={window} now={now} />);
+  return <WindowLimits windows={limits.windows} now={now} />;
 }
 
-/** The thread's context window. The bar fills as context is used; the tick marks auto-compaction. */
-export function ThreadDetailsContext({ usage }: { readonly usage: ContextWindowSnapshot }) {
-=======
 // Pi's bar for a miss worth showing.
 const CACHE_MISS_MIN_TOKENS = 20_000;
 const CACHE_MISS_MIN_COST_USD = 0.1;
@@ -279,7 +212,6 @@ export function ThreadDetailsContext({
 
 /** The bar fills as context is used; the tick marks auto-compaction. */
 function ContextRow({ usage }: { readonly usage: ContextWindowSnapshot }) {
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
   const maxTokens = usage.maxTokens != null && usage.maxTokens > 0 ? usage.maxTokens : null;
   const used =
     maxTokens !== null && usage.usedPercentage !== null
@@ -433,22 +365,6 @@ function WindowLimit({
   const timeLeft = paceRemainingPercent(window, now);
   const resetsAt = window.resetsAt ? Date.parse(window.resetsAt) : Number.NaN;
   return (
-<<<<<<< HEAD
-<<<<<<< HEAD
-    <UsageRow
-      label={window.label}
-      fill={left}
-<<<<<<< HEAD
-      tone={limitTone(left)}
-=======
-<<<<<<< HEAD
-      tone={left <= 10 ? "error" : left <= 20 ? "warning" : null}
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-      tick={timeLeft}
-=======
-=======
-=======
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
     <LimitItem
       label={shortLabel}
       tone={limitTone(left)}
@@ -479,6 +395,7 @@ function WindowLimit({
   );
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -560,6 +477,8 @@ function ServedByRow({
 =======
 =======
 >>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
+=======
+>>>>>>> 48afb50cd3 (fix: resolve conflicts with pingdotgg/t3code v0.1.12)
 function ServedBy({
   account,
   at,
@@ -599,34 +518,63 @@ function PoolLimit({
   readonly shortLabel: string;
   readonly now: number;
 }) {
+  const gt = useGT();
   const m = useMessages();
+  const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
   const left = window.remainingPercent;
   const accounts = window.members.length;
-  const next = window.resets.find((reset) => reset.at > now);
+  const from = poolSources(window);
+  const sourceLabels = [...from.hubs, ...(from.signedIn ? [gt("Signed-in accounts")] : [])];
+  const next = nextPoolReset(window, now);
+  const resetsAt = next?.member.window.resetsAt;
+  const reset =
+    next && resetsAt
+      ? {
+          duration: formatDuration(next.at - now, m),
+          time: formatUpcomingTimestamp(resetsAt, timestampFormat, now, undefined, m),
+        }
+      : null;
   return (
     <LimitItem
       label={shortLabel}
       tone={limitTone(left)}
       value={`${left}%`}
-      ariaLabel={`${window.label}: ${left}% left`}
+      ariaLabel={gt("{label}: {left}% left", { label: window.label, left })}
       tooltip={
         <>
           <span className="text-foreground">
-            {window.label}: {left}% left across {accounts} account{accounts === 1 ? "" : "s"}
+            {accounts > 1
+              ? gt("{label}: {left}% left across {accounts} accounts", {
+                  label: window.label,
+                  left,
+                  accounts,
+                })
+              : gt("{label}: {left}% left", { label: window.label, left })}
           </span>
-          {next ? (
-            <span className="text-muted-foreground">
-              Next reset in {formatDuration(next.at - now)} · +{next.restoresPercent}%
-            </span>
-          ) : null}
           {window.pace ? (
             <span className="text-muted-foreground">{m(PACE_LABEL[window.pace])}</span>
+          ) : null}
+          {next && reset ? (
+            <span className="text-muted-foreground">
+              {accounts > 1
+                ? gt("+{percent}% in {duration} · {time}", {
+                    percent: next.restoresPercent,
+                    ...reset,
+                  })
+                : gt("Resets in {duration} · {time}", reset)}
+            </span>
+          ) : null}
+          {sourceLabels.length > 0 ? (
+            <span className="text-muted-foreground">
+              {gt("From {sources}", { sources: sourceLabels.join(", ") })}
+            </span>
           ) : null}
         </>
       }
     />
   );
 }
+
 
 const HOVER_TARGET =
   "cursor-default rounded-lg outline-none hover:bg-black/[0.035] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-popup-open:bg-black/[0.035] dark:hover:bg-white/[0.08] dark:data-popup-open:bg-white/[0.08]";

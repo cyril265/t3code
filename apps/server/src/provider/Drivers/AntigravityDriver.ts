@@ -709,7 +709,6 @@ export const AntigravityDriver: ProviderDriver<
       stampIdentity: classifyModels,
       probe,
       auth: { type: auth.authMethod, label: antigravityAuthLabel(auth.authMethod) },
-<<<<<<< HEAD
       ...(rememberedRuntimeModes ? { rememberedRuntimeModes } : {}),
       rememberRuntimeModes: (modes) =>
         writeFileStringAtomically({
@@ -721,12 +720,6 @@ export const AntigravityDriver: ProviderDriver<
           Effect.catch(() => Effect.logWarning("Could not save Antigravity permission modes.")),
         ),
       supportsTextGeneration: isAntigravityTextGenerationAvailable(profileDirectory).pipe(
-=======
-      supportsTextGeneration: isAntigravityTextGenerationAvailable(
-        profileDirectory,
-        t3McpServer,
-      ).pipe(
->>>>>>> 626a3319fe (feat(antigravity): use lean T3 agent and native lazy MCP loading)
         Effect.provideService(FileSystem.FileSystem, fileSystem),
         Effect.provideService(Path.Path, path),
         Effect.orElseSucceed(() => false),

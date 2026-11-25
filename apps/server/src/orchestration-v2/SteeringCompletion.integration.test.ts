@@ -956,12 +956,8 @@ it.effect.each(
         assert.equal(edited.steerWhenReadyRunId, run.id);
         yield* orchestrator.dispatch({
           type: "queued-run.edit",
-<<<<<<< HEAD
-          commandId: CommandId.make("edit-steer-to-compact"),
-          modelSelection: composerSelection,
-=======
           commandId: CommandId.make("edit-steer-to-logout"),
->>>>>>> 15d0282bfa (fix: CLI Proxy usage limits match their proxy by origin, as upstream v0.1.10 reports it)
+          modelSelection: composerSelection,
           threadId,
           runId: edited.id,
           text: "/logout",
@@ -1002,7 +998,6 @@ it.effect.each(
       const queued = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
         (candidate) => candidate.userMessageId === MessageId.make("message:steer-after-setup"),
       )!;
-<<<<<<< HEAD
       assert.deepEqual(
         queued.modelSelection,
         status === "preparing" && !direct ? composerSelection : runSelection,
@@ -1035,33 +1030,6 @@ it.effect.each(
         assert.equal(promoted.status, "queued");
         assert.equal(promoted.queuePosition, 1);
       }
-=======
-      assert.deepEqual(queued.modelSelection, runSelection);
-      yield* orchestrator.dispatch({
-        type: "message.dispatch",
-        commandId: CommandId.make("queue-/logout"),
-        threadId,
-        messageId: MessageId.make("message:/logout"),
-        text: "/logout",
-        attachments: [],
-        dispatchMode: { type: "queue_after_active" },
-        createdBy: "user",
-        creationSource: "web",
-      });
-      const maintenance = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
-        (candidate) => candidate.userMessageId === MessageId.make("message:/logout"),
-      )!;
-      const error = yield* orchestrator
-        .dispatch({
-          type: "queued-message.promote-to-steer",
-          commandId: CommandId.make("promote-/logout"),
-          threadId,
-          queuedRunId: maintenance.id,
-          targetRunId: run.id,
-        })
-        .pipe(Effect.flip);
-      assert.equal(error._tag, "OrchestratorDispatchError");
->>>>>>> 15d0282bfa (fix: CLI Proxy usage limits match their proxy by origin, as upstream v0.1.10 reports it)
       const command = {
         type: "queued-message.promote-to-steer" as const,
         commandId: CommandId.make("promote"),
@@ -3802,8 +3770,6 @@ it.effect("queues a plain send behind the stopped queue and releases its hold", 
   }),
 );
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 it.effect(
   "ends the run as interrupted when the provider finishes before an accepted Stop reaches it",
   () =>
@@ -3877,11 +3843,6 @@ it.effect(
     }),
 );
 
-=======
-<<<<<<< HEAD
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
-=======
->>>>>>> b0dec28dce (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
 const goalHarness = Effect.fn("goalHarness")(function* (name: string, nativeGoals?: boolean) {
   const harness = yield* nextTurnSelectionHarness(
     name,
@@ -4360,8 +4321,6 @@ it.effect("promotes a queued goal by stopping the running turn", () =>
   }),
 );
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 it.effect("stops the running turn for a goal an agent steers into it", () =>
   Effect.gen(function* () {
     const { started, steered, layer, startFirstTurn, read } = yield* goalHarness("goal-raw-steer");
@@ -4394,22 +4353,6 @@ it.effect("stops the running turn for a goal an agent steers into it", () =>
   }),
 );
 
-=======
-<<<<<<< HEAD
->>>>>>> b0dec28dce (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
-// A fresh message skips compaction as its own turn, which steering a running turn would not.
-it.effect.each(["next", "/goal ship it", "fresh next"])(
-  "promoting %s into a compaction stops it and sends it next",
-  (promoted) =>
-<<<<<<< HEAD
-=======
-=======
-=======
->>>>>>> b527e96ec (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
-=======
->>>>>>> f1f791285e (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
 it.effect.each([
   { text: "/compact", delivery: "steer" },
   { text: "/compact", delivery: "agent steer" },
@@ -4628,115 +4571,6 @@ it.effect.each([
       });
       yield* worker.drain();
 
-<<<<<<< HEAD
-        const projection = yield* orchestrator.getThreadProjection(threadId);
-        assert.deepEqual(steered, []);
-        assert.strictEqual(
-          projection.turnItems.some(
-            (item) => item.type === "run_interrupt_request" && item.runId === compactRun.id,
-          ),
-          stops,
-        );
-        assert.deepEqual((yield* read(threadId)).queue, stops ? ["queued"] : [promoted, "queued"]);
-        assert.deepEqual(
-          started.map((turn) => turn.message.text),
-          stops ? ["first", "/compact", promoted] : ["first", "/compact"],
-        );
-      }).pipe(Effect.provide(layer));
-    }),
-<<<<<<< HEAD
-  ),
-);
-
-it.effect("stops a turn that is still starting when a goal is sent into it", () =>
-  Effect.scoped(
->>>>>>> 8d89bcffc2 (feat: queue and steer /compact while a turn runs)
-    Effect.gen(function* () {
-      const { events, layer, send, read, started, steered, startFirstTurn } = yield* goalHarness(
-        `compaction-promote-${promoted.length}`,
-      );
-      yield* Effect.gen(function* () {
-        const orchestrator = yield* Orchestrator.OrchestratorV2;
-        const worker = yield* EffectWorker.OrchestrationEffectWorkerV2;
-        const threadId = yield* startFirstTurn;
-        yield* send("compact", "/compact", "queue");
-        yield* send("queued", "queued", "queue");
-        yield* send("next", promoted, "queue", promoted.startsWith("fresh"));
-        const settled = yield* orchestrator.streamDomainEvents.pipe(
-          Stream.filter(
-            (event) =>
-              event.type === "run.updated" &&
-              event.payload.id === started[0]!.runId &&
-              event.payload.status === "completed",
-          ),
-          Stream.take(1),
-          Stream.runDrain,
-          Effect.forkScoped,
-        );
-        const compacting = yield* orchestrator.streamDomainEvents.pipe(
-          Stream.filter(
-            (event) =>
-              event.type === "provider-turn.updated" &&
-              event.payload.status === "running" &&
-              event.payload.runAttemptId !== started[0]!.attemptId,
-          ),
-          Stream.take(1),
-          Stream.runDrain,
-          Effect.forkScoped,
-        );
-        const turn = (yield* orchestrator.getThreadProjection(threadId)).providerTurns[0]!;
-        yield* Queue.offer(events, {
-          type: "provider_turn.updated",
-          driver,
-          providerTurn: { ...turn, status: "completed", completedAt: yield* DateTime.now },
-        });
-        yield* Queue.offer(events, {
-          type: "turn.terminal",
-          driver,
-          providerThreadId: turn.providerThreadId,
-          providerTurnId: turn.id,
-          runOrdinal: started[0]!.runOrdinal,
-          status: "completed",
-          failure: null,
-          threadDisposition: "reusable",
-        });
-        yield* Fiber.join(settled);
-        yield* worker.drain();
-        yield* orchestrator.resumeQueuedRuns;
-        yield* worker.drain();
-        yield* Fiber.join(compacting);
-        const compactRun = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
-          (run) => run.userMessageId === MessageId.make("message:compact"),
-        )!;
-        const nextRun = (yield* orchestrator.getThreadProjection(threadId)).runs.find(
-          (run) => run.userMessageId === MessageId.make("message:next"),
-        )!;
-        yield* orchestrator.dispatch({
-          type: "queued-message.promote-to-steer",
-          commandId: CommandId.make("promote"),
-          threadId,
-          queuedRunId: nextRun.id,
-          targetRunId: compactRun.id,
-        });
-        yield* worker.drain();
-
-        const projection = yield* orchestrator.getThreadProjection(threadId);
-        assert.deepEqual(steered, []);
-        assert.isTrue(
-          projection.turnItems.some(
-            (item) => item.type === "run_interrupt_request" && item.runId === compactRun.id,
-          ),
-        );
-        assert.deepEqual((yield* read(threadId)).queue, ["queued"]);
-        assert.deepEqual(
-          started.map((turn) => turn.message.text),
-          ["first", "/compact", promoted],
-        );
-      }).pipe(Effect.provide(layer));
-    }),
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
-=======
       const projection = yield* orchestrator.getThreadProjection(threadId);
       assert.deepEqual(steered, []);
       assert.strictEqual(
@@ -4752,7 +4586,6 @@ it.effect("stops a turn that is still starting when a goal is sent into it", () 
       );
     }).pipe(Effect.provide(layer));
   }),
->>>>>>> 15d0282bfa (fix: CLI Proxy usage limits match their proxy by origin, as upstream v0.1.10 reports it)
 );
 
 it.effect("stops a turn that is still starting when a goal is sent into it", () =>
