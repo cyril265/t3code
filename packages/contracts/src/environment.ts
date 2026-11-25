@@ -222,49 +222,14 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   shellOlderSettled: Schema.optionalKey(Schema.Boolean),
   /** Publishes a pull request refresh when linked-thread answers change; older servers need polling. */
   linkedThreadRefreshes: Schema.optionalKey(Schema.Boolean),
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
   /** Honors the `agentFeedback` setting; older servers drop it, so hide its switch where absent. */
   agentFeedback: Schema.optionalKey(Schema.Boolean),
   /** Answers `issues.linkedThreads`, the threads an issue is linked to. */
   issueLinkedThreads: Schema.optionalKey(Schema.Boolean),
   /** Keeps more than one account per standalone issue tracker; older servers keep one. */
   issueTrackerAccounts: Schema.optionalKey(Schema.Boolean),
-=======
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
-<<<<<<< HEAD
-=======
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
-  /** Answers `issues.linkedThreads`, the threads an issue is linked to. */
-  issueLinkedThreads: Schema.optionalKey(Schema.Boolean),
   /** Server accepts `{ type: "cron" }` scheduled tasks; older servers reject them on save. */
   cronSchedules: Schema.optionalKey(Schema.Boolean),
-<<<<<<< HEAD
->>>>>>> 3ef835f97 (feat: cron schedules for scheduled tasks)
->>>>>>> 3dddb989f2 (feat: cron schedules for scheduled tasks)
-<<<<<<< HEAD
->>>>>>> e4561bbd6f (feat: cron schedules for scheduled tasks)
-<<<<<<< HEAD
->>>>>>> 604656cb23 (feat: cron schedules for scheduled tasks)
-=======
-=======
-=======
-  /** Server accepts `{ type: "cron" }` scheduled tasks; older servers reject them on save. */
-  cronSchedules: Schema.optionalKey(Schema.Boolean),
->>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
->>>>>>> a5fe74f2a2 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
-<<<<<<< HEAD
->>>>>>> 7b8ad62a85 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
-=======
-=======
-  /** Server accepts `{ type: "cron" }` scheduled tasks; older servers reject them on save. */
-  cronSchedules: Schema.optionalKey(Schema.Boolean),
->>>>>>> d2d29ab1c4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
-=======
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
 });
 export type ExecutionEnvironmentCapabilities = typeof ExecutionEnvironmentCapabilities.Type;
 

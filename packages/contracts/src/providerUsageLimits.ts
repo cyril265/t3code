@@ -78,13 +78,10 @@ export const UsageLimitSourceAccount = Schema.Struct({
   email: Schema.optional(TrimmedNonEmptyString),
   plan: Schema.optional(TrimmedNonEmptyString),
   workspaceId: Schema.optional(TrimmedNonEmptyString),
-<<<<<<< HEAD
   /** The models the hub routes to this account. */
   models: Schema.optional(Schema.Array(TrimmedNonEmptyString)),
-=======
   /** When the source last relayed a provider response for this account. */
   lastServedAt: Schema.optional(IsoDateTime),
->>>>>>> 245b0854eb (fix(web): show the CLI Proxy account a thread is running on)
   usageLimits: ServerProviderUsageLimits,
 });
 export type UsageLimitSourceAccount = typeof UsageLimitSourceAccount.Type;

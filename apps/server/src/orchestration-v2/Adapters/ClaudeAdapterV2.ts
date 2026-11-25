@@ -349,12 +349,8 @@ export function claudeProviderTurnTokenUsage(
     usedTokens: inputTokens + outputTokens,
     maxTokens,
     inputTokens,
-<<<<<<< HEAD
     cachedInputTokens,
-=======
-    cachedInputTokens: usage.cache_read_input_tokens ?? 0,
-    cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
+    cacheWriteTokens: optionalClaudeUsageTokenCount(sample.cache_creation_input_tokens) ?? 0,
     outputTokens,
     reasoningOutputTokens: 0,
     ...(promptCacheTtlMs === undefined ? {} : { promptCacheTtlMs }),
@@ -1103,24 +1099,13 @@ function closeClaudeQuery(queryRuntime: ClaudeQuery) {
 async function sendClaudeControlRequest(
   queryRuntime: ClaudeQuery,
   request: {
-<<<<<<< HEAD
-<<<<<<< HEAD
     readonly subtype:
       | "mcp_call"
       | "list_permission_rules"
       | "rename_session"
       | "mcp_authenticate"
-      | "mcp_oauth_callback_url";
-=======
-<<<<<<< HEAD
-    readonly subtype: "mcp_call" | "list_permission_rules" | "rename_session";
-=======
-    readonly subtype: "mcp_call" | "list_permission_rules" | "set_cwd";
->>>>>>> 10778b26c0 (feat: move a thread to another directory or a new worktree without a new session)
->>>>>>> 5551ee94ad (feat: move a thread to another directory or a new worktree without a new session)
-=======
-    readonly subtype: "mcp_call" | "list_permission_rules" | "rename_session" | "set_cwd";
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
+      | "mcp_oauth_callback_url"
+      | "set_cwd";
     readonly [key: string]: unknown;
   },
 ): Promise<unknown> {
@@ -7138,8 +7123,9 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           if (typeof usage !== "number" && context.streamUsage !== null) {
             const messageId = context.streamUsage.messageId;
             const previous = context.outputTokensByMessage.get(messageId) ?? 0;
-            if (Number.isFinite(usage.output_tokens) && usage.output_tokens >= 0) {
-              const next = Math.max(previous, usage.output_tokens);
+            const outputTokens = optionalClaudeUsageTokenCount(usage.output_tokens);
+            if (outputTokens !== undefined) {
+              const next = Math.max(previous, outputTokens);
               context.outputTokensByMessage.set(messageId, next);
               outputGrew = next > previous;
             }
@@ -7162,13 +7148,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   context.autoCompactWindow,
                   context.streamUsage?.requestedAt,
                 );
-<<<<<<< HEAD
-          if ("inputTokens" in tokenUsage) {
-            if (tokenUsage.inputTokens <= 0) return;
-            context.compactionTokens = undefined;
-          }
-=======
->>>>>>> a3d861571e (feat: show live output token counts and average tok/s)
           yield* emitProviderEvent({
             type: "provider_turn.updated",
             driver: CLAUDE_PROVIDER,
@@ -11828,15 +11807,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               reasoning.messageId = event.message.id;
               reasoning.streamBlocks.clear();
               context.assistant.streamBlocks.clear();
-<<<<<<< HEAD
-<<<<<<< HEAD
-              const usage: ClaudeMessageUsage = event.message.usage ?? {};
-              context.streamUsage = { messageId: event.message.id, usage };
-              yield* emitContextUsage(context, usage, true);
-=======
-=======
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
               // The request's first usage sample must name its model, or a switch reads as an unexpected cache miss.
               if (event.message.model && event.message.model !== "<synthetic>") {
                 context.executedModel = resolveClaudeReportedModelSlug(
@@ -11844,11 +11814,9 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                   event.message.model,
                 );
               }
-              const usage: ClaudeMessageUsage | undefined = event.message.usage;
-              context.streamUsage =
-                usage === undefined ? null : { messageId: event.message.id, usage };
-              if (usage !== undefined) yield* emitContextUsage(context, usage, true);
->>>>>>> a279cc0eba (feat: show idle time and prompt cache misses in thread details)
+              const usage: ClaudeMessageUsage = event.message.usage ?? {};
+              context.streamUsage = { messageId: event.message.id, usage };
+              yield* emitContextUsage(context, usage, true);
             } else if (event.type === "message_delta") {
               const usage: typeof event.usage | null | undefined = event.usage;
               const stream = context.streamUsage;
@@ -12331,19 +12299,16 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 stream.usage !== null &&
                 ((claudeMessageInputTokens(stream.usage) <= 0 &&
                   claudeMessageInputTokens(snapshotUsage) > 0) ||
-                  snapshotUsage.output_tokens > stream.usage.output_tokens)
+                  (optionalClaudeUsageTokenCount(snapshotUsage.output_tokens) ?? 0) >
+                    (optionalClaudeUsageTokenCount(stream.usage.output_tokens) ?? 0))
               ) {
                 stream.usage = {
-<<<<<<< HEAD
-                  ...snapshotUsage,
+                  ...(claudeMessageInputTokens(stream.usage) <= 0 ? snapshotUsage : stream.usage),
+                  iterations: snapshotUsage.iterations ?? stream.usage.iterations,
                   output_tokens: Math.max(
                     optionalClaudeUsageTokenCount(snapshotUsage.output_tokens) ?? 0,
                     optionalClaudeUsageTokenCount(stream.usage.output_tokens) ?? 0,
                   ),
-=======
-                  ...(claudeMessageInputTokens(stream.usage) <= 0 ? snapshotUsage : stream.usage),
-                  output_tokens: Math.max(snapshotUsage.output_tokens, stream.usage.output_tokens),
->>>>>>> a3d861571e (feat: show live output token counts and average tok/s)
                 };
                 yield* emitContextUsage(context, stream.usage);
               }

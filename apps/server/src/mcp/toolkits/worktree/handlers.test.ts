@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // `t3_worktree_handoff` through its real access declaration, the real WorktreeMcpService and the
 // real TaskFolders over real Git; only the orchestrator, the project record and the setup-script
 // runner are stand-ins.
@@ -339,18 +338,5 @@ it.live("t3_worktree_handoff neither runs nor approves a layout command nobody a
         assert.include((yield* handoff).message, "nobody has approved as it is written now");
         assert.isFalse(yield* layoutRan);
       }),
-=======
-import { it } from "@effect/vitest";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-
-import * as McpToolAccess from "../../McpToolAccess.ts";
-import * as WorktreeHandlers from "./handlers.ts";
-
-it.effect("the worktree toolkit registers, so the server starts", () =>
-  Layer.build(McpToolAccess.HandlersLayer.layer(WorktreeHandlers.layer)).pipe(
-    Effect.asVoid,
-    Effect.scoped,
->>>>>>> 598387b222 (fix: hide t3_change_working_directory from outside clients so the server starts on v0.1.10)
   ),
 );

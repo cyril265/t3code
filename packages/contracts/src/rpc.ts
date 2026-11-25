@@ -461,11 +461,8 @@ import {
   ScheduledTaskMutationResult,
 } from "./scheduledTask.ts";
 import { SecretRequestAnswerInput, SecretRequestError } from "./secretRequest.ts";
-<<<<<<< HEAD
 import { AgentFeedbackAnswerInput, AgentFeedbackRequestError } from "./agentFeedback.ts";
-=======
 import { WsExternalWaitsStopRpc, WsExternalWaitsSubscribeRpc } from "./externalWait.ts";
->>>>>>> c71aed8336 (feat: show running wait scripts on their thread)
 import {
   ProjectCloneActionInput,
   ProjectCloneActionResult,

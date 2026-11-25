@@ -3,19 +3,9 @@ import { MessageId, type TurnItemId } from "@t3tools/contracts";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
 import { agentWorkingDirectories } from "@t3tools/client-runtime/workspace-basename-lookup";
 import { T, useGT, useMessages } from "gt-react";
-<<<<<<< HEAD
-<<<<<<< HEAD
+import { formatTurnTokenRate } from "@t3tools/client-runtime/state/turn-token-rate";
 import { use, useState } from "react";
 import { type ChatMessage } from "../../types";
-=======
-=======
-=======
-=======
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
-import { formatTurnTokenRate } from "@t3tools/client-runtime/state/turn-token-rate";
-import { memo, use, useState } from "react";
-import { type ChatMessage, type TurnDiffSummary } from "../../types";
->>>>>>> a3d861571e (feat: show live output token counts and average tok/s)
 import ChatMarkdown from "../ChatMarkdown";
 import { GitForkIcon, ReplyIcon } from "lucide-react";
 import { captureAssistantMessageOpening } from "~/lib/assistantTextSelection";

@@ -249,8 +249,6 @@ function accountKeyResolver(reports: Iterable<AccountReport>) {
 
 const hubAccountName = (account: { readonly id: string }) => account.id.replace(/\.json$/i, "");
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 function limitAccountKeyResolver(presentations: LimitPresentations) {
   return accountKeyResolver(
     [...presentations.values()].flatMap((presentation) => [
@@ -277,11 +275,7 @@ const hubRowKey = (
   resolveKey(account) ??
   `${hubIdentity(environmentId, source)}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
 
-=======
-<<<<<<< HEAD
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
+
 // Source ids are environment-local, so only a remote endpoint names the same hub across environments.
 function hubIdentity(environmentId: EnvironmentId, source: UsageLimitSourceSnapshot): string {
   // The server supplies canonical endpoints; native URL polyfills can misparse IPv6 hosts.
@@ -463,23 +457,6 @@ export function collectLimitAccounts(presentations: LimitPresentations): readonl
         : source.label;
       for (const account of source.accounts) {
         if (limitsNotice(account.usageLimits) !== null) continue;
-<<<<<<< HEAD
-<<<<<<< HEAD
-        const resolved = resolveKey(account);
-        // A resolved account already has an identity; its public key must stay distinct from others'.
-        const hub = resolved ? `${environmentId}:${source.id}` : hubIdentity(environmentId, source);
-        const key = `${hub}:${account.id}${account.workspaceId ? `:${account.workspaceId}` : ""}`;
-        merge(hubRowKey(resolveKey, environmentId, source, account), {
-          key,
-          driver: account.driver,
-          displayName: account.email ? null : hubAccountName(account),
-          email: account.email,
-          plan: account.plan,
-          accentColor: undefined,
-          environments: [],
-=======
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
         const hub = hubLimitAccount(
           source,
           account,
@@ -953,8 +930,6 @@ export function withUsageLimitsCommands(
   });
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 /** The hubs an instance sends its requests through: those whose address is its endpoint. */
 export function instanceHubs(
   provider: ServerProvider,
@@ -988,16 +963,8 @@ export function hubRoutes(
   // An account whose model list was unreadable may serve the model too.
   return (account) =>
     account.models ? listed(account) : serving.has(account.driver) || account.driver === driver;
-=======
-/** Scheme, host, port and base path: equal for a provider endpoint and a usage-limit source on the same proxy. */
-export function endpointIdentity(url: string): string | undefined {
-  const parsed = URL.parse(url.trim());
-  if (parsed?.protocol !== "http:" && parsed?.protocol !== "https:") return undefined;
-  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`;
 }
 
-=======
->>>>>>> 15d0282bfa (fix: CLI Proxy usage limits match their proxy by origin, as upstream v0.1.10 reports it)
 /**
  * Limits for an instance routed through a usage-limit source, such as Claude Code behind CLI Proxy.
  * `servedBy` is the account the source last relayed a response for, so the one in use now.
@@ -1042,15 +1009,10 @@ export function customEndpointLimitPool(
     const account = key === null ? undefined : routed.get(key);
     if (key !== null && account && provider.usageLimits) offer(key, account, provider.usageLimits);
   }
-<<<<<<< HEAD
-  return collectLimitPools([...proxied.values()], now)[0] ?? null;
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-=======
   const pool = collectLimitPools([...proxied.values()], now)[0];
   if (!pool) return null;
   const servedAccount = served.key === null ? undefined : proxied.get(served.key);
   return { ...pool, servedBy: servedAccount ? { account: servedAccount, at: served.at } : null };
->>>>>>> 245b0854eb (fix(web): show the CLI Proxy account a thread is running on)
 }
 
 export function collectProviderUsageLimits(
@@ -1061,7 +1023,6 @@ export function collectProviderUsageLimits(
   model: string | null = null,
 ): UsageLimitsReport | null {
   const selected = providers.find((provider) => provider.instanceId === instanceId);
-<<<<<<< HEAD
   if (!selected) return null;
   // Only an instance sent to a hub is known to reach the accounts that hub routes its model to.
   const hubs = instanceHubs(selected, sources);
@@ -1086,10 +1047,6 @@ export function collectProviderUsageLimits(
     hubs.length > 0
       ? new Set(hubs.flatMap((source) => source.accounts.filter(routes).map(resolveKey)))
       : null;
-=======
-  if (!selected || !hasProviderUsageLimits(selected.driver, providers, sources)) return null;
-  const resolveKey = providerKeyResolver(providers, sources);
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
   type NativeSnapshot = { provider: ServerProvider; limits: ServerProviderUsageLimits };
   const nativeByAccount = new Map<
     string,

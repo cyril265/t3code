@@ -120,11 +120,8 @@ import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter"
 import type * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
 import {
   makeProviderFailure,
-<<<<<<< HEAD
   PROVIDER_RETRY_BUDGET_MS,
-=======
   WORKSPACE_CHANGE_FAILED_CODE,
->>>>>>> 5551ee94ad (feat: move a thread to another directory or a new worktree without a new session)
 } from "@t3tools/provider-core/server/failure";
 import * as ClaudeAdapterV2 from "./ClaudeAdapterV2.ts";
 import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
@@ -1086,6 +1083,7 @@ describe("ClaudeAdapterV2 context usage", () => {
       maxTokens: 200_000,
       inputTokens: 1_200,
       cachedInputTokens: 0,
+      cacheWriteTokens: 0,
       outputTokens: 0,
       reasoningOutputTokens: 0,
       updatedAt: "2026-08-29T00:03:00.000Z",
@@ -12139,7 +12137,6 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     ),
   );
 
-<<<<<<< HEAD
   describe("warm process after the session changed outside T3", () => {
     const firstReply = "00000000-0000-4000-8000-000000000c01";
     const secondReply = "00000000-0000-4000-8000-000000000c02";
@@ -12346,7 +12343,6 @@ describe("ClaudeAdapterV2 background wake turns", () => {
       }).pipe(Effect.provide(layer)),
     );
   });
-=======
   it.effect.each(["accept", "decline"] as const)(
     "waits for explicit trust before sending a prompt in a new directory (%s)",
     (decision) =>
@@ -12436,7 +12432,6 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         ),
       ),
   );
->>>>>>> 5551ee94ad (feat: move a thread to another directory or a new worktree without a new session)
 
   // The passive row is the frame Claude 2.1.303 emits for a Stop hook returning a systemMessage.
   it.effect.each([

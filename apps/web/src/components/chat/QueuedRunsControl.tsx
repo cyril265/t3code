@@ -10,18 +10,12 @@ import {
   isAttachmentOnlyBootstrapPrompt,
   replaceComposerContextReferences,
 } from "@t3tools/shared/composerContextReferences";
-<<<<<<< HEAD
 import { composerFileLinksToPlainText } from "@t3tools/shared/composerInlineTokens";
 import {
   parseGoalCommand,
   type ChatAttachment as ContractChatAttachment,
   type EnvironmentId,
-=======
-import {
-  type ChatAttachment as ContractChatAttachment,
-  type EnvironmentId,
   isCompactionCommandMessage,
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
   type MessageId,
   type RunId,
   type ThreadId,
@@ -81,6 +75,7 @@ function sendNowLabel(
   workflow: ReturnType<typeof deriveThreadQueueWorkflowState> | null,
   message: Parameters<typeof isCompactionCommandMessage>[0] | undefined,
   resolve: typeof m,
+  movesCommandFirst: boolean,
 ): string {
   if (workflow?.canSendNow) return resolve(msg("Start a turn with this message"));
   // A queued compaction never stops a running one; it only moves first.
@@ -89,7 +84,9 @@ function sendNowLabel(
   }
   return workflow?.promoteSkipsCompaction
     ? resolve(msg("Skip compaction and send this message"))
-    : resolve(msg("Send into the current turn"));
+    : movesCommandFirst
+      ? resolve(msg("Move this command to the front of the queue"))
+      : resolve(msg("Send into the current turn"));
 }
 
 function queuedImageResources(projection: ThreadQueueProjection | undefined) {
@@ -354,6 +351,7 @@ export function QueuedRunsControl({
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
                         {item.serverIndex === 0 && props.steerShortcutLabel
 >>>>>>> de246deb4b (feat: queue and steer /compact while a turn runs)
                           ? workflow?.canSendNow
@@ -413,6 +411,9 @@ export function QueuedRunsControl({
 =======
                         {`${sendNowLabel(workflow, item.message, messages)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
 >>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
+=======
+                        {`${sendNowLabel(workflow, item.message, messages, movesCommandFirst)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
+>>>>>>> e3df2bcd77 (fix: resolve conflicts with pingdotgg/t3code v0.1.12)
                       </TooltipPopup>
                     </Tooltip>
 >>>>>>> de246deb4b (feat: queue and steer /compact while a turn runs)

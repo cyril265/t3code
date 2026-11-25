@@ -443,12 +443,9 @@ function useSidebarThreads(input: {
   readonly threads: readonly EnvironmentThreadShell[];
   readonly delegatedUnderParent: ReadonlySet<string>;
   readonly routeRowThreadKey: string | null;
-<<<<<<< HEAD
   readonly departingThreadKey: string | null;
-=======
   // The open thread itself, which may be a hidden child of the highlighted row.
   readonly routeThreadKey: string | null;
->>>>>>> 5e9d332a50 (fix(web): track the open thread itself for the Done block)
   // Set in boring mode: the project groups to fold active threads into, in order.
   readonly folderGroups: readonly SidebarProjectSnapshot[] | null;
   // Keeps folders with no active threads, so a project the user filtered to or pinned can start one.
@@ -463,11 +460,8 @@ function useSidebarThreads(input: {
     threads,
     delegatedUnderParent,
     routeRowThreadKey,
-<<<<<<< HEAD
     departingThreadKey,
-=======
     routeThreadKey,
->>>>>>> 5e9d332a50 (fix(web): track the open thread itself for the Done block)
     folderGroups,
     keepEmptyFolders: keepEmpty,
   } = input;
@@ -1449,11 +1443,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     threads: listedThreads,
     delegatedUnderParent,
     routeRowThreadKey,
-<<<<<<< HEAD
     departingThreadKey,
-=======
     routeThreadKey,
->>>>>>> 5e9d332a50 (fix(web): track the open thread itself for the Done block)
     folderGroups: boringSidebarEnabled
       ? scopedProjectGroups.length === 0
         ? // An archived project keeps a folder for its active threads, below the rest.

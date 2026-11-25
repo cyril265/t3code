@@ -790,17 +790,10 @@ function delegatedTasksStopEffect(command: {
 }
 
 const WORKSPACE_PREPARATION_INPUT = "Preparing workspace";
-<<<<<<< HEAD
 /** How long automatic settlement waits for a queued turn to start. */
 export const QUEUED_TURN_START_GRACE_MS = 2 * 60 * 1_000;
-=======
 const RESUME_AFTER_COMPACTION_PROMPT =
-<<<<<<< HEAD
-  "Continue where you left off. Your last turn was stopped to compact context, so an action it started may or may not have taken effect. Check before you repeat anything that changes state.";
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
-=======
   "Continue where you left off. Your last turn was stopped to compact context, so an action it started may or may not have taken effect.";
->>>>>>> 31ec781bd5 (fix(server): shorten the resume prompt after a steered /compact)
 const RUNTIME_REQUEST_DELIVERY_FAILED_MESSAGE =
   "T3 Code could not confirm that your answer reached the agent. If the run stays stuck, stop it and try again.";
 
@@ -7649,9 +7642,10 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       (yield* goalDriverFor(command, modelSelection.instanceId)) === undefined
         ? null
         : parsedGoalCommand;
-    // A goal command keeps the run it was sent at; the goal handling below queues it.
+    const compaction = isCompactionCommandMessage({ role: "user", ...command });
+    // Goal and compaction commands keep their target run; the handling below queues them.
     let dispatchMode =
-      goalCommand === null
+      goalCommand === null && !compaction
         ? resolveMessageDispatch(projection, command)
         : resolveMessageDispatchIntent(projection, command.dispatchMode, command.deliveryIntent);
     if (dispatchMode.type === "steer_active" || dispatchMode.type === "restart_active") {
@@ -7754,21 +7748,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     ) {
       dispatchMode = { type: "queue_after_active" };
     }
-<<<<<<< HEAD
-=======
-    // Native goal commands must not steer an existing turn.
-    const parsedGoalCommand = parseGoalCommand(command);
-    const goalCommand =
-      parsedGoalCommand === null ||
-      (yield* goalDriverFor(command, modelSelection.instanceId)) === undefined
-        ? null
-        : parsedGoalCommand;
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
-=======
-    const compaction = isCompactionCommandMessage({ role: "user", ...command });
->>>>>>> b0dec28dce (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
     let queuedRunStop:
       | { readonly runId: RunId; readonly reason: string; readonly skipsHeldQueue?: true }
       | undefined;
@@ -12278,9 +12257,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         cause: "A message that starts a fresh session can't steer the current turn.",
       });
     }
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     // Steering joins a turn that was not asked for this message's result, so it would be lost.
     if (queuedRun.outputSchema !== undefined) {
       return yield* new OrchestratorDispatchError({
@@ -12294,35 +12270,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       if (goalCommand !== null) {
         yield* ensureGoalCommandSupported(command, queuedMessage, modelSelection.instanceId);
       }
-=======
-=======
->>>>>>> 7b8ad62a85 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
-    if (goalCommand !== null) {
-<<<<<<< HEAD
-      yield* ensureGoalCommandSupported(command, queuedMessage, modelSelection.instanceId);
-=======
-      yield* ensureGoalCommandSupported(command, queuedMessage, queuedRun.providerInstanceId);
-=======
-=======
->>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
-    if (goalCommand !== null || compaction) {
-      if (goalCommand !== null) {
-        yield* ensureGoalCommandSupported(command, queuedMessage, modelSelection.instanceId);
-      }
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 7937f5693 (feat: queue and steer /compact while a turn runs)
->>>>>>> 8d89bcffc2 (feat: queue and steer /compact while a turn runs)
-<<<<<<< HEAD
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
-=======
-=======
->>>>>>> 04ac676f72 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
->>>>>>> 7b8ad62a85 (fix: resolve conflicts with pingdotgg/t3code v0.1.8)
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
       const goal = projection.providerThreads.find(
         (candidate) => candidate.id === target?.providerThreadId,
       )?.goal;
@@ -12336,7 +12283,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         payload: { ...queuedRun, queuePosition: 1 },
       });
       const stops =
-        goalCommand !== null &&
+        (goalCommand !== null || compaction) &&
         target !== undefined &&
         isLiveRun(target) &&
         (goalCommand === null || goalCommandStopsActiveRun(goalCommand, goal?.status ?? null)) &&
@@ -14685,11 +14632,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       ),
   );
 
-<<<<<<< HEAD
   /** Puts a queued command first and, given a target, stops the run in its way. */
-=======
-  /** Puts a queued goal or compaction command first and, given a target, stops the run in its way. */
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
   const stopRunForQueuedCommand = Effect.fn("Orchestrator.stopRunForQueuedCommand")(
     function* (input: {
       readonly command: Extract<
