@@ -3064,7 +3064,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
           turn.usage.output += tokens.output + tokens.reasoning;
           turn.usage.reasoning += tokens.reasoning;
           const now = yield* DateTime.now;
-          return yield* emitProviderTurn(state, turn, {
+          return yield* emitProviderTurn(turn, {
             ...turn.providerTurn,
             turnTokenUsage: {
               ...turnTokenUsage(turn, "running"),
