@@ -137,7 +137,9 @@ function describeSchedule(
       msg("Once, {date} at {time}", { date: formatRunAtDate(runAt), time: formatRunAtTime(runAt) }),
     );
   }
-  if (task.schedule.type === "cron") return `Cron ${task.schedule.expression}`;
+  if (task.schedule.type === "cron") {
+    return resolve(msg("Cron {expression}", { expression: task.schedule.expression }));
+  }
   if (task.schedule.type === "interval")
     return formatScheduledTaskInterval(task.schedule.everyMs, resolve);
   const days = task.schedule.weekdays?.length
@@ -852,15 +854,17 @@ function TaskForm({
     }
     if (draft.schedule.mode === "cron" && !offersCron) {
       Dialog.alert(
-        "Cron is not available here",
-        "This environment runs an older T3 Code. Update it to use a cron schedule, or pick another schedule.",
+        gt("Cron is not available here"),
+        gt(
+          "This environment runs an older T3 Code. Update it to use a cron schedule, or pick another schedule.",
+        ),
       );
       return;
     }
     if (draft.schedule.mode === "cron" && schedule === null) {
       Dialog.alert(
-        "Invalid cron expression",
-        "Use five fields: minute, hour, day of month, month, and weekday.",
+        gt("Invalid cron expression"),
+        gt("Use five fields: minute, hour, day of month, month, and weekday."),
       );
       return;
     }
@@ -1185,7 +1189,7 @@ function TaskForm({
                   : []),
                 { value: "interval", label: gt("Interval") },
                 ...(offersCron || draft.schedule.mode === "cron"
-                  ? [{ value: "cron" as const, label: "Cron" }]
+                  ? [{ value: "cron" as const, label: gt("Cron") }]
                   : []),
                 ...(webhookDenial === undefined || draft.schedule.mode === "webhook"
                   ? [{ value: "webhook" as const, label: gt("On webhook") }]
@@ -1312,13 +1316,16 @@ function TaskForm({
             </Text>
           ) : draft.schedule.mode === "cron" ? (
             <FormField
-              label="Minute, hour, day of month, month, weekday"
+              label={gt("Minute, hour, day of month, month, weekday")}
               value={draft.schedule.cronExpression}
               placeholder="0 9 * * 1-5"
               disabled={saving}
               borderTop
               onChange={(cronExpression) =>
-                setDraft({ ...draft, schedule: { ...draft.schedule, cronExpression } })
+                setDraft((current) => ({
+                  ...current,
+                  schedule: { ...current.schedule, cronExpression },
+                }))
               }
             />
           ) : draft.schedule.mode === "once" ? (
