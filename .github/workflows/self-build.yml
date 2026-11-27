@@ -197,6 +197,7 @@ jobs:
           [[ -n "${REBASED_SHA:-}" ]] || echo "REBASED_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           # Codex may only change what this fork already changes, so it cannot remove an upstream check.
           git diff --name-only "upstream-$TAG" HEAD | grep -v '^\.github/' > "$RUNNER_TEMP/fork-files.txt" || true
+          echo apps/server/src/provider/agentContextBudget.json >> "$RUNNER_TEMP/fork-files.txt"
           for round in 0 1 2; do
             if ! "${typecheck[@]}" > "$RUNNER_TEMP/check.log" 2>&1; then
               check="\`${typecheck[*]}\`"
@@ -206,8 +207,8 @@ jobs:
               check="Starting the server with \`node apps/server/src/bin.ts serve\`"
               errors="$(tail -n 100 "$RUNNER_TEMP/check.log")"
             # The fork's MCP tools grow the budget, so a merged upstream budget needs re-measuring.
-            elif ! vp test run apps/server/src/provider/AgentContextBudget.test.ts > "$RUNNER_TEMP/check.log" 2>&1; then
-              check="\`vp test run apps/server/src/provider/AgentContextBudget.test.ts\`"
+            elif ! (cd apps/server && vp test run src/provider/AgentContextBudget.test.ts) > "$RUNNER_TEMP/check.log" 2>&1; then
+              check="\`vp test run src/provider/AgentContextBudget.test.ts\` in apps/server"
               errors="$(tail -n 60 "$RUNNER_TEMP/check.log")"
             else
               break
