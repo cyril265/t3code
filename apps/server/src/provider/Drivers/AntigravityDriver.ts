@@ -51,14 +51,7 @@ import {
 } from "../antigravityAuthSupport.ts";
 import {
   antigravityModelOptions,
-<<<<<<< HEAD
-<<<<<<< HEAD
   antigravityServesT3Code,
-=======
-<<<<<<< HEAD
->>>>>>> 8b0f258920 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
-=======
->>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
   antigravitySessionMode,
   antigravityRunsT3Agent,
   antigravityThinkingConfig,
@@ -412,18 +405,14 @@ export const AntigravityDriver: ProviderDriver<
       // `buildAntigravityAcpSpawnInput` sets `extendEnv: false`, so thread variables only reach the
       // agent's shell through `baseEnv`.
       const { processEnvironment: threadEnvironment, ...runtimeInput } = input;
-      const { executable, spawn, runsT3Agent } = yield* prepareSpawn(
+      const { spawn, runsT3Agent } = yield* prepareSpawn(
         runtimeInput.cwd,
         threadEnvironment === undefined ? baseEnv : { ...baseEnv, ...threadEnvironment },
         input,
       );
       const runtime = yield* makeAntigravityAcpRuntime({
         ...runtimeInput,
-<<<<<<< HEAD
-=======
         ...(runsT3Agent ? WITHOUT_SESSION_MCP_SERVERS : {}),
-        runtimeVersion: executable.version,
->>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
         authMethod: auth.authMethod,
         childProcessSpawner: spawner,
         spawn,

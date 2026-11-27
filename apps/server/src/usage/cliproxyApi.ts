@@ -36,19 +36,8 @@ const AuthFile = Schema.Struct({
   provider: Schema.String,
   email: Schema.optional(Schema.String),
   disabled: Schema.optional(Schema.Boolean),
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
->>>>>>> 38ebc09a6c (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
   project_id: Schema.optional(Schema.String),
   quota: Schema.optional(Schema.Struct({ observed_at: Schema.optional(Schema.String) })),
-<<<<<<< HEAD
->>>>>>> ca1627eff (fix(web): show the CLI Proxy account a thread is running on)
->>>>>>> 747d022cd4 (fix(web): show the CLI Proxy account a thread is running on)
-=======
->>>>>>> 38ebc09a6c (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
   id_token: Schema.optional(
     Schema.Struct({
       chatgpt_account_id: Schema.optional(Schema.String),
@@ -449,27 +438,9 @@ export const makeCliproxyApi = Effect.gen(function* () {
     provider: HubProvider,
   ) {
     const checkedAt = DateTime.formatIso(yield* DateTime.now);
-<<<<<<< HEAD
-<<<<<<< HEAD
     const call: HubCall = (url, data) => apiCall(hub, account, provider.header(account), url, data);
     const reading = yield* provider.read({ account, call, checkedAt }).pipe(
-=======
-<<<<<<< HEAD
-=======
->>>>>>> 38ebc09a6c (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
-    const call: HubCall = (url, data) =>
-      apiCall(hub, account, provider.header(account, platform, architecture), url, data);
-    const reading = yield* provider.read({ account, call, checkedAt }).pipe(
       Effect.provideService(Digest.Digest, digest),
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 747d022cd4 (fix(web): show the CLI Proxy account a thread is running on)
-=======
-<<<<<<< HEAD
->>>>>>> 38ebc09a6c (fix: resolve conflicts with pingdotgg/t3code v0.1.9)
-=======
->>>>>>> e3df2bcd77 (fix: resolve conflicts with pingdotgg/t3code v0.1.12)
       Effect.catch((error) =>
         Effect.succeed({
           ...listedIdentity(account),

@@ -4,16 +4,9 @@ import { expect, it } from "@effect/vitest";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   EnvironmentId,
-<<<<<<< HEAD
-<<<<<<< HEAD
   MessageId,
   NodeId,
   ProjectId,
-=======
-<<<<<<< HEAD
->>>>>>> 8b0f258920 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
-=======
->>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
   ProviderDriverKind,
   ProviderInstanceId,
   ProviderSessionId,

@@ -7430,11 +7430,8 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
                 status: input.status,
                 startedAt: input.context.startedAt,
                 completedAt: input.completedAt,
-<<<<<<< HEAD
                 ...(input.promptDropped === true ? { promptDropped: true } : {}),
-=======
                 ...providerTurnModel(input.context, input.nativeTurnId),
->>>>>>> 8471db2c90 (feat: show idle time and prompt cache misses in thread details)
                 turnTokenUsage: completeCodexTurnTokenUsage(
                   usageStateForThread(
                     input.context.providerThread.nativeThreadRef?.nativeId ??
