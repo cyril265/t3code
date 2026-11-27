@@ -349,7 +349,7 @@ export const AntigravityDriver: ProviderDriver<
       // `buildAntigravityAcpSpawnInput` sets `extendEnv: false`, so thread variables only reach the
       // agent's shell through `baseEnv`.
       const { processEnvironment: threadEnvironment, ...runtimeInput } = input;
-      const { spawn, runsT3Agent } = yield* prepareSpawn(
+      const { executable, spawn, runsT3Agent } = yield* prepareSpawn(
         runtimeInput.cwd,
         threadEnvironment === undefined ? baseEnv : { ...baseEnv, ...threadEnvironment },
         input,
