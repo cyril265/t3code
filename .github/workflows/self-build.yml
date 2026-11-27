@@ -585,7 +585,11 @@ jobs:
   # their SSH remotes cannot download or Windows cannot install.
   publish:
     needs: [resolve, prepare, mac, linux-cli, windows, fork-tests]
-    if: github.ref_name == github.event.repository.default_branch
+    # Upstream tests in fork-changed files can only be fixed once the branch is on that base, so nightlies only report them.
+    if: >-
+      !cancelled() && github.ref_name == github.event.repository.default_branch
+      && needs.mac.result == 'success' && needs.linux-cli.result == 'success' && needs.windows.result == 'success'
+      && (needs.fork-tests.result == 'success' || contains(needs.resolve.outputs.version, '-nightly.'))
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.tag }}
@@ -641,7 +645,7 @@ jobs:
 
   android-server:
     needs: [resolve, publish]
-    if: github.ref_name == github.event.repository.default_branch
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
     uses: ./.github/workflows/android-server.yml
     with:
       release: v${{ needs.resolve.outputs.version }}
