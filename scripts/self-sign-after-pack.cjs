@@ -14,6 +14,8 @@ module.exports = async (context) => {
   const identity = process.env.T3_SELF_SIGN_IDENTITY;
   if (context.electronPlatformName !== "darwin" || !identity) return;
 
+  // electron-builder flips the fuses again after this hook; flipping them first leaves that write unchanged.
+  await context.packager.doAddElectronFuses(context);
   const { sign } = require("@electron/osx-sign");
   const app = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`);
   await sign({
