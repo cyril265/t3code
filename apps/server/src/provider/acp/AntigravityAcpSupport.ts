@@ -84,19 +84,12 @@ export const antigravitySteersWithPrompt = (
   return parsed !== undefined && compareVersions(parsed, PROMPT_STEERING_RELEASE) >= 0;
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 /** Whether a runtime that reported its version serves T3 Code, not only allowlisted editors. */
 export const antigravityServesT3Code = (version: string) => {
   const parsed = parseAntigravityVersion(version);
   return parsed === undefined || compareVersions(parsed, OPEN_MODEL_ACCESS_RELEASE) >= 0;
 };
 
-=======
-<<<<<<< HEAD
-=======
-=======
->>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
 // The oldest agy verified to inherit mcp_config.json servers into a custom `--agent`, lazily.
 const T3_AGENT_RELEASE = [1, 5, 12] as const;
 
@@ -110,11 +103,6 @@ export function antigravityRunsT3Agent(executable: { readonly version: string | 
  * 1.4.5 appends `systemPrompt.append` to its system instructions on new, load and resume, and
  * keeps none of it between processes, so every activation sends it again.
  */
-<<<<<<< HEAD
->>>>>>> 77e7ced045 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
->>>>>>> 8b0f258920 (feat(antigravity): use lean T3 agent and native lazy MCP loading)
-=======
->>>>>>> d06928a299 (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
 export const antigravityAppendsSystemPrompt = (
   initializeResult: EffectAcpSchema.InitializeResponse,
 ) => {

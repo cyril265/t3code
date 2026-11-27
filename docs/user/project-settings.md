@@ -35,19 +35,7 @@ Configure worktrees in **Settings → Worktrees** (environment default or projec
 
 ### Storage cleanup
 
-<<<<<<< HEAD
 Enable automatic cleanup in **Settings → Worktrees → Cleanup** (off by default; runs on startup, on change, and hourly). Projects can set **Automatic worktree cleanup** to **Inherit**, **Off**, or **Custom**.
-=======
-Open **Settings → Scheduled tasks** to create scheduled tasks or manage existing
-ones across your connected environments. Use the settings filter to narrow the
-list by environment or project. Each task runs on the environment you choose,
-using its project, model, and workspace settings. Fixed-time schedules use that
-environment's time zone, which may differ from your phone's. **Cron** takes a
-five-field expression, such as `0 9 * * 1-5` for weekdays at 09:00, in that same
-time zone. Choose **Once**
-to run a task a single time at a date and time in your own time zone. If the
-environment is offline then, the task runs when it is back.
->>>>>>> ea76b5d97b (feat: cron schedules for scheduled tasks)
 
 - **Triggers**: Inactive days, days after settlement (`0` = next cleanup), merged PRs (including GitHub squash/rebase merges into the default branch), or settled/archived threads with no commits beyond the default branch.
 - **Safety**: Active sessions and shared worktrees are never removed. **Keep worktrees with local changes** defaults to **Uncommitted changes** (protects tracked edits and untracked files; removes ignored files like `.env`/build output). Choose **Any local files** (also protects ignored files except `node_modules`) or **Edited tracked files** (protects tracked edits only).
@@ -64,7 +52,7 @@ Enable **Settings → Source control & issues → Automatically pull** to fast-f
 
 Create and manage scheduled tasks in **Settings → Scheduled tasks** (web, desktop, and mobile).
 
-- **Schedules**: Recurring fixed-time schedules use the target environment's time zone. **Once** uses your local time zone (runs on reconnect if offline).
+- **Schedules**: Recurring fixed-time schedules use the target environment's time zone. **Cron** takes a five-field expression, such as `0 9 * * 1-5` for weekdays at 09:00, in that same time zone. **Once** uses your local time zone (runs on reconnect if offline).
 - **Destination**: Choose **New thread each run**, **One thread (continue conversation)**, or **One thread (fresh session each run)**. Deleting a target thread deletes tasks bound to it; archiving a target thread causes runs to fail (settle it instead).
 - **Controls**: Edit, pause, resume, run now (except webhook tasks), or delete from the list.
 

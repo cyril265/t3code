@@ -325,60 +325,9 @@ export function QueuedRunsControl({
               >
                 {canSendRun(item.freshContext) && !isEditing ? (
                   <>
-<<<<<<< HEAD
                     <SharedTooltipTrigger
                       render={<span className="flex shrink-0" />}
-                      label={
-                        item.serverIndex === 0 && props.steerShortcutLabel
-=======
-                    <Tooltip>
-                      <TooltipTrigger render={<span className="flex shrink-0" />}>
-                        <Button
-                          size="xs"
-                          variant="ghost-muted"
-                          disabled={item.runId === null || busyRunId !== null}
-                          onClick={() => {
-                            if (item.runId !== null) {
-                              void sendQueuedMessage(item.runId);
-                            }
-                          }}
-                        >
-                          <ArrowUpIcon />
-                          <T>Send now</T>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipPopup>
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-                        {item.serverIndex === 0 && props.steerShortcutLabel
->>>>>>> de246deb4b (feat: queue and steer /compact while a turn runs)
-                          ? workflow?.canSendNow
-                            ? gt("Start a turn with this message ({shortcut})", {
-                                shortcut: props.steerShortcutLabel,
-                              })
-                            : workflow?.promoteSkipsCompaction
-                              ? gt("Skip compaction and send this message ({shortcut})", {
-                                  shortcut: props.steerShortcutLabel,
-                                })
-                              : movesCommandFirst
-                                ? gt("Move this command to the front of the queue ({shortcut})", {
-                                    shortcut: props.steerShortcutLabel,
-                                  })
-                                : gt("Send into the current turn ({shortcut})", {
-                                    shortcut: props.steerShortcutLabel,
-                                  })
-                          : workflow?.canSendNow
-                            ? gt("Start a turn with this message")
-                            : workflow?.promoteSkipsCompaction
-                              ? gt("Skip compaction and send this message")
-<<<<<<< HEAD
-                              : movesCommandFirst
-                                ? gt("Move this command to the front of the queue")
-<<<<<<< HEAD
-                                : gt("Send into the current turn")
-                      }
+                      label={`${sendNowLabel(workflow, item.message, messages, movesCommandFirst)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
                     >
                       <Button
                         size="xs"
@@ -394,29 +343,6 @@ export function QueuedRunsControl({
                         <T>Send now</T>
                       </Button>
                     </SharedTooltipTrigger>
-=======
-                                : gt("Send into the current turn")}
-=======
-                              : gt("Send into the current turn")}
-=======
-                        {`${workflow?.canSendNow ? "Start a turn with this message" : workflow?.promoteSkipsCompaction ? "Skip compaction and send this message" : item.message && isCompactionCommandMessage(item.message) ? "Stop the current turn and compact" : "Send into the current turn"}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> e101407a5a (feat: queue and steer /compact while a turn runs)
-<<<<<<< HEAD
->>>>>>> 9db05bdb3b (feat: queue and steer /compact while a turn runs)
-=======
-=======
-                        {`${sendNowLabel(workflow, item.message)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> edeaf749ef (refactor: derive the compaction resume from the queued message)
->>>>>>> c0d8601f95 (refactor: derive the compaction resume from the queued message)
-=======
-                        {`${sendNowLabel(workflow, item.message, messages)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> 9c3dc3525a (fix: resolve conflicts with pingdotgg/t3code v0.1.11)
-=======
-                        {`${sendNowLabel(workflow, item.message, messages, movesCommandFirst)}${item.serverIndex === 0 && props.steerShortcutLabel ? ` (${props.steerShortcutLabel})` : ""}`}
->>>>>>> e3df2bcd77 (fix: resolve conflicts with pingdotgg/t3code v0.1.12)
-                      </TooltipPopup>
-                    </Tooltip>
->>>>>>> de246deb4b (feat: queue and steer /compact while a turn runs)
                   </>
                 ) : null}
                 {item.pending ? (

@@ -12,27 +12,7 @@ import {
   type UsageLimitSourceSnapshot,
 } from "@t3tools/contracts";
 import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { hubRoutes } from "@t3tools/shared/usageLimits";
-=======
-=======
->>>>>>> 67d5aae9de (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
-<<<<<<< HEAD
-import { antigravityWindowLimitsModel, hubRoutes } from "@t3tools/shared/usageLimits";
-=======
-import { endpointIdentity } from "@t3tools/shared/usageLimits";
->>>>>>> 38eb978323 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-<<<<<<< HEAD
->>>>>>> 2425fc78d4 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-=======
-=======
->>>>>>> cff4cc89f4 (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
->>>>>>> 67d5aae9de (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
-=======
-import { antigravityWindowLimitsModel, hubRoutes } from "@t3tools/shared/usageLimits";
->>>>>>> e3df2bcd77 (fix: resolve conflicts with pingdotgg/t3code v0.1.12)
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";

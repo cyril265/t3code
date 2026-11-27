@@ -14619,19 +14619,12 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               const used = turnInput.providerThread.nativeMetadata?.claudeAttachmentBudget;
               pdfBudgets.set(nativeThreadId, makeClaudeAttachmentBudget(used));
             }
-<<<<<<< HEAD
-<<<<<<< HEAD
             if (!deliveredAppContext.has(nativeThreadId)) {
               const recorded = turnInput.providerThread.nativeMetadata?.claudeDeliveredAppContext;
               if (recorded !== undefined) {
                 deliveredAppContext.set(nativeThreadId, new Map(Object.entries(recorded)));
               }
             }
-=======
-<<<<<<< HEAD
->>>>>>> 6e395381af (feat: move a thread to another directory or a new worktree without a new session)
-=======
->>>>>>> 67d5aae9de (fix: resolve conflicts with pingdotgg/t3code v0.1.10)
             if (!appliedSessionTitles.has(nativeThreadId)) {
               const recordedTitle = turnInput.providerThread.nativeMetadata?.title;
               if (recordedTitle !== undefined && recordedTitle !== null) {

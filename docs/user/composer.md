@@ -34,7 +34,6 @@ See [images and videos](#images-and-videos-in-messages) for previewing and savin
 
 Choose your default follow-up behavior in **Settings → Chat → Follow-up behavior** (per client):
 
-<<<<<<< HEAD
 - **Queue**: Holds the message on the server for the next turn.
 - **Steer**: Injects the message into the running turn (when supported by the agent).
 
@@ -42,21 +41,6 @@ Shortcuts while a turn is running:
 
 - **Opposite action**: `Cmd+Enter` (macOS) or `Ctrl+Enter` (Windows/Linux) uses the non-default action. If your send shortcut already requires `Cmd/Ctrl+Enter`, add `Shift`. On mobile, long-press the send button or use `Cmd/Ctrl+Return` on a hardware keyboard.
 - **Steer oldest queued message**: `Cmd+Shift+Enter` (macOS) or `Ctrl+Shift+Enter` (Windows/Linux) sends the first queued message as a steer without touching your current draft. Remap `thread.steerQueuedMessage` in **Settings → Keybindings**, or add a rule in your [keybindings file](./keybindings.md#edit-the-configuration-file) to trigger it on `mod+enter` when the composer is empty:
-=======
-`/compact` never joins a running turn. Queued, it runs after the turn ends.
-Steered, or sent from the queue with **Send now**, it stops the turn and compacts
-next. T3 Code then queues a message asking the agent to continue where it left
-off, ahead of the rest of your queue. Remove that message from the queue if you
-don't want the agent to resume.
-
-Use `Cmd+Shift+Enter` on macOS or `Ctrl+Shift+Enter` on Windows and Linux to send
-the oldest queued message as a steer. This leaves the current draft intact and
-requires an active turn that supports steering. If that shortcut sends the opposite
-action for your draft, move focus outside the composer to steer the queued message. Change
-`thread.steerQueuedMessage` in **Settings → Keybindings** to use another shortcut. To make
-`Cmd+Enter` or `Ctrl+Enter` steer the oldest queued message when the composer is empty, add
-this rule to your [keybindings file](keybindings.md#edit-the-configuration-file):
->>>>>>> de246deb4b (feat: queue and steer /compact while a turn runs)
 
 ```json
 {
@@ -68,7 +52,9 @@ this rule to your [keybindings file](keybindings.md#edit-the-configuration-file)
 
 - **Edit most recently queued message**: `Option+Up` (macOS) or `Alt+Up` (Windows/Linux) at the start of the composer (`thread.editQueuedMessage`).
 
-Slash commands (such as `/compact` or `/context`) wait for the current turn to finish rather than steering into it. [Goal](#goals) commands are the exception.
+`/compact` never joins a running turn. Queued, it runs after the turn ends. Steered, or sent from the queue with **Send now**, it stops the turn and compacts next. T3 Code then queues a message asking the agent to continue where it left off, ahead of the rest of your queue. Remove that message from the queue if you don't want the agent to resume.
+
+Other slash commands (such as `/context`) wait for the current turn to finish rather than steering into it. [Goal](#goals) commands are the exception.
 
 ## Queue messages offline on mobile
 

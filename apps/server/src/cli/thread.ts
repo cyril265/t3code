@@ -1,10 +1,7 @@
 import {
-<<<<<<< HEAD
   NonNegativeInt,
-=======
   EXTERNAL_WAIT_TOOL_NAME,
   ExternalWaitReportResult,
->>>>>>> fb15ae7b85 (feat: show running wait scripts on their thread)
   OrchestratorMcpFailure,
   OrchestratorMcpThreadListResult,
   OrchestratorMcpThreadReadResult,

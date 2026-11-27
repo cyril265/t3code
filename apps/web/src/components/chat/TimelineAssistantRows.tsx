@@ -279,7 +279,6 @@ function AssistantReplyButton({ message, itemId }: { message: ChatMessage; itemI
   };
 
   return (
-<<<<<<< HEAD
     <SharedTooltipTrigger
       render={
         <Button
@@ -298,25 +297,6 @@ function AssistantReplyButton({ message, itemId }: { message: ChatMessage; itemI
     >
       <ReplyIcon className="size-3" />
     </SharedTooltipTrigger>
-=======
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost-muted"
-            onClick={reply}
-            aria-label={gt("Reply to this response")}
-          />
-        }
-      >
-        <ReplyIcon className="size-3" />
-      </TooltipTrigger>
-      <TooltipPopup side="top">
-        <T>Reply to this response</T>
-      </TooltipPopup>
-    </Tooltip>
   );
 }
 
@@ -335,16 +315,12 @@ function AssistantTokenRate({
   if (label === null) return null;
 
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span tabIndex={0} className="text-muted-foreground" />}>
-        {label}
-      </TooltipTrigger>
-      <TooltipPopup>
-        Average output tokens per second over this provider turn, including reasoning, tool calls,
-        and waits.
-      </TooltipPopup>
-    </Tooltip>
->>>>>>> 44e5d091c3 (feat: show live output token counts and average tok/s)
+    <SharedTooltipTrigger
+      render={<span tabIndex={0} className="text-muted-foreground" />}
+      label="Average output tokens per second over this provider turn, including reasoning, tool calls, and waits."
+    >
+      {label}
+    </SharedTooltipTrigger>
   );
 }
 
