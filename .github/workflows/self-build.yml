@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Upstream release tag to build (default latest stable)
+        description: Upstream release tag to build, stable or nightly (default latest stable)
         required: false
       release:
         description: Publish a new build even if this upstream release is already built (ships new commits on this branch)
@@ -46,8 +46,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/self-build.yml/enable"
 
-      # Fork builds of upstream X.Y.Z are versioned X.Y.(Z*100+N), so each new
-      # build of the same upstream release is still a newer version to the updater.
+      # Fork builds of upstream X.Y.Z are versioned X.Y.(Z*100+N) and of X.Y.Z-nightly.D.B as
+      # X.Y.(Z*100)-nightly.D.(B*100+N), so each rebuild is still a newer version to the updater.
       - id: tag
         env:
           GH_TOKEN: ${{ github.token }}
@@ -56,16 +56,20 @@ jobs:
         run: |
           upstream_latest="$(gh release view --repo pingdotgg/t3code --json tagName --jq .tagName)"
           tag="${INPUT_TAG:-$upstream_latest}"
-          if [[ ! "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            echo "$tag is not a stable X.Y.Z release" >&2
+          if [[ "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            prefix="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}." first=$(( BASH_REMATCH[3] * 100 ))
+          elif [[ "$tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)-nightly\.([0-9]{8})\.([0-9]+)$ ]]; then
+            prefix="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$(( BASH_REMATCH[3] * 100 ))-nightly.${BASH_REMATCH[4]}."
+            first=$(( BASH_REMATCH[5] * 100 ))
+          else
+            echo "$tag is not an X.Y.Z or X.Y.Z-nightly.YYYYMMDD.N release" >&2
             exit 1
           fi
-          major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}" first=$(( BASH_REMATCH[3] * 100 ))
           last=-1
           # A draft is a release whose assets never finished uploading; the next build reuses its number.
           existing_tags="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName')"
           for existing in $existing_tags; do
-            if [[ "$existing" =~ ^v${major}\.${minor}\.([0-9]+)$ ]]; then
+            if [[ "$existing" =~ ^v${prefix//./\\.}([0-9]+)$ ]]; then
               n=$(( BASH_REMATCH[1] - first ))
               if (( n >= 0 && n < 100 && n > last )); then last=$n; fi
             fi
@@ -74,14 +78,14 @@ jobs:
           echo "latest=$([[ "$tag" == "$upstream_latest" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
           if (( last >= 0 )) && [[ "$RELEASE" != "true" ]]; then
             echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "$tag is already built as $major.$minor.$(( first + last ))"
+            echo "$tag is already built as $prefix$(( first + last ))"
             exit 0
           fi
           if (( last >= 99 )); then
             echo "$tag already has 100 fork builds" >&2
             exit 1
           fi
-          version="$major.$minor.$(( first + last + 1 ))"
+          version="$prefix$(( first + last + 1 ))"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "build=true" >> "$GITHUB_OUTPUT"
           echo "building $tag as $version"
@@ -279,8 +283,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view "$TAG" --repo pingdotgg/t3code --json body --jq .body > "$RUNNER_TEMP/upstream-notes.md"
+          releases='^v[0-9]+\.[0-9]+\.[0-9]+$'
+          if [[ "$VERSION" == *-nightly.* ]]; then releases='^v[0-9]+\.[0-9]+\.[0-9]+(-nightly\.[0-9]{8}\.[0-9]+)?$'; fi
           previous="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName' \
-            | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; echo "v$VERSION"; } | sort -uV | grep -B1 -x "v$VERSION" | head -1)"
+            | { grep -E "$releases" || true; echo "v$VERSION"; } | sort -uV | grep -B1 -x "v$VERSION" | head -1)"
           if [[ "$previous" == "v$VERSION" ]]; then previous=""; fi
           : > "$RUNNER_TEMP/previous-subjects.txt"
           if [[ -n "$previous" ]]; then
@@ -388,6 +394,7 @@ jobs:
             ${{ runner.temp }}/release/*.zip
             ${{ runner.temp }}/release/*.zip.blockmap
             ${{ runner.temp }}/release/latest-mac.yml
+            ${{ runner.temp }}/release/nightly-mac.yml
           if-no-files-found: error
 
   # The archives SSH remotes download to run the desktop's own server version. The x64 leg also packages
@@ -512,6 +519,7 @@ jobs:
             ${{ runner.temp }}/windows/*.exe
             ${{ runner.temp }}/windows/*.exe.blockmap
             ${{ runner.temp }}/windows/latest.yml
+            ${{ runner.temp }}/windows/nightly.yml
           if-no-files-found: error
           compression-level: 0
 
@@ -613,9 +621,10 @@ jobs:
           git fetch --no-tags https://github.com/pingdotgg/t3code.git "refs/tags/$TAG"
           git fetch ./resolved.bundle HEAD
           test "$(git rev-parse FETCH_HEAD)" = "$TARGET_SHA"
-          ref="refs/heads/$GITHUB_REF_NAME"
-          git push --force-with-lease="$ref:$SOURCE_SHA" \
-            "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "$TARGET_SHA:$ref"
+          ref="refs/heads/$GITHUB_REF_NAME" lease="--force-with-lease=$ref:$SOURCE_SHA"
+          # The release tag needs TARGET_SHA in this repo; nightlies park it on their own branch so stable rebases never start from a nightly.
+          if [[ "$VERSION" == *-nightly.* ]]; then ref+="-nightly" lease="--force"; fi
+          git push "$lease" "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "$TARGET_SHA:$ref"
 
       - name: Publish the release
         run: |
@@ -624,9 +633,10 @@ jobs:
             --jq ".[] | select(.draft and .tag_name == \"v$VERSION\") | .id" \
             | while read -r id; do gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"; done
           gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$TARGET_SHA" \
-            --latest="$LATEST" --title "T3 Code $VERSION (self-build of $TAG)" --notes-file release-notes/notes.md \
-            desktop-mac/*.zip desktop-mac/*.zip.blockmap desktop-mac/latest-mac.yml \
-            desktop-win-x64/*.exe desktop-win-x64/*.exe.blockmap desktop-win-x64/latest.yml \
+            --latest="$LATEST" --prerelease="$([[ "$VERSION" == *-nightly.* ]] && echo true || echo false)" \
+            --title "T3 Code $VERSION (self-build of $TAG)" --notes-file release-notes/notes.md \
+            desktop-mac/*.zip desktop-mac/*.zip.blockmap desktop-mac/*-mac.yml \
+            desktop-win-x64/*.exe desktop-win-x64/*.exe.blockmap desktop-win-x64/*.yml \
             cli/t3-*.tar.gz cli/SHA256SUMS
 
   android-server:
@@ -671,7 +681,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       NEEDS: ${{ toJSON(needs) }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      TITLE: Self-build is failing
+      TITLE: Self-build ${{ contains(needs.resolve.outputs.version, '-nightly.') && 'nightly ' || '' }}is failing
     steps:
       - name: Open, update or close the failure issue
         run: |
