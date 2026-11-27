@@ -2830,7 +2830,11 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     electronFuses: {
       enableNodeCliInspectArguments: false,
       // Nothing signs an unsigned macOS build after the flip, which voids its ad hoc signature.
-      resetAdHocDarwinSignature: platform === "mac" && !signed,
+      // A self-signed build flips and signs in scripts/self-sign-after-pack.cjs instead.
+      resetAdHocDarwinSignature:
+        platform === "mac" &&
+        !signed &&
+        Option.isNone(yield* Config.String("T3_SELF_SIGN_IDENTITY").pipe(Config.option)),
     },
     files: [
       ...DESKTOP_FILE_EXCLUSIONS,
