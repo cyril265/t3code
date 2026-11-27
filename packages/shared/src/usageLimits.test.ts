@@ -14,15 +14,8 @@ import {
   displayLimitWindows,
   cursorUsageWindowDetails,
   collectProviderUsageLimits,
-<<<<<<< HEAD
   hasProviderUsageLimits,
-=======
   customEndpointLimitPool,
-<<<<<<< HEAD
-  endpointIdentity,
->>>>>>> eee5fd2058 (fix(web): show CLI Proxy limits for Claude Code routed through it)
-=======
->>>>>>> 8988ff9b68 (fix: CLI Proxy usage limits match their proxy by origin, as upstream v0.1.10 reports it)
   sameUsageLimitCommandCoverage,
   withUsageLimitsCommands,
   collectLimitAccounts,
