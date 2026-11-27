@@ -166,6 +166,10 @@
 =======
   "claudeSystemAppendBytes": 6433,
   "codexAdditionalContextBytes": 8002,
+<<<<<<< HEAD
   "mcpToolListJsonBytes": 63930
 >>>>>>> 22d917ec20 (fix: resolve conflicts with pingdotgg/t3code v0.1.13)
+=======
+  "mcpToolListJsonBytes": 63441
+>>>>>>> 92143f9051 (fix: re-measure the agent context budget on v0.1.13)
 }
